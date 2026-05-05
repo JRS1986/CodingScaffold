@@ -314,3 +314,8 @@ coding-scaffold doctor
 - Local-first routing with cloud escalation when explicitly available.
 - Small, reviewable Python modules with minimal dependencies.
 - Generated config that is transparent and easy to edit by hand.
+
+## License
+
+CodingScaffold is licensed under the Apache License 2.0. It is permissive, business-friendly, and
+keeps the open-source toolchain easy to adopt in team environments.
