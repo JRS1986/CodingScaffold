@@ -4,6 +4,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
+from .routing_io import load_routing_payload
+
 
 @dataclass(frozen=True)
 class AdapterResult:
@@ -15,7 +18,7 @@ def write_tool_adapter(target: Path, tool: str) -> AdapterResult:
     root = target.expanduser().resolve()
     files: list[Path] = []
     skipped: list[Path] = []
-    routing = _read_routing(root)
+    routing = load_routing_payload(root)
     tools = ["opencode", "openclaude"] if tool == "both" else [tool]
     for selected in tools:
         if selected == "opencode":
@@ -35,7 +38,7 @@ def write_route_backend(target: Path, backend: str) -> AdapterResult:
     root = target.expanduser().resolve()
     scaffold = root / ".coding-scaffold"
     scaffold.mkdir(parents=True, exist_ok=True)
-    routing = _read_routing(root)
+    routing = load_routing_payload(root)
     files = [
         _write(scaffold / "ROUTELLM.md", _routellm_md(routing), overwrite=True),
         _write(scaffold / "routellm.config.yaml", _routellm_yaml(routing), overwrite=True),
@@ -51,7 +54,7 @@ def write_workflow_backend(target: Path, backend: str) -> AdapterResult:
     examples = root / "examples" / "open-multi-agent"
     scaffold.mkdir(parents=True, exist_ok=True)
     examples.mkdir(parents=True, exist_ok=True)
-    routing = _read_routing(root)
+    routing = load_routing_payload(root)
     files = [
         _write(scaffold / "OPEN_MULTI_AGENT.md", _open_multi_agent_md(routing), overwrite=True),
         _write_json(scaffold / "open-multi-agent.team.json", _open_multi_agent_team(routing)),
@@ -108,17 +111,6 @@ def _write_json(path: Path, payload: object) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
-
-
-def _read_routing(root: Path) -> dict[str, object]:
-    path = root / ".coding-scaffold" / "routing.json"
-    if not path.exists():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _model(routing: dict[str, object], key: str, fallback: str) -> str:
@@ -244,7 +236,7 @@ def _routellm_yaml(routing: dict[str, object]) -> str:
             "  - mf",
             f"strong_model: {strong}",
             f"weak_model: {weak}",
-            "threshold: 0.11593",
+            f"threshold: {ROUTELLM_MF_DEFAULT_THRESHOLD}",
             "",
         ]
     )
@@ -285,7 +277,8 @@ python -m routellm.openai_server \\
 ```
 
 RouteLLM's OpenAI-compatible server defaults to port `6060`. Point OpenCode, OpenClaude, or another
-OpenAI-compatible client at that endpoint, then use a model value such as `router-mf-0.11593`.
+OpenAI-compatible client at that endpoint, then use a model value such as
+`router-mf-{ROUTELLM_MF_DEFAULT_THRESHOLD}`.
 """
 
 

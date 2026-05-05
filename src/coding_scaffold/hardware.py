@@ -104,12 +104,18 @@ def _detect_apple_gpu() -> tuple[str | None, float | None]:
     try:
         data = json.loads(output)
     except json.JSONDecodeError:
-        return "Apple Silicon GPU", None
+        return _macos_gpu_fallback(), None
     displays = data.get("SPDisplaysDataType", [])
     if not displays:
-        return "Apple Silicon GPU", None
+        return _macos_gpu_fallback(), None
     name = displays[0].get("sppci_model") or displays[0].get("_name")
-    return str(name) if name else "Apple Silicon GPU", None
+    return str(name) if name else _macos_gpu_fallback(), None
+
+
+def _macos_gpu_fallback() -> str:
+    if platform.machine().lower() == "arm64":
+        return "Apple Silicon GPU"
+    return "macOS GPU (unknown)"
 
 
 def _run(command: list[str]) -> str:

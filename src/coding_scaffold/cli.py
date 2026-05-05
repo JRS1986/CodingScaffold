@@ -14,6 +14,7 @@ from .knowledge import write_knowledge_base
 from .model_selection import select_model_for_prompt
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
+from .routing_io import load_routing_plan
 from .writers import write_scaffold
 
 
@@ -150,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
         if not prompt:
             print("Provide --prompt or pipe a task description into stdin.", file=sys.stderr)
             return 2
-        routing = _load_routing(target)
+        routing = _load_routing_or_probe(target)
         providers = detect_providers(load_local_credentials(target))
         selection = select_model_for_prompt(prompt, routing, providers, args.mode)
         if args.json:
@@ -210,21 +211,10 @@ def _print_probe(payload: dict[str, object]) -> None:
         print(f"  - {provider['name']}: {provider['status']}")
 
 
-def _load_routing(target: Path) -> RoutingPlan:
-    path = target / ".coding-scaffold" / "routing.json"
-    if path.exists():
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return RoutingPlan(
-            strategy=payload["strategy"],
-            weak_model=payload.get("weak_model"),
-            strong_model=payload.get("strong_model"),
-            route_threshold=float(payload.get("route_threshold", 0.11593)),
-            local_endpoint=payload.get("local_endpoint"),
-            cloud_provider=payload.get("cloud_provider"),
-            cloud_model_family=payload.get("cloud_model_family"),
-            route_rules=list(payload.get("route_rules", [])),
-            model_policy=dict(payload.get("model_policy", {})),
-        )
+def _load_routing_or_probe(target: Path) -> RoutingPlan:
+    plan = load_routing_plan(target)
+    if plan:
+        return plan
     return build_routing_plan(
         IntakeAnswers(privacy="local-first"),
         probe_hardware(),

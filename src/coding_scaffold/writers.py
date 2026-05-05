@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .hardware import HardwareProfile
 from .intake import IntakeAnswers
+from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
 from .providers import Provider
 from .router import RoutingPlan
 from .theme import FESTO_TN_AI
@@ -71,6 +72,7 @@ def _write_text(path: Path, payload: str) -> Path:
 
 
 def _remove_stale_frontend_preview(scaffold_dir: Path) -> None:
+    # Earlier scaffold versions wrote a static preview; remove only those generated artifacts.
     for name in ("index.html", "theme.css"):
         path = scaffold_dir / name
         if path.exists():
@@ -124,7 +126,7 @@ def _routellm_yaml(routing: RoutingPlan) -> str:
             "  - mf",
             f"strong_model: {strong}",
             f"weak_model: {weak}",
-            "threshold: 0.11593",
+            f"threshold: {ROUTELLM_MF_DEFAULT_THRESHOLD}",
             "providers:",
             "  local:",
             f"    base_url: {routing.local_endpoint or 'http://127.0.0.1:11434/v1'}",

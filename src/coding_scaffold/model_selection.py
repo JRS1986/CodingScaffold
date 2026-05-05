@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 
 from .providers import Provider
@@ -55,40 +56,48 @@ def _classify_prompt(prompt: str) -> tuple[str, str, list[str], float]:
         return "empty", "routine", ["no prompt was provided"], 0.1
 
     heavy_markers = {
+        "agent",
         "architecture",
         "architectural",
-        "security",
-        "vulnerability",
         "auth",
-        "permission",
+        "authentication",
+        "authorization",
+        "cross-module",
+        "design",
+        "incident",
         "migration",
         "migrate",
-        "refactor",
         "multi-file",
-        "cross-module",
-        "production",
-        "incident",
         "orchestration",
-        "agent",
-        "design",
-        "threat",
+        "permission",
+        "production",
+        "refactor",
         "review",
+        "security",
+        "threat",
+        "vulnerability",
     }
     routine_markers = {
-        "typo",
-        "format",
-        "rename",
-        "explain",
-        "summarize",
-        "small",
-        "test",
-        "lint",
-        "doc",
         "comment",
+        "doc",
+        "docs",
+        "document",
+        "explain",
+        "format",
+        "formatting",
+        "lint",
+        "rename",
+        "small",
+        "summarize",
+        "test",
+        "tests",
+        "typo",
     }
-    heavy_hits = sorted(marker for marker in heavy_markers if marker in prompt)
-    routine_hits = sorted(marker for marker in routine_markers if marker in prompt)
-    word_count = len(prompt.split())
+    token_list = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", prompt)
+    tokens = set(token_list)
+    heavy_hits = sorted(heavy_markers & tokens)
+    routine_hits = sorted(routine_markers & tokens)
+    word_count = len(token_list)
 
     if heavy_hits or word_count > 180:
         reasons = ["heavy-lift markers: " + ", ".join(heavy_hits)] if heavy_hits else []
@@ -101,7 +110,6 @@ def _classify_prompt(prompt: str) -> tuple[str, str, list[str], float]:
             reasons.append(f"prompt is short ({word_count} words)")
         return "routine-coding", "routine", reasons, 0.72
     return "standard-change", "routine", ["no heavy-lift markers found"], 0.58
-
 
 def _provider_for_route(route: str, routing: RoutingPlan, providers: list[Provider]) -> Provider | None:
     if route == "routine":

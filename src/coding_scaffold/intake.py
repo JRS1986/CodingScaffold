@@ -82,7 +82,8 @@ def _detect_language(target: Path) -> str | None:
 def _iter_project_files(target: Path):
     ignored_dirs = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", ".coding-scaffold"}
     for path in target.rglob("*"):
-        if any(part in ignored_dirs for part in path.parts):
+        relative_parts = path.relative_to(target).parts
+        if any(part in ignored_dirs for part in relative_parts):
             continue
         if path.is_file():
             yield path

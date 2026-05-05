@@ -4,7 +4,12 @@ from dataclasses import asdict, dataclass
 
 from .hardware import HardwareProfile
 from .intake import IntakeAnswers
-from .model_catalog import CLOUD_ROUTINE_MODELS, CLOUD_STRONG_MODELS, LOCAL_CODER_MODELS
+from .model_catalog import (
+    CLOUD_ROUTINE_MODELS,
+    CLOUD_STRONG_MODELS,
+    LOCAL_CODER_MODELS,
+    ROUTELLM_MF_DEFAULT_THRESHOLD,
+)
 from .providers import Provider
 
 
@@ -52,7 +57,7 @@ def build_routing_plan(
         strategy=strategy,
         weak_model=weak or strong,
         strong_model=strong,
-        route_threshold=0.11593,
+        route_threshold=ROUTELLM_MF_DEFAULT_THRESHOLD,
         local_endpoint=local_endpoint,
         cloud_provider=None if privacy == "local-only" else cloud_provider,
         cloud_model_family=None if privacy == "local-only" else cloud_family,
