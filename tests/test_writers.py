@@ -20,7 +20,9 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
             0.1,
             "http://127.0.0.1:11434/v1",
             None,
+            None,
             ["route locally"],
+            {"selection_mode": "recommend"},
         ),
     )
 
@@ -32,6 +34,8 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert "SKILLS.md" in names
     assert "THEME.md" in names
     assert "CREDENTIALS.md" in names
+    assert "MODEL_SELECTION.md" in names
+    assert "model-selection.json" in names
     assert "TOOLS.md" in names
     assert ".env.example" in names
     assert "credentials.example.json" in names

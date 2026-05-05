@@ -24,8 +24,21 @@ LOCAL_CODER_MODELS = [
 CLOUD_STRONG_MODELS = {
     "anthropic": "anthropic/claude-sonnet",
     "openai": "openai/gpt-4.1",
+    "azure-openai": "azure-openai/{deployment}",
+    "azure-ai": "azure-ai/{deployment}",
     "openrouter": "openrouter/auto",
     "github-models": "github/models",
     "gemini": "google/gemini-pro",
+    "groq": "groq/compound",
+}
+
+CLOUD_ROUTINE_MODELS = {
+    "anthropic": "anthropic/claude-haiku",
+    "openai": "openai/gpt-4.1-mini",
+    "azure-openai": "azure-openai/{deployment}",
+    "azure-ai": "azure-ai/{deployment}",
+    "openrouter": "openrouter/auto",
+    "github-models": "github/models",
+    "gemini": "google/gemini-flash",
     "groq": "groq/compound",
 }

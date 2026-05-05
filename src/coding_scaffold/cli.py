@@ -10,8 +10,9 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .intake import IntakeAnswers, collect_intake
+from .model_selection import select_model_for_prompt
 from .providers import detect_providers
-from .router import build_routing_plan
+from .router import RoutingPlan, build_routing_plan
 from .writers import write_scaffold
 
 
@@ -63,6 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     route = sub.add_parser("route", help="Generate optional routing backend docs/config.")
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     route.add_argument("--backend", choices=["routellm"], default="routellm")
+
+    select = sub.add_parser("select-model", help="Recommend a model route for a prompt.")
+    select.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    select.add_argument("--prompt", help="Prompt or task description to classify.")
+    select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
+    select.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     workflow = sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
     workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -120,6 +127,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote {len(result.files)} routing backend file(s).")
         return 0
 
+    if args.command == "select-model":
+        target = args.target.expanduser().resolve()
+        prompt = args.prompt
+        if prompt is None and not sys.stdin.isatty():
+            prompt = sys.stdin.read().strip()
+        if not prompt:
+            print("Provide --prompt or pipe a task description into stdin.", file=sys.stderr)
+            return 2
+        routing = _load_routing(target)
+        providers = detect_providers(load_local_credentials(target))
+        selection = select_model_for_prompt(prompt, routing, providers, args.mode)
+        if args.json:
+            print(json.dumps(selection.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_model_selection(selection.to_dict())
+        return 0
+
     if args.command == "workflow":
         result = write_workflow_backend(args.target, args.backend)
         print(f"Wrote {len(result.files)} workflow backend file(s).")
@@ -169,6 +193,40 @@ def _print_probe(payload: dict[str, object]) -> None:
     print("Providers:")
     for provider in providers:
         print(f"  - {provider['name']}: {provider['status']}")
+
+
+def _load_routing(target: Path) -> RoutingPlan:
+    path = target / ".coding-scaffold" / "routing.json"
+    if path.exists():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return RoutingPlan(
+            strategy=payload["strategy"],
+            weak_model=payload.get("weak_model"),
+            strong_model=payload.get("strong_model"),
+            route_threshold=float(payload.get("route_threshold", 0.11593)),
+            local_endpoint=payload.get("local_endpoint"),
+            cloud_provider=payload.get("cloud_provider"),
+            cloud_model_family=payload.get("cloud_model_family"),
+            route_rules=list(payload.get("route_rules", [])),
+            model_policy=dict(payload.get("model_policy", {})),
+        )
+    return build_routing_plan(
+        IntakeAnswers(privacy="local-first"),
+        probe_hardware(),
+        detect_providers(load_local_credentials(target)),
+    )
+
+
+def _print_model_selection(selection: dict[str, object]) -> None:
+    print(f"Profile: {selection['prompt_profile']}")
+    print(f"Route: {selection['route']}")
+    print(f"Provider: {selection['provider']} ({selection['provider_kind']})")
+    print(f"Model family: {selection['model_family'] or 'unknown'}")
+    print(f"Model: {selection['model'] or 'configure-a-model'}")
+    print(f"Confidence: {selection['confidence']}")
+    print("Reasons:")
+    for reason in selection["reasons"]:
+        print(f"- {reason}")
 
 
 def _print_doctor() -> None:

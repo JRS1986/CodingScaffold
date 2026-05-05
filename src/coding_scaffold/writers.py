@@ -34,6 +34,7 @@ def write_scaffold(
         _write_json(scaffold_dir / "hardware.json", hardware.to_dict()),
         _write_json(scaffold_dir / "providers.json", [provider.to_dict() for provider in providers]),
         _write_json(scaffold_dir / "routing.json", routing.to_dict()),
+        _write_json(scaffold_dir / "model-selection.json", _model_selection_json(routing)),
         _write_json(scaffold_dir / "theme.json", FESTO_TN_AI.to_dict()),
         _write_json(scaffold_dir / "opencode.json", _opencode_config(routing)),
         _write_json(scaffold_dir / "openclaude.json", _openclaude_config(routing)),
@@ -42,6 +43,7 @@ def write_scaffold(
         _write_text(scaffold_dir / ".env.example", _env_example()),
         _write_json(scaffold_dir / "credentials.example.json", _credentials_example()),
         _write_text(scaffold_dir / "CREDENTIALS.md", _credentials_md()),
+        _write_text(scaffold_dir / "MODEL_SELECTION.md", _model_selection_md()),
         _write_text(scaffold_dir / "TOOLS.md", _tools_md()),
         _write_text(scaffold_dir / "ORCHESTRATION.md", _orchestration_md()),
         _write_json(scaffold_dir / "orchestration.json", _orchestration_json()),
@@ -131,6 +133,34 @@ def _routellm_yaml(routing: RoutingPlan) -> str:
     )
 
 
+def _model_selection_json(routing: RoutingPlan) -> dict[str, object]:
+    return {
+        "default_mode": "recommend",
+        "auto_mode": {
+            "command": "coding-scaffold select-model --target . --mode auto --prompt '...'",
+            "meaning": "select a route without asking each time; still prints the decision",
+        },
+        "routes": {
+            "routine": {
+                "model": routing.weak_model,
+                "provider": "local-first",
+                "use_for": ["small edits", "tests", "docs", "explanations", "formatting"],
+            },
+            "heavy-lift": {
+                "model": routing.strong_model,
+                "provider": routing.cloud_provider or "local",
+                "model_family": routing.cloud_model_family or "local",
+                "use_for": ["architecture", "security", "migrations", "reviews", "multi-file work"],
+            },
+        },
+        "provider_abstraction": {
+            "provider": "where the request is sent, for example Azure AI or OpenAI",
+            "model_family": "what kind of model is behind it, for example OpenAI or Anthropic",
+            "deployment": "provider-specific deployment name, kept outside prompts and skills",
+        },
+    }
+
+
 def _scaffold_gitignore() -> str:
     return """.env.local
 credentials.local.json
@@ -144,6 +174,17 @@ def _env_example() -> str:
 
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_DEPLOYMENT=
+AZURE_AI_API_KEY=
+AZURE_AI_ENDPOINT=
+AZURE_AI_MODEL=
+AZURE_AI_MODEL_FAMILY=
+AZURE_AI_SERVICES_KEY=
+AZURE_AI_SERVICES_ENDPOINT=
+AZURE_COGNITIVE_SERVICES_KEY=
+AZURE_COGNITIVE_SERVICES_ENDPOINT=
 OPENROUTER_API_KEY=
 GROQ_API_KEY=
 GEMINI_API_KEY=
@@ -157,6 +198,17 @@ def _credentials_example() -> dict[str, str]:
     return {
         "OPENAI_API_KEY": "",
         "ANTHROPIC_API_KEY": "",
+        "AZURE_OPENAI_API_KEY": "",
+        "AZURE_OPENAI_ENDPOINT": "",
+        "AZURE_OPENAI_DEPLOYMENT": "",
+        "AZURE_AI_API_KEY": "",
+        "AZURE_AI_ENDPOINT": "",
+        "AZURE_AI_MODEL": "",
+        "AZURE_AI_MODEL_FAMILY": "",
+        "AZURE_AI_SERVICES_KEY": "",
+        "AZURE_AI_SERVICES_ENDPOINT": "",
+        "AZURE_COGNITIVE_SERVICES_KEY": "",
+        "AZURE_COGNITIVE_SERVICES_ENDPOINT": "",
         "OPENROUTER_API_KEY": "",
         "GROQ_API_KEY": "",
         "GEMINI_API_KEY": "",
@@ -194,6 +246,12 @@ This creates `.coding-scaffold/credentials.local.json`.
 
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
+- `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and optional `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_AI_API_KEY`, `AZURE_AI_ENDPOINT`, optional `AZURE_AI_MODEL`, and optional
+  `AZURE_AI_MODEL_FAMILY`
+- Azure AI Services or Cognitive Services aliases: `AZURE_AI_SERVICES_KEY`,
+  `AZURE_AI_SERVICES_ENDPOINT`, `AZURE_COGNITIVE_SERVICES_KEY`, and
+  `AZURE_COGNITIVE_SERVICES_ENDPOINT`
 - `OPENROUTER_API_KEY`
 - `GROQ_API_KEY`
 - `GEMINI_API_KEY` or `GOOGLE_API_KEY`
@@ -205,6 +263,58 @@ This creates `.coding-scaffold/credentials.local.json`.
 - Prefer project-local credentials over shell-global exports when comparing providers.
 - Use `coding-scaffold probe --target .` to verify which providers appear configured.
 - If a provider offers device login, prefer that over long-lived plaintext keys.
+
+## Azure Model Families
+
+Azure is treated as a provider endpoint, not a model family. If your Azure gateway serves OpenAI
+models, set `AZURE_OPENAI_*` or set `AZURE_AI_MODEL_FAMILY=openai`. If it serves Anthropic models,
+set `AZURE_AI_MODEL_FAMILY=anthropic`. Skills and agents can then ask for `routine` or
+`heavy-lift` without caring whether the request travels through Azure, OpenAI directly, Anthropic
+directly, or a local OpenAI-compatible endpoint.
+"""
+
+
+def _model_selection_md() -> str:
+    return """# Model Selection
+
+Model selection is the small decision before the big token spend: should this prompt use the
+routine route or the heavy-lift route?
+
+Run a recommendation:
+
+```bash
+coding-scaffold select-model --target . --prompt "Review this migration for rollback risks."
+```
+
+Use auto mode when you do not want to choose each time:
+
+```bash
+coding-scaffold select-model --target . --mode auto --prompt "Fix this failing formatter test."
+```
+
+The command does not call a model. It reads the task text, classifies the risk, and returns the
+recommended route, provider, model family, model or deployment, confidence, and reasons.
+
+## Provider Abstraction
+
+Keep these concepts separate:
+
+- provider: where the request goes, such as local Ollama, OpenAI, Anthropic, Azure OpenAI, or Azure AI
+- model family: what kind of model answers, such as OpenAI, Anthropic, Google, or local
+- deployment: provider-specific name, especially common in Azure
+
+This matters because an Azure endpoint can serve OpenAI-family or Anthropic-family models depending
+on how the organization configured it. Skills should ask for a capability like `routine` or
+`heavy-lift`, not hard-code one vendor's model name.
+
+## Prompt Profiles
+
+- routine-coding: short edits, tests, docs, explanations, formatting, and small fixes
+- complex-change: architecture, security, migrations, reviews, orchestration, incidents, or long prompts
+- standard-change: normal work with no obvious heavy-lift signal
+
+ROUTE-42 remains the manual override: if the recommendation feels wrong, inspect context and pick
+the safer route.
 """
 
 
@@ -446,6 +556,7 @@ Guidance mode: {intake.mode}
 - Heavy-lift model: `{routing.strong_model}`
 - Route threshold: `{routing.route_threshold}`
 - Cloud provider: `{routing.cloud_provider or "none"}`
+- Cloud model family: `{routing.cloud_model_family or "none"}`
 
 ## Skill Habits
 
@@ -510,10 +621,11 @@ Heavy-lift model: `{routing.strong_model}`
 3. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
 4. Read the verification output and review findings yourself.
 5. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
-6. Configure local provider keys with `CREDENTIALS.md`.
-7. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-8. Improve skills when they miss context, overreach, or fail to verify correctly.
-9. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
+6. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
+7. Configure local provider keys with `CREDENTIALS.md`.
+8. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
+9. Improve skills when they miss context, overreach, or fail to verify correctly.
+10. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 

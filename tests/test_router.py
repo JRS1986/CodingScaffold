@@ -12,6 +12,7 @@ def test_local_only_never_selects_cloud_provider() -> None:
     )
 
     assert plan.cloud_provider is None
+    assert plan.cloud_model_family is None
     assert plan.strategy == "local-only"
 
 
@@ -23,4 +24,38 @@ def test_cloud_can_backfill_strong_model() -> None:
     )
 
     assert plan.cloud_provider == "anthropic"
+    assert plan.cloud_model_family == "anthropic"
     assert plan.strong_model == "anthropic/claude-sonnet"
+
+
+def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists() -> None:
+    plan = build_routing_plan(
+        IntakeAnswers(privacy="local-first"),
+        HardwareProfile("linux", False, 8, 16, None, None, False, []),
+        [],
+    )
+
+    assert plan.weak_model == "qwen2.5-coder:7b-instruct"
+    assert plan.strong_model == "qwen2.5-coder:7b-instruct"
+
+
+def test_azure_provider_keeps_endpoint_and_model_family_separate() -> None:
+    plan = build_routing_plan(
+        IntakeAnswers(privacy="local-first"),
+        HardwareProfile("linux", False, 8, 16, None, None, False, []),
+        [
+            Provider(
+                "azure-ai",
+                "cloud",
+                True,
+                "Azure AI endpoint and key set",
+                endpoint="https://example.services.ai.azure.com",
+                model_family="anthropic",
+                deployment="team-sonnet",
+            )
+        ],
+    )
+
+    assert plan.cloud_provider == "azure-ai"
+    assert plan.cloud_model_family == "anthropic"
+    assert plan.strong_model == "azure-ai/team-sonnet"

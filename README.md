@@ -70,6 +70,37 @@ change, and the reviewer agent to challenge it before I merge.
 This is the core difference from autocomplete: the tool is not just suggesting code, it is running a
 small, inspectable engineering workflow.
 
+## Suggested Flow
+
+1. Run `coding-scaffold probe` to see what the machine can realistically host.
+2. Install a local runtime if needed, usually Ollama, llama.cpp, LM Studio, vLLM, or MLX on Apple
+   Silicon.
+3. Install `llmfit` if you want a deeper model-fit ranking:
+
+   ```bash
+   brew install llmfit
+   llmfit
+   ```
+
+4. Run `coding-scaffold init` in each codebase you want to prepare.
+5. Generate native OpenCode files and start OpenCode:
+
+   ```bash
+   coding-scaffold adapt --target . --tool opencode
+   opencode
+   ```
+
+6. Inside OpenCode, run `/first-session`, then use explorer -> implementer -> reviewer for one
+   small change.
+7. Turn the workflow your team likes into a skill:
+
+   ```bash
+   coding-scaffold skill --target . --adapter opencode --name "Release Review"
+   ```
+
+8. Add RouteLLM later only if you need endpoint-level model routing.
+9. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
+
 ## Setup Wizard
 
 Use the wizard in any project you want to prepare:
@@ -110,6 +141,32 @@ This creates `.coding-scaffold/credentials.local.json`.
 Both files are ignored by the generated `.coding-scaffold/.gitignore`. Run
 `coding-scaffold probe --target ~/dev/my-project` to check which providers are configured without
 printing secret values.
+
+## Model Selection
+
+Sometimes the useful question is not "which provider do I have?" but "which model should this prompt
+use?" CodingScaffold can read a task description and recommend the routine route or the heavy-lift
+route:
+
+```bash
+coding-scaffold select-model --target ~/dev/my-project \
+  --prompt "Review this authentication refactor for security regressions."
+```
+
+Use `--mode auto` when the developer does not want to choose on every prompt:
+
+```bash
+coding-scaffold select-model --target ~/dev/my-project --mode auto \
+  --prompt "Fix this failing formatter test."
+```
+
+This is intentionally separate from RouteLLM. RouteLLM can sit behind an OpenAI-compatible endpoint
+and route actual requests. `select-model` is the visible, explainable decision helper: it classifies
+the prompt, names the route, provider, model family, model or deployment, confidence, and reasons.
+
+Provider and model family are kept separate. Azure can be the provider while the deployed model
+family is OpenAI, Anthropic, or something else. Skills and agents should ask for `routine` or
+`heavy-lift`; the scaffold maps that to the configured endpoint and deployment.
 
 ## Coding Tool Adapters
 
@@ -234,6 +291,8 @@ underneath.
 - `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
 - `providers.json`: local and cloud providers detected from CLIs and environment variables.
 - `routing.json`: local-first routing policy and selected weak/strong model candidates.
+- `model-selection.json`: provider-abstracted routine/heavy-lift model selection policy.
+- `MODEL_SELECTION.md`: prompt-based model recommendation and auto-mode guide.
 - `GETTING_STARTED.md`: how to use the scaffold after cloning and running the wizard.
 - `SKILLS.md`: quick intro to efficient AI coding skills.
 - `BEGINNER_PATH.md`: optional first-project guide when using beginner mode.
@@ -249,37 +308,6 @@ underneath.
 - `examples/open-multi-agent/team-coding-workflow.ts`: optional TypeScript starter workflow.
 - `AGENTS.md`: project-specific operating notes for coding agents.
 - `FIRST_SESSION.md`: the recommended first agentic coding walkthrough.
-
-## Suggested Flow
-
-1. Run `coding-scaffold probe` to see what the machine can realistically host.
-2. Install a local runtime if needed, usually Ollama, llama.cpp, LM Studio, vLLM, or MLX on Apple
-   Silicon.
-3. Install `llmfit` if you want a deeper model-fit ranking:
-
-   ```bash
-   brew install llmfit
-   llmfit
-   ```
-
-4. Run `coding-scaffold init` in each codebase you want to prepare.
-5. Generate native OpenCode files and start OpenCode:
-
-   ```bash
-   coding-scaffold adapt --target . --tool opencode
-   opencode
-   ```
-
-6. Inside OpenCode, run `/first-session`, then use explorer -> implementer -> reviewer for one
-   small change.
-7. Turn the workflow your team likes into a skill:
-
-   ```bash
-   coding-scaffold skill --target . --adapter opencode --name "Release Review"
-   ```
-
-8. Add RouteLLM later only if you need endpoint-level model routing.
-9. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
 
 ## Notes On Models
 
@@ -297,6 +325,7 @@ coding-scaffold init --preferred-local-model "qwen/qwen3-coder-40b"
 ```bash
 coding-scaffold probe --json
 coding-scaffold credentials --target ~/dev/my-project --format env
+coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
