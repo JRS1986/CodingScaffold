@@ -60,6 +60,7 @@ def _write_opencode(root: Path, routing: dict[str, object]) -> AdapterResult:
     _collect_write(files, skipped, agents / "explorer.md", _opencode_explorer())
     _collect_write(files, skipped, agents / "implementer.md", _opencode_implementer(routing))
     _collect_write(files, skipped, commands / "first-session.md", _opencode_first_session())
+    _collect_write(files, skipped, commands / "agentic-change.md", _opencode_agentic_change())
     _collect_write(files, skipped, commands / "review.md", _opencode_review_command())
     _collect_write(files, skipped, commands / "route-42.md", _opencode_route_42())
     return AdapterResult(files, skipped)
@@ -147,8 +148,28 @@ narrowest meaningful check, and summarize changed files plus residual risk.
 
 
 def _opencode_first_session() -> str:
-    return """Inspect this repository before editing. Identify the language, package manager, run command,
-test command, main source directories, and the first safe improvement. Do not modify files yet.
+    return """This is the first agentic coding session for this project.
+
+Do not edit yet.
+
+1. Inspect the README, package/config files, test configuration, and main source directories.
+2. Identify the language, package manager, run command, and test command.
+3. Explain the main code paths and any obvious risk areas.
+4. Propose one safe, small improvement that can be implemented and verified quickly.
+5. Recommend whether the next step should use the explorer, implementer, or reviewer agent.
+
+End with the exact prompt I should run next.
+"""
+
+
+def _opencode_agentic_change() -> str:
+    return """Run a small agentic coding loop.
+
+1. Use the explorer agent to inspect the relevant files and confirm the smallest safe scope.
+2. Use the implementer agent to make only that change.
+3. Run the narrowest meaningful verification.
+4. Use the reviewer agent to look for regressions, missing tests, and unclear behavior.
+5. Summarize changed files, checks, review findings, and any follow-up.
 """
 
 

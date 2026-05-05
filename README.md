@@ -7,6 +7,11 @@ one model provider. Clone it, install it into a venv, run the setup wizard insid
 will create project-local guidance for model routing, provider setup, agent behavior, and practical
 AI coding habits.
 
+GitHub Copilot is great at helping you type the next lines. Agentic coding can do more: inspect a
+repo, build context, plan a change, edit bounded files, run verification, review the result, and
+turn the best team workflows into reusable skills. CodingScaffold is the onboarding kit for that
+shift.
+
 The default posture is privacy-friendly: local models first, cloud providers only when credentials
 or authenticated CLIs are already available. For experienced users, the output stays direct and
 operational. For beginners, the wizard can also generate a more guided first-project path that makes
@@ -26,6 +31,44 @@ For WSL/Linux the commands are the same. On Windows PowerShell outside WSL, acti
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
+
+## First 10 Minutes
+
+Run the scaffold in a real project:
+
+```bash
+coding-scaffold wizard --target ~/dev/my-project
+cd ~/dev/my-project
+```
+
+Install the recommended adapter:
+
+```bash
+curl -fsSL https://opencode.ai/install | bash
+```
+
+Start OpenCode and run the generated first-session command:
+
+```bash
+opencode
+```
+
+Inside OpenCode:
+
+```text
+/first-session
+```
+
+That command asks the agent to inspect before editing, identify the run/test commands, map the main
+code paths, and propose one safe improvement. The next step is the agentic jump:
+
+```text
+Use the explorer agent to map the relevant files, the implementer agent to make only the first safe
+change, and the reviewer agent to challenge it before I merge.
+```
+
+This is the core difference from autocomplete: the tool is not just suggesting code, it is running a
+small, inspectable engineering workflow.
 
 ## Setup Wizard
 
@@ -118,6 +161,11 @@ coding-scaffold skill --target ~/dev/my-project --name "Release Review" \
 
 This writes a template into `.coding-scaffold/skills/`.
 
+Skills are where teams get leverage. A good skill captures a senior engineer's habit once and makes
+it available to every teammate: what to inspect, what to avoid, how to verify, and when to escalate.
+Treat skills like lightweight internal tooling. Write them, run them, review their output, and
+improve them when they miss something.
+
 Agent orchestration helps decide how many agents to use and how they should hand work to each other.
 The scaffold supports three simple profiles:
 
@@ -173,6 +221,7 @@ embeddings, even if one routed model is local.
 - `ROUTELLM.md`: optional RouteLLM setup guide when generated with `coding-scaffold route`.
 - `routellm.config.yaml`: optional RouteLLM server config when a strong/weak pair exists.
 - `AGENTS.md`: project-specific operating notes for coding agents.
+- `FIRST_SESSION.md`: the recommended first agentic coding walkthrough.
 
 ## Suggested Flow
 
@@ -194,7 +243,15 @@ embeddings, even if one routed model is local.
    opencode
    ```
 
-6. Add RouteLLM later only if you need endpoint-level model routing.
+6. Inside OpenCode, run `/first-session`, then use explorer -> implementer -> reviewer for one
+   small change.
+7. Turn the workflow your team likes into a skill:
+
+   ```bash
+   coding-scaffold skill --target . --adapter opencode --name "Release Review"
+   ```
+
+8. Add RouteLLM later only if you need endpoint-level model routing.
 
 ## Notes On Models
 

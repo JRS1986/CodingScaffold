@@ -37,6 +37,7 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert "credentials.example.json" in names
     assert "ORCHESTRATION.md" in names
     assert "orchestration.json" in names
+    assert "FIRST_SESSION.md" in names
     assert "README.md" in {path.name for path in manifest.files if "skills" in path.parts}
     opencode = json.loads((tmp_path / ".coding-scaffold" / "opencode.json").read_text())
     assert "nativeAdapter" in opencode

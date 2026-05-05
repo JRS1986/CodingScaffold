@@ -16,6 +16,7 @@ def test_write_opencode_adapter_creates_native_files(tmp_path) -> None:
     assert "opencode.json" in names
     assert "reviewer.md" in names
     assert "first-session.md" in names
+    assert "agentic-change.md" in names
     assert (tmp_path / ".opencode" / "agents" / "reviewer.md").exists()
 
 

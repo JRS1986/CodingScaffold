@@ -46,6 +46,7 @@ def write_scaffold(
         _write_text(scaffold_dir / "ORCHESTRATION.md", _orchestration_md()),
         _write_json(scaffold_dir / "orchestration.json", _orchestration_json()),
         _write_text(scaffold_dir / "skills" / "README.md", _skills_readme()),
+        _write_text(scaffold_dir / "FIRST_SESSION.md", _first_session_md()),
         _write_text(scaffold_dir / "GETTING_STARTED.md", _getting_started_md(intake, routing)),
         _write_text(scaffold_dir / "SKILLS.md", _skills_md()),
         _write_text(scaffold_dir / "THEME.md", _theme_md()),
@@ -355,6 +356,18 @@ Add `--adapter none` if you only want the generic `.coding-scaffold/orchestratio
 - Include the exact verification command.
 - Summarize changed files and residual risk.
 
+## First Useful Loop
+
+Inside OpenCode:
+
+```text
+/first-session
+/agentic-change
+```
+
+The first command builds context without editing. The second runs a small explorer -> implementer ->
+reviewer loop so the user sees the difference between a coding assistant and an agentic workflow.
+
 ## When To Escalate
 
 Use the heavy-lift route for architecture, migrations, security-sensitive code, production incident
@@ -367,6 +380,7 @@ def _skills_readme() -> str:
 
 Project skills are reusable instructions for work your team repeats often: release reviews,
 database migrations, frontend QA, API contract changes, incident analysis, or dependency upgrades.
+They are how a team turns one person's good prompt into shared engineering acceleration.
 
 Create one with an OpenCode command bridge:
 
@@ -375,7 +389,8 @@ coding-scaffold skill --target . --adapter opencode --name "Release Review" --de
 ```
 
 This writes `.coding-scaffold/skills/release-review.md` and `.opencode/commands/release-review.md`.
-Keep skills short and procedural.
+Keep skills short and procedural. Review them like code: run them on real work, check the output,
+and update the skill when it misses context or suggests unsafe steps.
 """
 
 
@@ -435,6 +450,9 @@ def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
 This scaffold is meant to be cloned, installed into a local venv, and run as a setup wizard inside
 the project you want to prepare for AI-assisted coding.
 
+The goal is not just "better autocomplete." The goal is a controlled workflow where agents inspect,
+plan, edit, verify, review, and preserve the best team habits as reusable skills.
+
 ## Fast Path
 
 ```bash
@@ -460,14 +478,61 @@ Heavy-lift model: `{routing.strong_model}`
 
 ## Daily Use
 
-1. Ask the agent to inspect before editing.
-2. Keep prompts scoped to one change or one question.
-3. Run tests through the agent, but read failures yourself.
-4. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
-5. Configure local provider keys with `CREDENTIALS.md`.
-6. Install a coding adapter from `TOOLS.md`.
-7. Create repeatable project skills with `coding-scaffold skill --target . --name "..."`.
-8. Create OpenCode agents with `coding-scaffold orchestrate --target . --profile pair`.
+1. Start OpenCode with `opencode`.
+2. Run `/first-session` to inspect without editing.
+3. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
+4. Read the verification output and review findings yourself.
+5. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
+6. Configure local provider keys with `CREDENTIALS.md`.
+7. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
+8. Improve skills when they miss context, overreach, or fail to verify correctly.
+"""
+
+
+def _first_session_md() -> str:
+    return """# First Agentic Coding Session
+
+This walkthrough is designed to make the difference from autocomplete obvious.
+
+## 1. Start With Context, Not Edits
+
+```bash
+opencode
+```
+
+Inside OpenCode:
+
+```text
+/first-session
+```
+
+Expected result: the agent identifies the project shape, run command, test command, key files,
+risks, and one safe improvement. It should not edit yet.
+
+## 2. Run One Small Agentic Loop
+
+```text
+/agentic-change
+```
+
+Expected result:
+
+- explorer maps the relevant files
+- implementer makes a bounded change
+- verification runs
+- reviewer challenges the result
+- you get changed files, checks, findings, and follow-up
+
+## 3. Capture The Habit As A Skill
+
+If the workflow helped, make it reusable:
+
+```bash
+coding-scaffold skill --target . --adapter opencode --name "Small Safe Improvement"
+```
+
+Skills are team leverage. They let peers reuse a good engineering habit without relying on memory or
+a long prompt copied from chat history.
 """
 
 
@@ -475,6 +540,10 @@ def _skills_md() -> str:
     return """# AI Coding Skills
 
 These are practical skills for using local and routed LLMs as an efficient coding toolset.
+
+A skill is a reusable senior-engineer habit. It tells the agent what context to load, what workflow
+to follow, how to verify, and what not to touch. Good skills make peers faster because they encode
+the team's judgment, not just a prompt.
 
 ## Context Loading
 
@@ -546,6 +615,14 @@ The template is written to `.coding-scaffold/skills/`.
 - API Contract Change: update schema, tests, docs, and clients together.
 - Frontend QA: verify responsive layout, accessibility labels, and visual regressions.
 - Incident Review: reconstruct timeline, root cause, mitigation, and follow-up tasks.
+
+## Validate Skills
+
+- Run the skill on a small real change.
+- Check whether it loaded the right files.
+- Check whether verification was specific enough.
+- Ask a teammate to review the output.
+- Update the skill when it misses an important project convention.
 """
 
 
