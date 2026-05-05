@@ -98,8 +98,9 @@ small, inspectable engineering workflow.
    coding-scaffold skill --target . --adapter opencode --name "Release Review"
    ```
 
-8. Add RouteLLM later only if you need endpoint-level model routing.
-9. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
+8. Capture decisions, useful prompts, skills, and agent patterns in the team knowledge base.
+9. Add RouteLLM later only if you need endpoint-level model routing.
+10. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
 
 ## Setup Wizard
 
@@ -238,6 +239,38 @@ This writes `.coding-scaffold/orchestration.json`; the generated `ORCHESTRATION.
 use each profile and how to keep handoffs clean. By default it also generates OpenCode-native
 agents/commands.
 
+## Knowledge Base
+
+Agentic coding gets much better when the team has shared memory: decision records, session notes,
+project vocabulary, validated skills, trusted agents, and links to the source-of-truth docs. Create
+a Markdown-first knowledge base:
+
+```bash
+coding-scaffold knowledge --target ~/dev/my-project
+```
+
+To connect a shared GitHub or GitLab knowledge repository:
+
+```bash
+coding-scaffold knowledge --target ~/dev/my-project \
+  --shared-remote https://github.com/acme/team-ai-knowledge.git
+```
+
+This writes `.coding-scaffold/KNOWLEDGE.md`, `.coding-scaffold/knowledge.json`, and a linked
+`.coding-scaffold/knowledge/` folder with decision, session, skill, agent, glossary, link, and sync
+templates. With the default OpenCode adapter it also creates `/capture-knowledge` and
+`/share-agent-pattern` commands so useful session findings can become reviewed team assets.
+
+MemPalace is a good optional fit once Markdown memory grows large enough to need local semantic
+retrieval or MCP memory tools:
+
+```bash
+coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
+```
+
+The scaffold keeps Markdown as the source of truth and treats MemPalace as an index. That gives the
+team reviewable knowledge in Git today and leaves the door open for richer local memory tomorrow.
+
 ## Optional RouteLLM
 
 RouteLLM is an advanced option for teams that want one OpenAI-compatible endpoint that routes
@@ -287,6 +320,9 @@ underneath.
 - `ORCHESTRATION.md`: practical agent-role guidance.
 - `orchestration.json`: selected orchestration profile and routing hints.
 - `skills/README.md`: project-skill folder and usage guide.
+- `KNOWLEDGE.md`: shared team memory guide when generated with `coding-scaffold knowledge`.
+- `knowledge.json`: knowledge-base config with optional shared Git remote.
+- `knowledge/`: linked Markdown knowledge base for decisions, sessions, skills, agents, and links.
 - `project.json`: project language, target, repo path, privacy mode, and user preferences.
 - `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
 - `providers.json`: local and cloud providers detected from CLIs and environment variables.
@@ -328,6 +364,7 @@ coding-scaffold credentials --target ~/dev/my-project --format env
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
+coding-scaffold knowledge --target ~/dev/my-project --shared-remote https://github.com/acme/team-ai-knowledge.git
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold route --target ~/dev/my-project --backend routellm
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent

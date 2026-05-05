@@ -10,6 +10,7 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .intake import IntakeAnswers, collect_intake
+from .knowledge import write_knowledge_base
 from .model_selection import select_model_for_prompt
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
@@ -51,6 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
     skill.add_argument("--name", required=True, help="Skill name, e.g. Release Review.")
     skill.add_argument("--description", default="", help="Short description for when to use it.")
     skill.add_argument("--adapter", choices=["none", "opencode"], default="none")
+
+    knowledge = sub.add_parser("knowledge", help="Create a shared team knowledge base.")
+    knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge.add_argument("--backend", choices=["markdown", "mempalace"], default="markdown")
+    knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
+    knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -107,6 +114,14 @@ def main(argv: list[str] | None = None) -> int:
         adapter = None if args.adapter == "none" else args.adapter
         path = write_skill_template(args.target, args.name, args.description, adapter)
         print(f"Wrote project skill template to {path}")
+        return 0
+
+    if args.command == "knowledge":
+        adapter = None if args.adapter == "none" else args.adapter
+        result = write_knowledge_base(args.target, args.backend, args.shared_remote, adapter)
+        print(f"Wrote {len(result.files)} knowledge file(s).")
+        if result.skipped:
+            print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
         return 0
 
     if args.command == "orchestrate":

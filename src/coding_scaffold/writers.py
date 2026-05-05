@@ -624,8 +624,9 @@ Heavy-lift model: `{routing.strong_model}`
 6. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
 7. Configure local provider keys with `CREDENTIALS.md`.
 8. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-9. Improve skills when they miss context, overreach, or fail to verify correctly.
-10. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
+9. Create shared team memory with `coding-scaffold knowledge --target .`.
+10. Improve skills when they miss context, overreach, or fail to verify correctly.
+11. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 
