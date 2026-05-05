@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coding-scaffold"
+version = "0.1.0"
+description = "Local-first coding agent scaffold with hardware probing, provider discovery, and routing config generation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "CodingScaffold contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+routellm = ["routellm[serve]>=0.2.0"]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[project.scripts]
+coding-scaffold = "coding_scaffold.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
