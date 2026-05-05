@@ -47,10 +47,63 @@ For scripts or templates:
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 ```
 
+## Credentials
+
+Keep credentials local to the project and out of Git. The wizard writes examples and ignore rules
+inside `.coding-scaffold/`; real keys go into local-only files.
+
+```bash
+coding-scaffold credentials --target ~/dev/my-project --format env
+```
+
+This creates `.coding-scaffold/.env.local`.
+
+```bash
+coding-scaffold credentials --target ~/dev/my-project --format json
+```
+
+This creates `.coding-scaffold/credentials.local.json`.
+
+Both files are ignored by the generated `.coding-scaffold/.gitignore`. Run
+`coding-scaffold probe --target ~/dev/my-project` to check which providers are configured without
+printing secret values.
+
+## Coding Tool Adapters
+
+CodingScaffold does not require one coding agent. It writes adapter hints for current tools and is
+designed to stay open for whatever arrives next.
+
+OpenCode is the recommended default for most teams today. It appears more mature: official install
+paths, terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, many providers,
+local-model support, and GitHub Copilot sign-in.
+
+```bash
+curl -fsSL https://opencode.ai/install | bash
+opencode
+```
+
+OpenClaude is worth tracking if your team wants to experiment with a fast-moving, Claude-Code-like
+community workflow across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and
+provider profiles. Treat it as experimental and review provenance, licensing, and security before
+standardizing on it.
+
+```bash
+npm install -g @gitlawb/openclaude
+openclaude
+```
+
+Generated adapter hints live in `.coding-scaffold/opencode.json`,
+`.coding-scaffold/openclaude.json`, and `.coding-scaffold/TOOLS.md`.
+
 ## What It Creates
 
 `coding-scaffold init` writes a `.coding-scaffold/` folder in the target project:
 
+- `.gitignore`: keeps generated local credential files out of Git.
+- `.env.example`: env-based credential template.
+- `credentials.example.json`: JSON-based credential template.
+- `CREDENTIALS.md`: local credential setup guide.
+- `TOOLS.md`: OpenCode/OpenClaude installation and adapter guidance.
 - `project.json`: project language, target, repo path, privacy mode, and user preferences.
 - `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
 - `providers.json`: local and cloud providers detected from CLIs and environment variables.
@@ -100,6 +153,7 @@ coding-scaffold init --preferred-local-model "qwen/qwen3-coder-40b"
 
 ```bash
 coding-scaffold probe --json
+coding-scaffold credentials --target ~/dev/my-project --format env
 coding-scaffold wizard --target ~/dev/my-project --beginner
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold doctor

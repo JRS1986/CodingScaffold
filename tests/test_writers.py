@@ -31,5 +31,9 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert "GETTING_STARTED.md" in names
     assert "SKILLS.md" in names
     assert "THEME.md" in names
+    assert "CREDENTIALS.md" in names
+    assert "TOOLS.md" in names
+    assert ".env.example" in names
+    assert "credentials.example.json" in names
     project = json.loads((tmp_path / ".coding-scaffold" / "project.json").read_text())
     assert project["language"] == "python"

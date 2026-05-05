@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from .credentials import load_local_credentials, write_local_credential_file
 from .hardware import probe_hardware
 from .intake import IntakeAnswers, collect_intake
 from .providers import detect_providers
@@ -21,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     probe = sub.add_parser("probe", help="Inspect hardware and provider availability.")
     probe.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    probe.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
 
     init = sub.add_parser("init", help="Create or update .coding-scaffold in a project.")
     init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -37,6 +39,10 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
 
+    credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
+    credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    credentials.add_argument("--format", choices=["env", "json"], default="env")
+
     sub.add_parser("doctor", help="Print setup recommendations.")
     return parser
 
@@ -45,8 +51,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.command == "probe":
+        target = args.target.expanduser().resolve()
         hardware = probe_hardware()
-        providers = detect_providers()
+        providers = detect_providers(load_local_credentials(target))
         payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
         if args.json:
             print(json.dumps(payload, indent=2, sort_keys=True))
@@ -56,6 +63,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "doctor":
         _print_doctor()
+        return 0
+
+    if args.command == "credentials":
+        path = write_local_credential_file(args.target, args.format)
+        print(f"Wrote local credential template to {path}")
+        print("Fill values locally. Do not commit this file.")
         return 0
 
     if args.command in {"init", "wizard"}:
@@ -75,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
             interactive=(is_wizard or not getattr(args, "non_interactive", False)) and sys.stdin.isatty(),
         )
         hardware = probe_hardware()
-        providers = detect_providers()
+        providers = detect_providers(load_local_credentials(target))
         routing = build_routing_plan(answers, hardware, providers)
         manifest = write_scaffold(target, answers, hardware, providers, routing)
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
@@ -104,7 +117,7 @@ def _print_probe(payload: dict[str, object]) -> None:
 
 def _print_doctor() -> None:
     hardware = probe_hardware()
-    providers = detect_providers()
+    providers = detect_providers(load_local_credentials(Path.cwd()))
     print("CodingScaffold doctor")
     print(f"- Python package is runnable on {hardware.os_name}.")
     if not hardware.llmfit_available:

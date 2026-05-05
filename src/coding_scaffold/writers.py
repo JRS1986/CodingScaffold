@@ -38,6 +38,11 @@ def write_scaffold(
         _write_json(scaffold_dir / "opencode.json", _opencode_config(routing)),
         _write_json(scaffold_dir / "openclaude.json", _openclaude_config(routing)),
         _write_text(scaffold_dir / "routellm.config.yaml", _routellm_yaml(routing)),
+        _write_text(scaffold_dir / ".gitignore", _scaffold_gitignore()),
+        _write_text(scaffold_dir / ".env.example", _env_example()),
+        _write_json(scaffold_dir / "credentials.example.json", _credentials_example()),
+        _write_text(scaffold_dir / "CREDENTIALS.md", _credentials_md()),
+        _write_text(scaffold_dir / "TOOLS.md", _tools_md()),
         _write_text(scaffold_dir / "GETTING_STARTED.md", _getting_started_md(intake, routing)),
         _write_text(scaffold_dir / "SKILLS.md", _skills_md()),
         _write_text(scaffold_dir / "THEME.md", _theme_md()),
@@ -115,6 +120,149 @@ def _routellm_yaml(routing: RoutingPlan) -> str:
             "",
         ]
     )
+
+
+def _scaffold_gitignore() -> str:
+    return """.env.local
+credentials.local.json
+*.secret.*
+"""
+
+
+def _env_example() -> str:
+    return """# Copy to .coding-scaffold/.env.local and fill only what you use.
+# Never commit .env.local.
+
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+OPENROUTER_API_KEY=
+GROQ_API_KEY=
+GEMINI_API_KEY=
+GOOGLE_API_KEY=
+GITHUB_TOKEN=
+GH_TOKEN=
+"""
+
+
+def _credentials_example() -> dict[str, str]:
+    return {
+        "OPENAI_API_KEY": "",
+        "ANTHROPIC_API_KEY": "",
+        "OPENROUTER_API_KEY": "",
+        "GROQ_API_KEY": "",
+        "GEMINI_API_KEY": "",
+        "GOOGLE_API_KEY": "",
+        "GITHUB_TOKEN": "",
+        "GH_TOKEN": "",
+    }
+
+
+def _credentials_md() -> str:
+    return """# Local Credentials
+
+Credentials are intentionally local. The scaffold writes examples and an ignore file, but it never
+asks you to paste real keys into committed project files.
+
+## Recommended Path
+
+Create a local env file:
+
+```bash
+coding-scaffold credentials --target . --format env
+```
+
+Then fill `.coding-scaffold/.env.local` with only the providers you intend to use.
+
+For JSON-based tooling:
+
+```bash
+coding-scaffold credentials --target . --format json
+```
+
+This creates `.coding-scaffold/credentials.local.json`.
+
+## Supported Keys
+
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENROUTER_API_KEY`
+- `GROQ_API_KEY`
+- `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+- `GITHUB_TOKEN` or `GH_TOKEN`
+
+## Safety Rules
+
+- Do not commit `.env.local` or `credentials.local.json`.
+- Prefer project-local credentials over shell-global exports when comparing providers.
+- Use `coding-scaffold probe --target .` to verify which providers appear configured.
+- If a provider offers device login, prefer that over long-lived plaintext keys.
+"""
+
+
+def _tools_md() -> str:
+    return """# Coding Tool Adapters
+
+CodingScaffold stays tool-neutral. It writes hints for current tools, but the project should remain
+easy to adapt when new coding agents appear.
+
+## OpenCode
+
+Best default when you want the most mature open workflow today. OpenCode has an official installer,
+terminal/desktop/IDE surfaces, broad provider support through models.dev, local model support, LSP
+awareness, multi-session workflows, and GitHub Copilot sign-in. It is a good first adapter for teams
+that want stability and a visible ecosystem.
+
+Install:
+
+```bash
+curl -fsSL https://opencode.ai/install | bash
+```
+
+Alternatives include npm, Bun, pnpm, Yarn, Homebrew, and paru depending on your platform.
+
+Use this scaffold with OpenCode:
+
+```bash
+opencode
+```
+
+Then point OpenCode at the provider/model hints in `.coding-scaffold/opencode.json` and the project
+rules in `.coding-scaffold/AGENTS.md`.
+
+## OpenClaude
+
+Useful when you want to explore a fast-moving Claude-Code-like workflow with multiple providers,
+OpenAI-compatible APIs, Ollama, GitHub Models, slash commands, MCP, and provider profiles. Treat it
+as experimental: it is an unofficial community project, so evaluate licensing, provenance, security,
+and team comfort before standardizing on it.
+
+Install:
+
+```bash
+npm install -g @gitlawb/openclaude
+```
+
+Use this scaffold with OpenClaude:
+
+```bash
+openclaude
+```
+
+Inside OpenClaude, run `/provider` and use `.coding-scaffold/openclaude.json` as the project hint.
+
+## Adding The Next Tool
+
+New agents will keep appearing. Add one by creating a new adapter file in `.coding-scaffold/`, then
+document:
+
+- install command
+- credential source
+- local model endpoint format
+- project-rule file support
+- how to run plan/read-only mode
+- how to run build/edit mode
+- how to verify edits
+"""
 
 
 def _agents_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
@@ -195,7 +343,9 @@ Heavy-lift model: `{routing.strong_model}`
 2. Keep prompts scoped to one change or one question.
 3. Run tests through the agent, but read failures yourself.
 4. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
-5. Check `SKILLS.md` when you want to teach the agent a repeatable workflow.
+5. Configure local provider keys with `CREDENTIALS.md`.
+6. Install a coding adapter from `TOOLS.md`.
+7. Check `SKILLS.md` when you want to teach the agent a repeatable workflow.
 """
 
 

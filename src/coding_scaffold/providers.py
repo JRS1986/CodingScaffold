@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 
@@ -18,17 +19,18 @@ class Provider:
         return asdict(self)
 
 
-def detect_providers() -> list[Provider]:
+def detect_providers(env: dict[str, str] | None = None) -> list[Provider]:
+    env_values = env or os.environ
     providers = [
         _local_provider("ollama", "http://127.0.0.1:11434/v1"),
         _local_provider("lmstudio", "http://127.0.0.1:1234/v1"),
         _local_provider("llama-server", "http://127.0.0.1:8080/v1"),
-        _env_provider("openai", "OPENAI_API_KEY"),
-        _env_provider("anthropic", "ANTHROPIC_API_KEY"),
-        _env_provider("openrouter", "OPENROUTER_API_KEY"),
-        _env_provider("groq", "GROQ_API_KEY"),
-        _env_provider("gemini", "GEMINI_API_KEY", fallback_env="GOOGLE_API_KEY"),
-        _env_provider("github-models", "GITHUB_TOKEN", fallback_env="GH_TOKEN"),
+        _env_provider("openai", "OPENAI_API_KEY", env_values=env_values),
+        _env_provider("anthropic", "ANTHROPIC_API_KEY", env_values=env_values),
+        _env_provider("openrouter", "OPENROUTER_API_KEY", env_values=env_values),
+        _env_provider("groq", "GROQ_API_KEY", env_values=env_values),
+        _env_provider("gemini", "GEMINI_API_KEY", fallback_env="GOOGLE_API_KEY", env_values=env_values),
+        _env_provider("github-models", "GITHUB_TOKEN", fallback_env="GH_TOKEN", env_values=env_values),
     ]
     providers.append(_github_copilot_provider())
     return providers
@@ -45,9 +47,14 @@ def _local_provider(name: str, endpoint: str) -> Provider:
     )
 
 
-def _env_provider(name: str, env_name: str, fallback_env: str | None = None) -> Provider:
-    has_primary = bool(os.environ.get(env_name))
-    has_fallback = bool(fallback_env and os.environ.get(fallback_env))
+def _env_provider(
+    name: str,
+    env_name: str,
+    fallback_env: str | None = None,
+    env_values: Mapping[str, str] = os.environ,
+) -> Provider:
+    has_primary = bool(env_values.get(env_name))
+    has_fallback = bool(fallback_env and env_values.get(fallback_env))
     found = has_primary or has_fallback
     source = env_name if has_primary else fallback_env
     return Provider(
