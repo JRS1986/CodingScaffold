@@ -43,6 +43,9 @@ def write_scaffold(
         _write_json(scaffold_dir / "credentials.example.json", _credentials_example()),
         _write_text(scaffold_dir / "CREDENTIALS.md", _credentials_md()),
         _write_text(scaffold_dir / "TOOLS.md", _tools_md()),
+        _write_text(scaffold_dir / "ORCHESTRATION.md", _orchestration_md()),
+        _write_json(scaffold_dir / "orchestration.json", _orchestration_json()),
+        _write_text(scaffold_dir / "skills" / "README.md", _skills_readme()),
         _write_text(scaffold_dir / "GETTING_STARTED.md", _getting_started_md(intake, routing)),
         _write_text(scaffold_dir / "SKILLS.md", _skills_md()),
         _write_text(scaffold_dir / "THEME.md", _theme_md()),
@@ -59,6 +62,7 @@ def _write_json(path: Path, payload: object) -> Path:
 
 
 def _write_text(path: Path, payload: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload, encoding="utf-8")
     return path
 
@@ -265,6 +269,87 @@ document:
 """
 
 
+def _orchestration_json() -> dict[str, object]:
+    return {
+        "default_profile": "pair",
+        "profiles": {
+            "solo": "One agent, explicit checkpoints.",
+            "pair": "Builder plus reviewer.",
+            "team": "Explorer, planner, implementer, verifier with disjoint scopes.",
+        },
+        "routing": {
+            "routine": "Use the selected local/routine model.",
+            "heavy-lift": "Use the stronger routed model for architecture, security, and review.",
+        },
+    }
+
+
+def _orchestration_md() -> str:
+    return """# Agent Orchestration
+
+Agent orchestration is the difference between "ask a model" and "run a controlled coding workflow".
+Use it when a task is too broad for one uninterrupted prompt or when review quality matters.
+
+## Profiles
+
+### Solo
+
+Use for small tasks. One agent inspects, edits, verifies, and summarizes. Keep checkpoints explicit.
+
+```bash
+coding-scaffold orchestrate --target . --profile solo
+```
+
+### Pair
+
+Use for normal feature work. A builder makes the change; a reviewer looks for regressions, missing
+tests, and unclear behavior. This is the default because it catches more without adding much process.
+
+```bash
+coding-scaffold orchestrate --target . --profile pair
+```
+
+### Team
+
+Use for larger changes. Split into explorer, planner, implementer, and verifier roles. Give each
+agent a clear scope and avoid overlapping file ownership.
+
+```bash
+coding-scaffold orchestrate --target . --profile team
+```
+
+## Good Handoffs
+
+- State the task and non-goals.
+- Assign file or module ownership.
+- Name the model route: routine or heavy-lift.
+- Include the exact verification command.
+- Summarize changed files and residual risk.
+
+## When To Escalate
+
+Use the heavy-lift route for architecture, migrations, security-sensitive code, production incident
+debugging, or when the routine route fails twice.
+"""
+
+
+def _skills_readme() -> str:
+    return """# Project Skills
+
+Project skills are reusable instructions for work your team repeats often: release reviews,
+database migrations, frontend QA, API contract changes, incident analysis, or dependency upgrades.
+
+Create one with:
+
+```bash
+coding-scaffold skill --target . --name "Release Review" --description "Review a release candidate before tagging."
+```
+
+Keep skills short and procedural. A good skill tells the agent when to use it, which context to
+load, the workflow to follow, how to verify, and what not to touch.
+"""
+
+
 def _agents_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
     return f"""# Coding Agent Notes
 
@@ -298,6 +383,13 @@ Guidance mode: {intake.mode}
 - Verify locally: run the narrowest meaningful test before broad checks.
 - Review like a maintainer: ask what could break, what is untested, and what changed.
 - Route deliberately: local for routine work, stronger model for architecture or repeated failure.
+
+## Orchestration Habits
+
+- Solo for narrow changes.
+- Pair for normal implementation plus review.
+- Team for broad work with disjoint file ownership.
+- Never let multiple agents edit the same file without an explicit maintainer merge step.
 
 ## Pop-Culture Signal Words
 
@@ -345,7 +437,8 @@ Heavy-lift model: `{routing.strong_model}`
 4. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
 5. Configure local provider keys with `CREDENTIALS.md`.
 6. Install a coding adapter from `TOOLS.md`.
-7. Check `SKILLS.md` when you want to teach the agent a repeatable workflow.
+7. Create repeatable project skills with `coding-scaffold skill --target . --name "..."`.
+8. Create an agent plan with `coding-scaffold orchestrate --target . --profile pair`.
 """
 
 
@@ -408,6 +501,22 @@ A useful skill is short and procedural:
 - The step-by-step workflow
 - How to verify
 - What not to do
+
+Create a template:
+
+```bash
+coding-scaffold skill --target . --name "Release Review" --description "Review a release candidate before tagging."
+```
+
+The template is written to `.coding-scaffold/skills/`.
+
+## Useful Starter Skills
+
+- Release Review: check changelog, tests, migration notes, and rollback.
+- Dependency Upgrade: inspect breaking changes, update lockfiles, run compatibility checks.
+- API Contract Change: update schema, tests, docs, and clients together.
+- Frontend QA: verify responsive layout, accessibility labels, and visual regressions.
+- Incident Review: reconstruct timeline, root cause, mitigation, and follow-up tasks.
 """
 
 

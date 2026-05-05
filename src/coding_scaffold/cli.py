@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .credentials import load_local_credentials, write_local_credential_file
+from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .intake import IntakeAnswers, collect_intake
 from .providers import detect_providers
@@ -43,6 +44,15 @@ def build_parser() -> argparse.ArgumentParser:
     credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     credentials.add_argument("--format", choices=["env", "json"], default="env")
 
+    skill = sub.add_parser("skill", help="Create a reusable project skill template.")
+    skill.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    skill.add_argument("--name", required=True, help="Skill name, e.g. Release Review.")
+    skill.add_argument("--description", default="", help="Short description for when to use it.")
+
+    orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
+    orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
+
     sub.add_parser("doctor", help="Print setup recommendations.")
     return parser
 
@@ -69,6 +79,16 @@ def main(argv: list[str] | None = None) -> int:
         path = write_local_credential_file(args.target, args.format)
         print(f"Wrote local credential template to {path}")
         print("Fill values locally. Do not commit this file.")
+        return 0
+
+    if args.command == "skill":
+        path = write_skill_template(args.target, args.name, args.description)
+        print(f"Wrote project skill template to {path}")
+        return 0
+
+    if args.command == "orchestrate":
+        path = write_orchestration_plan(args.target, args.profile)
+        print(f"Wrote agent orchestration plan to {path}")
         return 0
 
     if args.command in {"init", "wizard"}:

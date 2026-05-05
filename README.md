@@ -95,6 +95,32 @@ openclaude
 Generated adapter hints live in `.coding-scaffold/opencode.json`,
 `.coding-scaffold/openclaude.json`, and `.coding-scaffold/TOOLS.md`.
 
+## Skills And Agent Orchestration
+
+Skills are reusable playbooks for work your team repeats: release reviews, dependency upgrades,
+frontend QA, incident analysis, API contract changes, or migration checks. Create one from the CLI:
+
+```bash
+coding-scaffold skill --target ~/dev/my-project --name "Release Review" \
+  --description "Review a release candidate before tagging."
+```
+
+This writes a template into `.coding-scaffold/skills/`.
+
+Agent orchestration helps decide how many agents to use and how they should hand work to each other.
+The scaffold supports three simple profiles:
+
+- `solo`: one agent with explicit checkpoints.
+- `pair`: builder plus reviewer, a good default for normal feature work.
+- `team`: explorer, planner, implementer, and verifier for larger changes with disjoint scopes.
+
+```bash
+coding-scaffold orchestrate --target ~/dev/my-project --profile pair
+```
+
+This writes `.coding-scaffold/orchestration.json`; the generated `ORCHESTRATION.md` explains when to
+use each profile and how to keep handoffs clean.
+
 ## What It Creates
 
 `coding-scaffold init` writes a `.coding-scaffold/` folder in the target project:
@@ -104,6 +130,9 @@ Generated adapter hints live in `.coding-scaffold/opencode.json`,
 - `credentials.example.json`: JSON-based credential template.
 - `CREDENTIALS.md`: local credential setup guide.
 - `TOOLS.md`: OpenCode/OpenClaude installation and adapter guidance.
+- `ORCHESTRATION.md`: practical agent-role guidance.
+- `orchestration.json`: selected orchestration profile and routing hints.
+- `skills/README.md`: project-skill folder and usage guide.
 - `project.json`: project language, target, repo path, privacy mode, and user preferences.
 - `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
 - `providers.json`: local and cloud providers detected from CLIs and environment variables.
@@ -154,6 +183,8 @@ coding-scaffold init --preferred-local-model "qwen/qwen3-coder-40b"
 ```bash
 coding-scaffold probe --json
 coding-scaffold credentials --target ~/dev/my-project --format env
+coding-scaffold skill --target ~/dev/my-project --name "Release Review"
+coding-scaffold orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold wizard --target ~/dev/my-project --beginner
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold doctor
