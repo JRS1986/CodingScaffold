@@ -4,8 +4,15 @@ import json
 import re
 from pathlib import Path
 
+from .adapters import write_tool_adapter
 
-def write_skill_template(target: Path, name: str, description: str = "") -> Path:
+
+def write_skill_template(
+    target: Path,
+    name: str,
+    description: str = "",
+    adapter: str | None = None,
+) -> Path:
     scaffold = _scaffold_dir(target)
     skills_dir = scaffold / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
@@ -14,15 +21,19 @@ def write_skill_template(target: Path, name: str, description: str = "") -> Path
     if path.exists():
         return path
     path.write_text(_skill_template(name, description), encoding="utf-8")
+    if adapter == "opencode":
+        _write_opencode_command(target, slug, name, description)
     return path
 
 
-def write_orchestration_plan(target: Path, profile: str) -> Path:
+def write_orchestration_plan(target: Path, profile: str, adapter: str | None = None) -> Path:
     scaffold = _scaffold_dir(target)
     scaffold.mkdir(parents=True, exist_ok=True)
     plan = _orchestration_profile(profile)
     path = scaffold / "orchestration.json"
     path.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if adapter == "opencode":
+        write_tool_adapter(target, "opencode")
     return path
 
 
@@ -70,6 +81,26 @@ def _skill_template(name: str, description: str) -> str:
 - Do not rewrite generated files unless the task is about scaffold output.
 - Ask for a stronger model when the task spans architecture, security, or repeated failures.
 """
+
+
+def _write_opencode_command(target: Path, slug: str, name: str, description: str) -> Path:
+    root = target.expanduser().resolve()
+    commands = root / ".opencode" / "commands"
+    commands.mkdir(parents=True, exist_ok=True)
+    path = commands / f"{slug}.md"
+    if not path.exists():
+        summary = description or f"Run the {name} project skill."
+        path.write_text(
+            f"""Use the project skill `.coding-scaffold/skills/{slug}.md`.
+
+Goal: {summary}
+
+Load the skill, inspect the required context, follow its workflow, and report changed files,
+verification, and residual risk.
+""",
+            encoding="utf-8",
+        )
+    return path
 
 
 def _orchestration_profile(profile: str) -> dict[str, object]:

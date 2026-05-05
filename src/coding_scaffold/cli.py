@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from .adapters import write_route_backend, write_tool_adapter
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
@@ -48,10 +49,20 @@ def build_parser() -> argparse.ArgumentParser:
     skill.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     skill.add_argument("--name", required=True, help="Skill name, e.g. Release Review.")
     skill.add_argument("--description", default="", help="Short description for when to use it.")
+    skill.add_argument("--adapter", choices=["none", "opencode"], default="none")
 
     orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
+    orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    adapt = sub.add_parser("adapt", help="Generate native config for a coding tool.")
+    adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    adapt.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+
+    route = sub.add_parser("route", help="Generate optional routing backend docs/config.")
+    route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    route.add_argument("--backend", choices=["routellm"], default="routellm")
 
     sub.add_parser("doctor", help="Print setup recommendations.")
     return parser
@@ -82,13 +93,27 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "skill":
-        path = write_skill_template(args.target, args.name, args.description)
+        adapter = None if args.adapter == "none" else args.adapter
+        path = write_skill_template(args.target, args.name, args.description, adapter)
         print(f"Wrote project skill template to {path}")
         return 0
 
     if args.command == "orchestrate":
-        path = write_orchestration_plan(args.target, args.profile)
+        adapter = None if args.adapter == "none" else args.adapter
+        path = write_orchestration_plan(args.target, args.profile, adapter)
         print(f"Wrote agent orchestration plan to {path}")
+        return 0
+
+    if args.command == "adapt":
+        result = write_tool_adapter(args.target, args.tool)
+        print(f"Wrote {len(result.files)} adapter file(s).")
+        if result.skipped:
+            print(f"Skipped {len(result.skipped)} existing file(s).")
+        return 0
+
+    if args.command == "route":
+        result = write_route_backend(args.target, args.backend)
+        print(f"Wrote {len(result.files)} routing backend file(s).")
         return 0
 
     if args.command in {"init", "wizard"}:
@@ -111,7 +136,9 @@ def main(argv: list[str] | None = None) -> int:
         providers = detect_providers(load_local_credentials(target))
         routing = build_routing_plan(answers, hardware, providers)
         manifest = write_scaffold(target, answers, hardware, providers, routing)
+        adapter = write_tool_adapter(target, answers.agent or "opencode")
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
+        print(f"Wrote {len(adapter.files)} tool adapter file(s)")
         print(f"Selected weak model: {routing.weak_model or 'none'}")
         print(f"Selected strong model: {routing.strong_model or 'none'}")
         print("Next: read .coding-scaffold/GETTING_STARTED.md")

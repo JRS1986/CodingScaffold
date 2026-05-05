@@ -10,6 +10,12 @@ def test_write_skill_template_slugifies_name(tmp_path) -> None:
     assert "Check a release candidate." in path.read_text()
 
 
+def test_write_skill_template_can_create_opencode_command(tmp_path) -> None:
+    write_skill_template(tmp_path, "Release Review", "Check a release candidate.", "opencode")
+
+    assert (tmp_path / ".opencode" / "commands" / "release-review.md").exists()
+
+
 def test_write_orchestration_plan_uses_profile(tmp_path) -> None:
     path = write_orchestration_plan(tmp_path, "team")
 
@@ -21,3 +27,10 @@ def test_write_orchestration_plan_uses_profile(tmp_path) -> None:
         "Implementer",
         "Verifier",
     ]
+
+
+def test_write_orchestration_plan_can_create_opencode_adapter(tmp_path) -> None:
+    write_orchestration_plan(tmp_path, "pair", "opencode")
+
+    assert (tmp_path / "opencode.json").exists()
+    assert (tmp_path / ".opencode" / "agents" / "reviewer.md").exists()

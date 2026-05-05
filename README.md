@@ -95,6 +95,16 @@ openclaude
 Generated adapter hints live in `.coding-scaffold/opencode.json`,
 `.coding-scaffold/openclaude.json`, and `.coding-scaffold/TOOLS.md`.
 
+Generate OpenCode-native project files:
+
+```bash
+coding-scaffold adapt --target ~/dev/my-project --tool opencode
+```
+
+This writes `opencode.json`, `.opencode/agents/`, and `.opencode/commands/` in the target project.
+The scaffold’s orchestration profiles use those OpenCode agents and commands instead of inventing a
+parallel agent runtime.
+
 ## Skills And Agent Orchestration
 
 Skills are reusable playbooks for work your team repeats: release reviews, dependency upgrades,
@@ -102,6 +112,7 @@ frontend QA, incident analysis, API contract changes, or migration checks. Creat
 
 ```bash
 coding-scaffold skill --target ~/dev/my-project --name "Release Review" \
+  --adapter opencode \
   --description "Review a release candidate before tagging."
 ```
 
@@ -119,7 +130,22 @@ coding-scaffold orchestrate --target ~/dev/my-project --profile pair
 ```
 
 This writes `.coding-scaffold/orchestration.json`; the generated `ORCHESTRATION.md` explains when to
-use each profile and how to keep handoffs clean.
+use each profile and how to keep handoffs clean. By default it also generates OpenCode-native
+agents/commands.
+
+## Optional RouteLLM
+
+RouteLLM is an advanced option for teams that want one OpenAI-compatible endpoint that routes
+between a weak/routine model and a strong/heavy-lift model. It is not required for onboarding.
+
+```bash
+python -m pip install "routellm[serve,eval]"
+coding-scaffold route --target ~/dev/my-project --backend routellm
+```
+
+This writes `.coding-scaffold/ROUTELLM.md` and `.coding-scaffold/routellm.config.yaml`. Read the
+guide before using it: common RouteLLM routers such as `mf` may still require `OPENAI_API_KEY` for
+embeddings, even if one routed model is local.
 
 ## What It Creates
 
@@ -144,6 +170,7 @@ use each profile and how to keep handoffs clean.
 - `theme.json`: onboarding style tokens used by generated beginner guidance.
 - `opencode.json`: a portable provider/model hint file for OpenCode-style tools.
 - `openclaude.json`: equivalent hints for OpenClaude-style tools.
+- `ROUTELLM.md`: optional RouteLLM setup guide when generated with `coding-scaffold route`.
 - `routellm.config.yaml`: optional RouteLLM server config when a strong/weak pair exists.
 - `AGENTS.md`: project-specific operating notes for coding agents.
 
@@ -160,12 +187,14 @@ use each profile and how to keep handoffs clean.
    ```
 
 4. Run `coding-scaffold init` in each codebase you want to prepare.
-5. Point OpenCode/OpenClaude at the generated provider hints, or start RouteLLM:
+5. Generate native OpenCode files and start OpenCode:
 
    ```bash
-   python -m pip install -e ".[routellm]"
-   python -m routellm.openai_server --routers mf --config .coding-scaffold/routellm.config.yaml
+   coding-scaffold adapt --target . --tool opencode
+   opencode
    ```
+
+6. Add RouteLLM later only if you need endpoint-level model routing.
 
 ## Notes On Models
 
@@ -183,8 +212,10 @@ coding-scaffold init --preferred-local-model "qwen/qwen3-coder-40b"
 ```bash
 coding-scaffold probe --json
 coding-scaffold credentials --target ~/dev/my-project --format env
-coding-scaffold skill --target ~/dev/my-project --name "Release Review"
+coding-scaffold adapt --target ~/dev/my-project --tool opencode
+coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
+coding-scaffold route --target ~/dev/my-project --backend routellm
 coding-scaffold wizard --target ~/dev/my-project --beginner
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold doctor

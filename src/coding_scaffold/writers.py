@@ -86,6 +86,10 @@ def _opencode_config(routing: RoutingPlan) -> dict[str, object]:
                 "model": routing.strong_model,
             },
         },
+        "nativeAdapter": {
+            "command": "coding-scaffold adapt --target . --tool opencode",
+            "writes": ["opencode.json", ".opencode/agents/*.md", ".opencode/commands/*.md"],
+        },
         "routing": routing.to_dict(),
     }
 
@@ -224,14 +228,23 @@ curl -fsSL https://opencode.ai/install | bash
 
 Alternatives include npm, Bun, pnpm, Yarn, Homebrew, and paru depending on your platform.
 
-Use this scaffold with OpenCode:
+Generate OpenCode-native config:
+
+```bash
+coding-scaffold adapt --target . --tool opencode
+```
+
+This writes `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`. Then run:
 
 ```bash
 opencode
 ```
 
-Then point OpenCode at the provider/model hints in `.coding-scaffold/opencode.json` and the project
-rules in `.coding-scaffold/AGENTS.md`.
+Recommended first prompt inside OpenCode:
+
+```text
+/first-session
+```
 
 ## OpenClaude
 
@@ -253,6 +266,19 @@ openclaude
 ```
 
 Inside OpenClaude, run `/provider` and use `.coding-scaffold/openclaude.json` as the project hint.
+
+## RouteLLM
+
+RouteLLM is optional advanced routing, not the default onboarding path. Use it when you want an
+OpenAI-compatible local router endpoint between a weak/routine model and a strong/heavy-lift model.
+
+```bash
+python -m pip install "routellm[serve,eval]"
+coding-scaffold route --target . --backend routellm
+```
+
+Read `.coding-scaffold/ROUTELLM.md` before starting the server; some routers require an
+`OPENAI_API_KEY` for embeddings even when one routed model is local.
 
 ## Adding The Next Tool
 
@@ -288,7 +314,8 @@ def _orchestration_md() -> str:
     return """# Agent Orchestration
 
 Agent orchestration is the difference between "ask a model" and "run a controlled coding workflow".
-Use it when a task is too broad for one uninterrupted prompt or when review quality matters.
+In this scaffold it is not a separate runtime. It generates native OpenCode agents and commands
+where possible, and keeps generic JSON/Markdown notes for other tools.
 
 ## Profiles
 
@@ -318,6 +345,8 @@ agent a clear scope and avoid overlapping file ownership.
 coding-scaffold orchestrate --target . --profile team
 ```
 
+Add `--adapter none` if you only want the generic `.coding-scaffold/orchestration.json` file.
+
 ## Good Handoffs
 
 - State the task and non-goals.
@@ -339,14 +368,14 @@ def _skills_readme() -> str:
 Project skills are reusable instructions for work your team repeats often: release reviews,
 database migrations, frontend QA, API contract changes, incident analysis, or dependency upgrades.
 
-Create one with:
+Create one with an OpenCode command bridge:
 
 ```bash
-coding-scaffold skill --target . --name "Release Review" --description "Review a release candidate before tagging."
+coding-scaffold skill --target . --adapter opencode --name "Release Review" --description "Review a release candidate before tagging."
 ```
 
-Keep skills short and procedural. A good skill tells the agent when to use it, which context to
-load, the workflow to follow, how to verify, and what not to touch.
+This writes `.coding-scaffold/skills/release-review.md` and `.opencode/commands/release-review.md`.
+Keep skills short and procedural.
 """
 
 
@@ -438,7 +467,7 @@ Heavy-lift model: `{routing.strong_model}`
 5. Configure local provider keys with `CREDENTIALS.md`.
 6. Install a coding adapter from `TOOLS.md`.
 7. Create repeatable project skills with `coding-scaffold skill --target . --name "..."`.
-8. Create an agent plan with `coding-scaffold orchestrate --target . --profile pair`.
+8. Create OpenCode agents with `coding-scaffold orchestrate --target . --profile pair`.
 """
 
 
