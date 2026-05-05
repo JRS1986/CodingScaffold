@@ -21,7 +21,7 @@ class Provider:
         return asdict(self)
 
 
-def detect_providers(env: dict[str, str] | None = None) -> list[Provider]:
+def detect_providers(env: dict[str, str] | None = None, *, include_copilot: bool = False) -> list[Provider]:
     env_values = env or os.environ
     providers = [
         _local_provider("ollama", "http://127.0.0.1:11434/v1"),
@@ -48,7 +48,8 @@ def detect_providers(env: dict[str, str] | None = None) -> list[Provider]:
             model_family="mixed",
         ),
     ]
-    providers.append(_github_copilot_provider())
+    if include_copilot:
+        providers.append(_github_copilot_provider())
     return providers
 
 

@@ -39,3 +39,22 @@ def test_load_routing_plan_round_trips_known_fields(tmp_path) -> None:
     assert plan.strong_model == "qwen-large"
     assert plan.cloud_model_family == "anthropic"
     assert plan.route_threshold == ROUTELLM_MF_DEFAULT_THRESHOLD
+
+
+def test_load_routing_plan_uses_default_for_malformed_threshold(tmp_path) -> None:
+    scaffold = tmp_path / ".coding-scaffold"
+    scaffold.mkdir()
+    (scaffold / "routing.json").write_text(
+        json.dumps(
+            {
+                "strategy": "local-first-router",
+                "route_threshold": "high",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    plan = load_routing_plan(tmp_path)
+
+    assert plan is not None
+    assert plan.route_threshold == ROUTELLM_MF_DEFAULT_THRESHOLD

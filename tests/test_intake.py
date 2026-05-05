@@ -1,4 +1,4 @@
-from coding_scaffold.intake import IntakeAnswers, collect_intake
+from coding_scaffold.intake import IntakeAnswers, _iter_project_files, collect_intake
 
 
 def test_intake_ignores_generated_scaffold_files(tmp_path) -> None:
@@ -31,3 +31,15 @@ def test_intake_language_detection_excludes_scaffold_files(tmp_path) -> None:
     answers = collect_intake(tmp_path, IntakeAnswers(), interactive=False)
 
     assert answers.language == "go"
+
+
+def test_iter_project_files_prunes_ignored_directories(tmp_path) -> None:
+    ignored = tmp_path / "node_modules" / "package" / "nested"
+    ignored.mkdir(parents=True)
+    for index in range(25):
+        (ignored / f"ignored-{index}.js").write_text("console.log('skip')\n")
+    (tmp_path / "src.py").write_text("print('keep')\n")
+
+    files = list(_iter_project_files(tmp_path))
+
+    assert files == [tmp_path / "src.py"]

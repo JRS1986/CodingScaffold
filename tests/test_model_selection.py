@@ -167,3 +167,46 @@ def test_select_model_word_count_boundary() -> None:
 
     assert select_model_for_prompt(forty_words, routing, []).prompt_profile == "routine-coding"
     assert select_model_for_prompt(forty_one_words, routing, []).prompt_profile == "standard-change"
+
+
+def test_select_model_common_agent_design_review_words_stay_routine() -> None:
+    routing = RoutingPlan(
+        "local-first-router",
+        "qwen-small",
+        "qwen-large",
+        ROUTELLM_MF_DEFAULT_THRESHOLD,
+        None,
+        None,
+        None,
+        [],
+        {},
+    )
+
+    prompts = [
+        "Update the user-agent header in this SDK client.",
+        "Polish the design choices in this docstring.",
+        "Review my README typo.",
+    ]
+
+    for prompt in prompts:
+        selection = select_model_for_prompt(prompt, routing, [])
+        assert selection.route == "routine"
+
+
+def test_select_model_heavy_phrases_still_escalate() -> None:
+    routing = RoutingPlan(
+        "local-first-router",
+        "qwen-small",
+        "qwen-large",
+        ROUTELLM_MF_DEFAULT_THRESHOLD,
+        None,
+        None,
+        None,
+        [],
+        {},
+    )
+
+    selection = select_model_for_prompt("Write a system design for the agent runtime.", routing, [])
+
+    assert selection.route == "heavy-lift"
+    assert "system design" in " ".join(selection.reasons)

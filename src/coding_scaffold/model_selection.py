@@ -56,14 +56,12 @@ def _classify_prompt(prompt: str) -> tuple[str, str, list[str], float]:
         return "empty", "routine", ["no prompt was provided"], 0.1
 
     heavy_markers = {
-        "agent",
         "architecture",
         "architectural",
         "auth",
         "authentication",
         "authorization",
         "cross-module",
-        "design",
         "incident",
         "migration",
         "migrate",
@@ -72,10 +70,19 @@ def _classify_prompt(prompt: str) -> tuple[str, str, list[str], float]:
         "permission",
         "production",
         "refactor",
-        "review",
+        "redesign",
         "security",
         "threat",
         "vulnerability",
+    }
+    heavy_phrases = {
+        "agent orchestration",
+        "agent runtime",
+        "code review",
+        "design doc",
+        "design review",
+        "security review",
+        "system design",
     }
     routine_markers = {
         "comment",
@@ -96,11 +103,14 @@ def _classify_prompt(prompt: str) -> tuple[str, str, list[str], float]:
     token_list = re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", prompt)
     tokens = set(token_list)
     heavy_hits = sorted(heavy_markers & tokens)
+    phrase_hits = sorted(phrase for phrase in heavy_phrases if phrase in prompt)
     routine_hits = sorted(routine_markers & tokens)
     word_count = len(token_list)
 
-    if heavy_hits or word_count > 180:
+    if heavy_hits or phrase_hits or word_count > 180:
         reasons = ["heavy-lift markers: " + ", ".join(heavy_hits)] if heavy_hits else []
+        if phrase_hits:
+            reasons.append("heavy-lift phrases: " + ", ".join(phrase_hits))
         if word_count > 180:
             reasons.append(f"prompt is long enough to need deeper context ({word_count} words)")
         return "complex-change", "heavy-lift", reasons, 0.78

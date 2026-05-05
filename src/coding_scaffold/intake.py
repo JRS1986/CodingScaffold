@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -81,12 +82,10 @@ def _detect_language(target: Path) -> str | None:
 
 def _iter_project_files(target: Path):
     ignored_dirs = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", ".coding-scaffold"}
-    for path in target.rglob("*"):
-        relative_parts = path.relative_to(target).parts
-        if any(part in ignored_dirs for part in relative_parts):
-            continue
-        if path.is_file():
-            yield path
+    for root, dirnames, filenames in os.walk(target):
+        dirnames[:] = [dirname for dirname in dirnames if dirname not in ignored_dirs]
+        for filename in filenames:
+            yield Path(root) / filename
 
 
 _LANGUAGE_BY_SUFFIX = {

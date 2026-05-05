@@ -26,7 +26,10 @@ def load_routing_plan(target: Path) -> RoutingPlan | None:
         strategy=str(payload.get("strategy") or "local-first-router"),
         weak_model=_optional_str(payload.get("weak_model")),
         strong_model=_optional_str(payload.get("strong_model")),
-        route_threshold=float(payload.get("route_threshold", ROUTELLM_MF_DEFAULT_THRESHOLD)),
+        route_threshold=_float_or_default(
+            payload.get("route_threshold"),
+            ROUTELLM_MF_DEFAULT_THRESHOLD,
+        ),
         local_endpoint=_optional_str(payload.get("local_endpoint")),
         cloud_provider=_optional_str(payload.get("cloud_provider")),
         cloud_model_family=_optional_str(payload.get("cloud_model_family")),
@@ -37,6 +40,13 @@ def load_routing_plan(target: Path) -> RoutingPlan | None:
 
 def _optional_str(value: object) -> str | None:
     return str(value) if value else None
+
+
+def _float_or_default(value: object, default: float) -> float:
+    try:
+        return float(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
 
 
 def _list_of_strings(value: object) -> list[str]:

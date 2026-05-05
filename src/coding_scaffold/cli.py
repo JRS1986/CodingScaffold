@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "probe":
         target = args.target.expanduser().resolve()
         hardware = probe_hardware()
-        providers = detect_providers(load_local_credentials(target))
+        providers = detect_providers(load_local_credentials(target), include_copilot=True)
         payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
         if args.json:
             print(json.dumps(payload, indent=2, sort_keys=True))
@@ -236,7 +236,7 @@ def _print_model_selection(selection: dict[str, object]) -> None:
 
 def _print_doctor() -> None:
     hardware = probe_hardware()
-    providers = detect_providers(load_local_credentials(Path.cwd()))
+    providers = detect_providers(load_local_credentials(Path.cwd()), include_copilot=True)
     print("CodingScaffold doctor")
     print(f"- Python package is runnable on {hardware.os_name}.")
     if not hardware.llmfit_available:

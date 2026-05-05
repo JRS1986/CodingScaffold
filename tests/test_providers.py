@@ -47,3 +47,30 @@ def test_detects_azure_cognitive_services_aliases() -> None:
     assert provider.available is True
     assert provider.model_family == "openai"
     assert provider.endpoint == "https://example.cognitiveservices.azure.com"
+
+
+def test_detect_providers_skips_copilot_subprocess_by_default(monkeypatch) -> None:
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("coding_scaffold.providers.subprocess.run", fail_if_called)
+
+    providers = detect_providers({})
+
+    assert all(provider.name != "github-copilot-cli" for provider in providers)
+
+
+def test_detect_providers_can_include_copilot_status(monkeypatch) -> None:
+    class Result:
+        returncode = 0
+
+    monkeypatch.setattr(
+        "coding_scaffold.providers.shutil.which",
+        lambda name: "/usr/bin/gh" if name == "gh" else None,
+    )
+    monkeypatch.setattr("coding_scaffold.providers.subprocess.run", lambda *args, **kwargs: Result())
+
+    providers = detect_providers({}, include_copilot=True)
+
+    provider = next(item for item in providers if item.name == "github-copilot-cli")
+    assert provider.available is True
