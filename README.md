@@ -1,24 +1,16 @@
 # CodingScaffold
 
-ROUTE-42 | Festo Coding Challenge style | local-first coding scaffold
+Your local-first coding scaffold
 
-CodingScaffold is a local-first bootstrapper for AI-assisted coding environments. Clone it, install
-it into a venv, run the setup wizard in your project, and get project-local configuration plus a
-short guide to AI coding skills. It detects local and cloud providers and writes config hints for
-tools such as OpenCode, OpenClaude-style CLIs, Ollama, OpenAI-compatible servers, and optional
-RouteLLM routing.
+CodingScaffold helps teams prepare a project for AI-assisted coding without locking themselves into
+one model provider. Clone it, install it into a venv, run the setup wizard inside a codebase, and it
+will create project-local guidance for model routing, provider setup, agent behavior, and practical
+AI coding habits.
 
-The default posture is privacy-friendly: local models first, cloud providers only when keys or
-authenticated CLIs are present.
-
-## Festo Coding Challenge Style
-
-The scaffold is an efficient coder enablement tool first. The Festo Coding Challenge-inspired
-writing style is reserved for onboarding and beginner mode: second-person adventure, digital-archive
-framing, a small AI companion, corrupted setup crystals, and concrete engineering tasks disguised as
-portal repairs. Pop-culture references are signal words: ROUTE-42 for suspicious routing,
-"Great Scott!" for timeline-risk refactors, protocol-droid clarity for handoffs, and hyperspace as a
-metaphor for cloud escalation.
+The default posture is privacy-friendly: local models first, cloud providers only when credentials
+or authenticated CLIs are already available. For experienced users, the output stays direct and
+operational. For beginners, the wizard can also generate a more guided first-project path that makes
+the first steps less intimidating without hiding what is happening.
 
 ## Quick Start
 
@@ -63,11 +55,11 @@ coding-scaffold init --target ~/dev/my-project --language python --non-interacti
 - `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
 - `providers.json`: local and cloud providers detected from CLIs and environment variables.
 - `routing.json`: local-first routing policy and selected weak/strong model candidates.
-- `theme.json`: Festo TN-AI style tokens, copy voice, motifs, and reference labels.
 - `GETTING_STARTED.md`: how to use the scaffold after cloning and running the wizard.
 - `SKILLS.md`: quick intro to efficient AI coding skills.
-- `BEGINNER_PATH.md`: optional Challenge-style first-project guide when using beginner mode.
-- `THEME.md`: human-readable style guide for agents and reviewers.
+- `BEGINNER_PATH.md`: optional first-project guide when using beginner mode.
+- `THEME.md`: human-readable onboarding voice guide for agents and reviewers.
+- `theme.json`: onboarding style tokens used by generated beginner guidance.
 - `opencode.json`: a portable provider/model hint file for OpenCode-style tools.
 - `openclaude.json`: equivalent hints for OpenClaude-style tools.
 - `routellm.config.yaml`: optional RouteLLM server config when a strong/weak pair exists.
