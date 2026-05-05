@@ -1,6 +1,6 @@
 import json
 
-from coding_scaffold.adapters import write_route_backend, write_tool_adapter
+from coding_scaffold.adapters import write_route_backend, write_tool_adapter, write_workflow_backend
 
 
 def test_write_opencode_adapter_creates_native_files(tmp_path) -> None:
@@ -26,3 +26,15 @@ def test_write_routellm_backend_creates_docs_and_config(tmp_path) -> None:
     names = {path.name for path in result.files}
     assert "ROUTELLM.md" in names
     assert "routellm.config.yaml" in names
+
+
+def test_write_open_multi_agent_backend_creates_docs_config_and_example(tmp_path) -> None:
+    result = write_workflow_backend(tmp_path, "open-multi-agent")
+
+    names = {path.name for path in result.files}
+    assert "OPEN_MULTI_AGENT.md" in names
+    assert "open-multi-agent.team.json" in names
+    assert "team-coding-workflow.ts" in names
+    team_config = json.loads((tmp_path / ".coding-scaffold" / "open-multi-agent.team.json").read_text())
+    assert team_config["backend"] == "open-multi-agent"
+    assert (tmp_path / "examples" / "open-multi-agent" / "team-coding-workflow.ts").exists()

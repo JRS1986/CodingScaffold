@@ -43,6 +43,23 @@ def write_route_backend(target: Path, backend: str) -> AdapterResult:
     return AdapterResult(files, [])
 
 
+def write_workflow_backend(target: Path, backend: str) -> AdapterResult:
+    if backend != "open-multi-agent":
+        return AdapterResult([], [])
+    root = target.expanduser().resolve()
+    scaffold = root / ".coding-scaffold"
+    examples = root / "examples" / "open-multi-agent"
+    scaffold.mkdir(parents=True, exist_ok=True)
+    examples.mkdir(parents=True, exist_ok=True)
+    routing = _read_routing(root)
+    files = [
+        _write(scaffold / "OPEN_MULTI_AGENT.md", _open_multi_agent_md(routing), overwrite=True),
+        _write_json(scaffold / "open-multi-agent.team.json", _open_multi_agent_team(routing)),
+        _write(examples / "team-coding-workflow.ts", _open_multi_agent_example(), overwrite=True),
+    ]
+    return AdapterResult(files, [])
+
+
 def _write_opencode(root: Path, routing: dict[str, object]) -> AdapterResult:
     files: list[Path] = []
     skipped: list[Path] = []
@@ -84,6 +101,12 @@ def _write(path: Path, content: str, overwrite: bool) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     if overwrite or not path.exists():
         path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _write_json(path: Path, payload: object) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
 
 
@@ -263,4 +286,158 @@ python -m routellm.openai_server \\
 
 RouteLLM's OpenAI-compatible server defaults to port `6060`. Point OpenCode, OpenClaude, or another
 OpenAI-compatible client at that endpoint, then use a model value such as `router-mf-0.11593`.
+"""
+
+
+def _open_multi_agent_team(routing: dict[str, object]) -> dict[str, object]:
+    routine = _model(routing, "weak_model", "choose-routine-model")
+    heavy = _model(routing, "strong_model", "choose-heavy-lift-model")
+    return {
+        "backend": "open-multi-agent",
+        "intent": "Turn validated local agentic workflows into repeatable TypeScript automation.",
+        "install": "npm install @jackchen_me/open-multi-agent",
+        "agents": [
+            {
+                "name": "explorer",
+                "model": routine,
+                "tools": ["file_read", "grep", "glob"],
+                "responsibility": "Map relevant files, commands, dependencies, and risks.",
+            },
+            {
+                "name": "planner",
+                "model": heavy,
+                "tools": ["file_read", "grep"],
+                "responsibility": "Break the goal into a small task DAG with explicit verification.",
+            },
+            {
+                "name": "implementer",
+                "model": routine,
+                "tools": ["bash", "file_read", "file_write", "file_edit", "grep"],
+                "responsibility": "Make bounded edits and run narrow checks.",
+            },
+            {
+                "name": "reviewer",
+                "model": heavy,
+                "tools": ["file_read", "grep"],
+                "responsibility": "Review for regressions, missing tests, security, and maintainability.",
+            },
+        ],
+        "recommended_flow": [
+            "Validate the workflow interactively in OpenCode first.",
+            "Create or update a project skill.",
+            "Generate this backend when the workflow is worth repeating.",
+            "Run planOnly before letting agents execute.",
+            "Review traces and outputs before adopting in CI or backend automation.",
+        ],
+    }
+
+
+def _open_multi_agent_md(routing: dict[str, object]) -> str:
+    routine = _model(routing, "weak_model", "choose-routine-model")
+    heavy = _model(routing, "strong_model", "choose-heavy-lift-model")
+    return f"""# Open Multi-Agent
+
+Open Multi-Agent is an optional advanced workflow backend. Use it after your team has validated an
+agentic workflow interactively and wants to run it repeatedly from a TypeScript backend, script, or
+CI-like automation.
+
+## Why It Fits
+
+- Open source and TypeScript-native.
+- Goal-to-task-DAG orchestration with independent tasks running in parallel.
+- Multiple model providers, including OpenAI-compatible local endpoints.
+- MCP support, token budgets, retries, context strategies, and tracing hooks.
+- `planOnly` mode lets you inspect the task DAG before execution.
+
+## When To Use
+
+Use OpenCode for the first human-in-the-loop coding sessions. Use Open Multi-Agent when the team
+wants to automate a proven workflow: dependency review, API contract checks, release review,
+security triage, migration planning, or other repeatable engineering processes.
+
+## Install
+
+```bash
+npm install @jackchen_me/open-multi-agent
+```
+
+## Generated Files
+
+- `.coding-scaffold/open-multi-agent.team.json`: team roles and model routes.
+- `examples/open-multi-agent/team-coding-workflow.ts`: starter TypeScript workflow.
+
+## Suggested Model Routes
+
+- Routine model: `{routine}`
+- Heavy-lift model: `{heavy}`
+
+## Safe Adoption Path
+
+1. Run `/first-session` and `/agentic-change` in OpenCode.
+2. Capture the useful workflow as a skill.
+3. Generate this backend with `coding-scaffold workflow --target . --backend open-multi-agent`.
+4. Run the generated TypeScript example in plan-only mode first.
+5. Add execution only after a maintainer reviews the task DAG and permissions.
+
+This is the point where agentic coding becomes internal tooling: not one-off prompts, but repeatable,
+observable workflows your peers can run and improve.
+"""
+
+
+def _open_multi_agent_example() -> str:
+    return """import { OpenMultiAgent } from '@jackchen_me/open-multi-agent'
+import type { AgentConfig } from '@jackchen_me/open-multi-agent'
+
+const explorer: AgentConfig = {
+  name: 'explorer',
+  model: process.env.ROUTINE_MODEL ?? 'replace-me-routine-model',
+  systemPrompt: 'Map relevant files, commands, dependencies, and risks. Do not edit.',
+  tools: ['file_read', 'grep', 'glob'],
+}
+
+const planner: AgentConfig = {
+  name: 'planner',
+  model: process.env.HEAVY_LIFT_MODEL ?? 'replace-me-heavy-lift-model',
+  systemPrompt: 'Break the goal into a small task DAG with explicit verification.',
+  tools: ['file_read', 'grep'],
+}
+
+const implementer: AgentConfig = {
+  name: 'implementer',
+  model: process.env.ROUTINE_MODEL ?? 'replace-me-routine-model',
+  systemPrompt: 'Make bounded edits only after scope is clear. Run narrow checks.',
+  tools: ['bash', 'file_read', 'file_write', 'file_edit', 'grep'],
+}
+
+const reviewer: AgentConfig = {
+  name: 'reviewer',
+  model: process.env.HEAVY_LIFT_MODEL ?? 'replace-me-heavy-lift-model',
+  systemPrompt: 'Review for regressions, missing tests, security, and maintainability. Do not edit.',
+  tools: ['file_read', 'grep'],
+}
+
+const goal =
+  process.argv.slice(2).join(' ') ||
+  'Inspect this repository and propose one safe, small improvement with verification.'
+
+const orchestrator = new OpenMultiAgent({
+  defaultModel: process.env.HEAVY_LIFT_MODEL ?? 'replace-me-heavy-lift-model',
+  onProgress: (event) => console.log(event.type, event.agent ?? event.task ?? ''),
+})
+
+const team = orchestrator.createTeam('coding-scaffold-team', {
+  name: 'coding-scaffold-team',
+  agents: [explorer, planner, implementer, reviewer],
+  sharedMemory: true,
+})
+
+const planOnly = process.env.PLAN_ONLY !== '0'
+const result = await orchestrator.runTeam(team, goal, { planOnly })
+
+console.log(JSON.stringify({
+  success: result.success,
+  planOnly,
+  totalTokenUsage: result.totalTokenUsage,
+  tasks: result.tasks,
+}, null, 2))
 """

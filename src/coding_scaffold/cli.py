@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .adapters import write_route_backend, write_tool_adapter
+from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
@@ -64,6 +64,10 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     route.add_argument("--backend", choices=["routellm"], default="routellm")
 
+    workflow = sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
+    workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
+
     sub.add_parser("doctor", help="Print setup recommendations.")
     return parser
 
@@ -114,6 +118,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "route":
         result = write_route_backend(args.target, args.backend)
         print(f"Wrote {len(result.files)} routing backend file(s).")
+        return 0
+
+    if args.command == "workflow":
+        result = write_workflow_backend(args.target, args.backend)
+        print(f"Wrote {len(result.files)} workflow backend file(s).")
         return 0
 
     if args.command in {"init", "wizard"}:

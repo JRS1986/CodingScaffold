@@ -195,6 +195,29 @@ This writes `.coding-scaffold/ROUTELLM.md` and `.coding-scaffold/routellm.config
 guide before using it: common RouteLLM routers such as `mf` may still require `OPENAI_API_KEY` for
 embeddings, even if one routed model is local.
 
+## Optional Open Multi-Agent
+
+Open Multi-Agent is the advanced path for teams that want to turn a proven human-in-the-loop coding
+workflow into repeatable open-source automation. Keep OpenCode as the first daily driver: it is the
+place where developers learn the workflow, validate skills, and decide what is actually useful. Add
+Open Multi-Agent when a skill has become valuable enough to run as a TypeScript workflow, backend
+job, or CI-like check.
+
+```bash
+npm install @jackchen_me/open-multi-agent
+coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+```
+
+This writes `.coding-scaffold/OPEN_MULTI_AGENT.md`,
+`.coding-scaffold/open-multi-agent.team.json`, and
+`examples/open-multi-agent/team-coding-workflow.ts`. The generated guide keeps the adoption path
+explicit: validate interactively first, capture the skill, run the workflow in plan-only mode, then
+allow execution only after the team has reviewed permissions, traces, and verification signals.
+
+That keeps the scaffold open: OpenCode for interactive agentic coding, RouteLLM for optional model
+routing, Open Multi-Agent for optional workflow automation, and local/OpenAI-compatible providers
+underneath.
+
 ## What It Creates
 
 `coding-scaffold init` writes a `.coding-scaffold/` folder in the target project:
@@ -220,6 +243,10 @@ embeddings, even if one routed model is local.
 - `openclaude.json`: equivalent hints for OpenClaude-style tools.
 - `ROUTELLM.md`: optional RouteLLM setup guide when generated with `coding-scaffold route`.
 - `routellm.config.yaml`: optional RouteLLM server config when a strong/weak pair exists.
+- `OPEN_MULTI_AGENT.md`: optional advanced workflow backend guide when generated with
+  `coding-scaffold workflow`.
+- `open-multi-agent.team.json`: optional Open Multi-Agent team-role config.
+- `examples/open-multi-agent/team-coding-workflow.ts`: optional TypeScript starter workflow.
 - `AGENTS.md`: project-specific operating notes for coding agents.
 - `FIRST_SESSION.md`: the recommended first agentic coding walkthrough.
 
@@ -252,6 +279,7 @@ embeddings, even if one routed model is local.
    ```
 
 8. Add RouteLLM later only if you need endpoint-level model routing.
+9. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
 
 ## Notes On Models
 
@@ -273,6 +301,7 @@ coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold route --target ~/dev/my-project --backend routellm
+coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 coding-scaffold wizard --target ~/dev/my-project --beginner
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold doctor

@@ -281,6 +281,22 @@ coding-scaffold route --target . --backend routellm
 Read `.coding-scaffold/ROUTELLM.md` before starting the server; some routers require an
 `OPENAI_API_KEY` for embeddings even when one routed model is local.
 
+## Open Multi-Agent
+
+Open Multi-Agent is optional advanced workflow automation, not the first onboarding step. Use it
+when a skill has proven useful in OpenCode and should become a repeatable TypeScript workflow,
+backend job, or CI-like check.
+
+```bash
+npm install @jackchen_me/open-multi-agent
+coding-scaffold workflow --target . --backend open-multi-agent
+```
+
+This writes `.coding-scaffold/OPEN_MULTI_AGENT.md`,
+`.coding-scaffold/open-multi-agent.team.json`, and
+`examples/open-multi-agent/team-coding-workflow.ts`. Start in plan-only mode and review the task
+DAG, permissions, traces, and verification signals before allowing execution.
+
 ## Adding The Next Tool
 
 New agents will keep appearing. Add one by creating a new adapter file in `.coding-scaffold/`, then
@@ -367,6 +383,17 @@ Inside OpenCode:
 
 The first command builds context without editing. The second runs a small explorer -> implementer ->
 reviewer loop so the user sees the difference between a coding assistant and an agentic workflow.
+
+## Repeatable Workflow Backend
+
+When an interactive workflow has proven itself, generate an optional Open Multi-Agent backend:
+
+```bash
+coding-scaffold workflow --target . --backend open-multi-agent
+```
+
+Use this for repeatable automation, not discovery. Keep discovery and skill validation in OpenCode;
+move to Open Multi-Agent only when the team wants a reviewed, observable TypeScript workflow.
 
 ## When To Escalate
 
@@ -486,6 +513,7 @@ Heavy-lift model: `{routing.strong_model}`
 6. Configure local provider keys with `CREDENTIALS.md`.
 7. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
 8. Improve skills when they miss context, overreach, or fail to verify correctly.
+9. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 
@@ -623,6 +651,17 @@ The template is written to `.coding-scaffold/skills/`.
 - Check whether verification was specific enough.
 - Ask a teammate to review the output.
 - Update the skill when it misses an important project convention.
+
+## Graduate Proven Skills
+
+When a skill consistently helps, turn it into repeatable automation:
+
+```bash
+coding-scaffold workflow --target . --backend open-multi-agent
+```
+
+Use the generated Open Multi-Agent example as a starting point for reviewed TypeScript workflows
+that peers can run, inspect, and improve without tying the team to one vendor.
 """
 
 
