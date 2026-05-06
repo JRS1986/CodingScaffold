@@ -12,6 +12,7 @@ def test_parser_lists_user_facing_commands() -> None:
     assert "select-model" in help_text
     assert "knowledge" in help_text
     assert "policy" in help_text
+    assert "setup-addon" in help_text
     assert "setup-tool" in help_text
     assert "workflow" in help_text
 
@@ -93,6 +94,19 @@ def test_setup_tool_command(monkeypatch, capsys) -> None:
     assert main(["setup-tool", "--tool", "opencode"]) == 0
 
     assert "opencode: present" in capsys.readouterr().out
+
+
+def test_setup_addon_command(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.cli.install_missing_addons",
+        lambda addon, interactive, assume_yes=False, target=None: [
+            ToolInstallResult(addon, "present", "llmfit is already installed.")
+        ],
+    )
+
+    assert main(["setup-addon", "--target", str(tmp_path), "--addon", "llmfit"]) == 0
+
+    assert "llmfit: present" in capsys.readouterr().out
 
 
 def test_select_model_with_prompt(tmp_path, capsys) -> None:

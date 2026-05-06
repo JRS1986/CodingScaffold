@@ -78,10 +78,12 @@ Obsidian mode keeps Markdown as the source of truth while adding vault structure
 frontmatter templates, and graph-friendly navigation:
 
 ```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
 coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
 ```
 
-Use this when humans want a better reading and navigation layer.
+Use this when humans want a better reading and navigation layer. In WSL, install the desktop app on
+Windows and open `.coding-scaffold/knowledge` as a vault.
 
 ## MemPalace
 

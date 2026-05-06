@@ -1,4 +1,4 @@
-from coding_scaffold.installers import install_missing_tools
+from coding_scaffold.installers import install_missing_addons, install_missing_tools
 
 
 def test_install_missing_tools_reports_present_tool(monkeypatch) -> None:
@@ -28,10 +28,51 @@ def test_install_missing_tools_runs_installer_when_confirmed(monkeypatch) -> Non
     monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
     monkeypatch.setattr(
         "coding_scaffold.installers.subprocess.run",
-        lambda command, check: calls.append(command) or Completed(),
+        lambda command, check, cwd=None: calls.append(command) or Completed(),
     )
 
     results = install_missing_tools("opencode", interactive=False, assume_yes=True)
 
     assert results[0].status == "installed"
     assert calls == [["bash", "-lc", "curl -fsSL https://opencode.ai/install | bash"]]
+
+
+def test_install_missing_addon_reports_routellm_missing(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.importlib.util.find_spec", lambda name: None)
+
+    results = install_missing_addons("routellm", interactive=False)
+
+    assert results[0].status == "missing"
+    assert "routellm[serve,eval]" in results[0].message
+
+
+def test_install_missing_addon_installs_open_multi_agent_in_target(tmp_path, monkeypatch) -> None:
+    calls: list[tuple[list[str], object]] = []
+
+    class Completed:
+        returncode = 0
+
+    monkeypatch.setattr(
+        "coding_scaffold.installers.subprocess.run",
+        lambda command, check, cwd=None: calls.append((command, cwd)) or Completed(),
+    )
+
+    results = install_missing_addons(
+        "open-multi-agent",
+        interactive=False,
+        assume_yes=True,
+        target=tmp_path,
+    )
+
+    assert results[0].status == "installed"
+    assert calls == [(["npm", "install", "@jackchen_me/open-multi-agent"], tmp_path)]
+
+
+def test_obsidian_in_wsl_is_manual(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+    monkeypatch.setattr("coding_scaffold.installers._is_wsl", lambda: True)
+
+    results = install_missing_addons("obsidian", interactive=False)
+
+    assert results[0].status == "manual"
+    assert "desktop app" in results[0].message

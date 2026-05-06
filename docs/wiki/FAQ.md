@@ -16,6 +16,13 @@ Yes, when it is running interactively and the selected coding environment is mis
 installing. You can also run `coding-scaffold setup-tool --tool opencode` to validate the tool, or
 add `--install` to install a missing tool intentionally.
 
+## Does the scaffold install optional add-ons too?
+
+Yes. Use `coding-scaffold setup-addon --addon llmfit`, `routellm`, `open-multi-agent`, or
+`obsidian`. The wizard can also offer add-ons interactively. RouteLLM installs into the active
+Python environment, Open Multi-Agent installs into the target Node.js project, and Obsidian remains
+manual on WSL because it is a desktop app.
+
 ## Does it require cloud APIs?
 
 No. It can work local-only. Cloud providers are used only when credentials are configured and the

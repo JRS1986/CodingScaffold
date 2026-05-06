@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
+import platform
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -13,6 +17,8 @@ class ToolInstallPlan:
     install_command: list[str]
     install_description: str
     post_install: str
+    cwd: Path | None = None
+    installable: bool = True
 
 
 @dataclass(frozen=True)
@@ -31,45 +37,28 @@ def install_missing_tools(
     selection: str,
     interactive: bool,
     assume_yes: bool = False,
+    target: Path | None = None,
 ) -> list[ToolInstallResult]:
     results: list[ToolInstallResult] = []
     for plan in build_install_plans(selection):
-        if plan.detected:
-            results.append(ToolInstallResult(plan.tool, "present", f"{plan.executable} is already installed."))
-            continue
-        if not interactive and not assume_yes:
-            results.append(
-                ToolInstallResult(
-                    plan.tool,
-                    "missing",
-                    f"{plan.executable} is not installed. Run: {' '.join(plan.install_command)}",
-                )
-            )
-            continue
-        if not assume_yes and not _confirm_install(plan):
-            results.append(ToolInstallResult(plan.tool, "skipped", f"Skipped installing {plan.tool}."))
-            continue
-        try:
-            completed = subprocess.run(plan.install_command, check=False)
-        except OSError as exc:
-            results.append(
-                ToolInstallResult(
-                    plan.tool,
-                    "failed",
-                    f"Could not start installer for {plan.tool}: {exc}",
-                )
-            )
-            continue
-        if completed.returncode == 0:
-            results.append(ToolInstallResult(plan.tool, "installed", plan.post_install))
-        else:
-            results.append(
-                ToolInstallResult(
-                    plan.tool,
-                    "failed",
-                    f"{plan.tool} installer exited with code {completed.returncode}.",
-                )
-            )
+        results.append(_install_plan(plan, interactive, assume_yes, target))
+    return results
+
+
+def build_addon_install_plans(selection: str, target: Path | None = None) -> list[ToolInstallPlan]:
+    addons = ["llmfit", "routellm", "open-multi-agent", "obsidian"] if selection == "all" else [selection]
+    return [_addon_plan_for(addon, target) for addon in addons]
+
+
+def install_missing_addons(
+    selection: str,
+    interactive: bool,
+    assume_yes: bool = False,
+    target: Path | None = None,
+) -> list[ToolInstallResult]:
+    results: list[ToolInstallResult] = []
+    for plan in build_addon_install_plans(selection, target):
+        results.append(_install_plan(plan, interactive, assume_yes, target))
     return results
 
 
@@ -93,6 +82,128 @@ def _plan_for(tool: str) -> ToolInstallPlan:
     )
 
 
+def _addon_plan_for(addon: str, target: Path | None = None) -> ToolInstallPlan:
+    root = target.expanduser().resolve() if target else Path.cwd()
+    if addon == "llmfit":
+        if shutil.which("brew"):
+            command = ["brew", "install", "llmfit"]
+            description = "Install llmfit with Homebrew for hardware-aware local model fitting."
+        else:
+            command = ["bash", "-lc", "curl -fsSL https://llmfit.axjns.dev/install.sh | sh"]
+            description = "Install llmfit with the official quick install script."
+        return ToolInstallPlan(
+            tool="llmfit",
+            executable="llmfit",
+            detected=shutil.which("llmfit") is not None,
+            install_command=command,
+            install_description=description,
+            post_install="llmfit installed. Run hardware checks with: llmfit",
+        )
+    if addon == "routellm":
+        return ToolInstallPlan(
+            tool="routellm",
+            executable="python package routellm",
+            detected=importlib.util.find_spec("routellm") is not None,
+            install_command=[sys.executable, "-m", "pip", "install", "routellm[serve,eval]"],
+            install_description="Install RouteLLM into the active Python environment.",
+            post_install="RouteLLM installed. Generate config with: coding-scaffold route --target .",
+        )
+    if addon == "open-multi-agent":
+        return ToolInstallPlan(
+            tool="open-multi-agent",
+            executable="node package @jackchen_me/open-multi-agent",
+            detected=(root / "node_modules" / "@jackchen_me" / "open-multi-agent").exists(),
+            install_command=["npm", "install", "@jackchen_me/open-multi-agent"],
+            install_description="Install Open Multi-Agent into the target Node.js project.",
+            post_install="Open Multi-Agent installed. Generate workflow files with: coding-scaffold workflow --target .",
+            cwd=root,
+        )
+    return _obsidian_plan()
+
+
+def _obsidian_plan() -> ToolInstallPlan:
+    detected = shutil.which("obsidian") is not None
+    if _is_wsl():
+        return ToolInstallPlan(
+            tool="obsidian",
+            executable="obsidian",
+            detected=detected,
+            install_command=[],
+            install_description=(
+                "Obsidian is a desktop app. In WSL, install it on Windows and open "
+                ".coding-scaffold/knowledge as a vault."
+            ),
+            post_install="Open .coding-scaffold/knowledge as an Obsidian vault.",
+            installable=False,
+        )
+    if platform.system() == "Darwin" and shutil.which("brew"):
+        return ToolInstallPlan(
+            tool="obsidian",
+            executable="obsidian",
+            detected=detected,
+            install_command=["brew", "install", "--cask", "obsidian"],
+            install_description="Install the Obsidian desktop app with Homebrew Cask.",
+            post_install="Obsidian installed. Open .coding-scaffold/knowledge as a vault.",
+        )
+    if shutil.which("snap"):
+        return ToolInstallPlan(
+            tool="obsidian",
+            executable="obsidian",
+            detected=detected,
+            install_command=["sudo", "snap", "install", "obsidian", "--classic"],
+            install_description="Install the Obsidian desktop app from Snap.",
+            post_install="Obsidian installed. Open .coding-scaffold/knowledge as a vault.",
+        )
+    return ToolInstallPlan(
+        tool="obsidian",
+        executable="obsidian",
+        detected=detected,
+        install_command=[],
+        install_description=(
+            "Obsidian was not found and no supported installer was detected. Install it from "
+            "https://obsidian.md/download and open .coding-scaffold/knowledge as a vault."
+        ),
+        post_install="Open .coding-scaffold/knowledge as an Obsidian vault.",
+        installable=False,
+    )
+
+
+def _install_plan(
+    plan: ToolInstallPlan,
+    interactive: bool,
+    assume_yes: bool,
+    target: Path | None = None,
+) -> ToolInstallResult:
+    if plan.detected:
+        return ToolInstallResult(plan.tool, "present", f"{plan.executable} is already installed.")
+    if not plan.installable:
+        return ToolInstallResult(plan.tool, "manual", plan.install_description)
+    if not interactive and not assume_yes:
+        return ToolInstallResult(
+            plan.tool,
+            "missing",
+            f"{plan.executable} is not installed. Run: {' '.join(plan.install_command)}",
+        )
+    if not assume_yes and not _confirm_install(plan):
+        return ToolInstallResult(plan.tool, "skipped", f"Skipped installing {plan.tool}.")
+    cwd = plan.cwd or (target.expanduser().resolve() if target else None)
+    try:
+        completed = subprocess.run(plan.install_command, check=False, cwd=cwd)
+    except OSError as exc:
+        return ToolInstallResult(
+            plan.tool,
+            "failed",
+            f"Could not start installer for {plan.tool}: {exc}",
+        )
+    if completed.returncode == 0:
+        return ToolInstallResult(plan.tool, "installed", plan.post_install)
+    return ToolInstallResult(
+        plan.tool,
+        "failed",
+        f"{plan.tool} installer exited with code {completed.returncode}.",
+    )
+
+
 def _confirm_install(plan: ToolInstallPlan) -> bool:
     command = " ".join(plan.install_command)
     answer = input(
@@ -101,3 +212,13 @@ def _confirm_install(plan: ToolInstallPlan) -> bool:
         "Install now? [y/N]: "
     ).strip()
     return answer.lower() in {"y", "yes"}
+
+
+def _is_wsl() -> bool:
+    if platform.system() != "Linux":
+        return False
+    try:
+        version = Path("/proc/version").read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+    return "microsoft" in version or "wsl" in version

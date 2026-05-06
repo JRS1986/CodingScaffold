@@ -70,6 +70,15 @@ coding-scaffold setup-tool --tool opencode
 coding-scaffold setup-tool --tool opencode --install
 ```
 
+Optional add-ons use the same pattern:
+
+```bash
+coding-scaffold setup-addon --target . --addon llmfit
+coding-scaffold setup-addon --target . --addon routellm
+coding-scaffold setup-addon --target . --addon open-multi-agent
+coding-scaffold setup-addon --target . --addon obsidian
+```
+
 Then start the first session:
 
 ```bash
@@ -219,6 +228,7 @@ coding-scaffold knowledge --target ~/dev/my-project \
 Obsidian vault mode:
 
 ```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
 coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
 ```
 
@@ -264,7 +274,7 @@ RouteLLM can provide one OpenAI-compatible endpoint that routes actual requests 
 weak/routine model and a strong/heavy-lift model:
 
 ```bash
-python -m pip install "routellm[serve,eval]"
+coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold route --target ~/dev/my-project --backend routellm
 ```
 
@@ -272,7 +282,7 @@ Open Multi-Agent can turn a validated human-in-the-loop workflow into repeatable
 automation:
 
 ```bash
-npm install @jackchen_me/open-multi-agent
+coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 ```
 
@@ -314,6 +324,10 @@ coding-scaffold wizard --target ~/dev/my-project
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold credentials --target ~/dev/my-project --format env
 coding-scaffold setup-tool --tool opencode
+coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
+coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
+coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"

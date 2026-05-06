@@ -9,7 +9,7 @@ from .adapters import write_route_backend, write_tool_adapter, write_workflow_ba
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
-from .installers import install_missing_tools
+from .installers import install_missing_addons, install_missing_tools
 from .intake import IntakeAnswers, collect_intake
 from .knowledge import write_knowledge_base
 from .model_selection import select_model_for_prompt
@@ -43,6 +43,14 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--mode", choices=["standard", "beginner"], default=None)
     init.add_argument("--non-interactive", action="store_true", help="Use defaults for missing values.")
     init.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
+    init.add_argument(
+        "--addon",
+        action="append",
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        default=[],
+        help="Validate or install an optional add-on. Repeat for multiple add-ons.",
+    )
+    init.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
 
     wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -50,6 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--coding-tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
     wizard.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
     wizard.add_argument("--no-install-tools", action="store_true", help="Do not offer coding tool installation.")
+    wizard.add_argument(
+        "--addon",
+        action="append",
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        default=[],
+        help="Validate or install an optional add-on. Repeat for multiple add-ons.",
+    )
+    wizard.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
+    wizard.add_argument("--no-install-addons", action="store_true", help="Do not offer optional add-on setup.")
 
     credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
     credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -78,6 +95,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--install",
         action="store_true",
         help="Install missing tools without an extra prompt when stdin is not interactive.",
+    )
+
+    setup_addon = sub.add_parser("setup-addon", help="Install or validate optional scaffold add-ons.")
+    setup_addon.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    setup_addon.add_argument(
+        "--addon",
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        default="llmfit",
+    )
+    setup_addon.add_argument(
+        "--install",
+        action="store_true",
+        help="Install missing add-ons without an extra prompt when stdin is not interactive.",
     )
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
@@ -196,6 +226,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{result.tool}: {result.status} - {result.message}")
         return 1 if any(result.status == "failed" for result in results) else 0
 
+    if args.command == "setup-addon":
+        results = install_missing_addons(
+            args.addon,
+            interactive=sys.stdin.isatty(),
+            assume_yes=args.install,
+            target=args.target,
+        )
+        for result in results:
+            print(f"{result.tool}: {result.status} - {result.message}")
+        return 1 if any(result.status == "failed" for result in results) else 0
+
     if args.command == "policy":
         adapter = None if args.adapter == "none" else args.adapter
         result = write_policy_pack(
@@ -270,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = write_scaffold(target, answers, hardware, providers, routing)
         selected_tool = answers.agent or "opencode"
         install_results = _maybe_install_tools(selected_tool, args, is_wizard)
+        addon_results = _maybe_install_addons(args, is_wizard, target)
         adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
         if adapter:
@@ -277,6 +319,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("Skipped tool adapter generation.")
         for result in install_results:
+            print(f"{result.tool}: {result.status} - {result.message}")
+        for result in addon_results:
             print(f"{result.tool}: {result.status} - {result.message}")
         print(f"Selected weak model: {routing.weak_model or 'none'}")
         print(f"Selected strong model: {routing.strong_model or 'none'}")
@@ -303,6 +347,42 @@ def _maybe_install_tools(
         interactive=sys.stdin.isatty(),
         assume_yes=getattr(args, "install_tools", False),
     )
+
+
+def _maybe_install_addons(
+    args: argparse.Namespace,
+    is_wizard: bool,
+    target: Path,
+):
+    if getattr(args, "no_install_addons", False):
+        return []
+    selected = list(getattr(args, "addon", []) or [])
+    if is_wizard and sys.stdin.isatty() and not selected:
+        selected = _prompt_addons()
+    if not selected:
+        return []
+    results = []
+    for addon in selected:
+        results.extend(
+            install_missing_addons(
+                addon,
+                interactive=sys.stdin.isatty(),
+                assume_yes=getattr(args, "install_addons", False),
+                target=target,
+            )
+        )
+    return results
+
+
+def _prompt_addons() -> list[str]:
+    answer = input(
+        "Optional add-ons to validate/install "
+        "(comma-separated: llmfit, routellm, open-multi-agent, obsidian, all; empty skips) []: "
+    ).strip()
+    if not answer:
+        return []
+    allowed = {"llmfit", "routellm", "open-multi-agent", "obsidian", "all"}
+    return [part for part in (item.strip() for item in answer.split(",")) if part in allowed]
 
 
 def _print_probe(payload: dict[str, object]) -> None:

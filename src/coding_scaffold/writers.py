@@ -375,7 +375,7 @@ RouteLLM is optional advanced routing, not the default onboarding path. Use it w
 OpenAI-compatible local router endpoint between a weak/routine model and a strong/heavy-lift model.
 
 ```bash
-python -m pip install "routellm[serve,eval]"
+coding-scaffold setup-addon --target . --addon routellm
 coding-scaffold route --target . --backend routellm
 ```
 
@@ -389,7 +389,7 @@ when a skill has proven useful in OpenCode and should become a repeatable TypeSc
 backend job, or CI-like check.
 
 ```bash
-npm install @jackchen_me/open-multi-agent
+coding-scaffold setup-addon --target . --addon open-multi-agent
 coding-scaffold workflow --target . --backend open-multi-agent
 ```
 
@@ -623,10 +623,11 @@ Heavy-lift model: `{routing.strong_model}`
 6. Recheck the route when an answer feels wrong: restate the task, add context, or use the stronger model.
 7. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
 8. Configure local provider keys with `CREDENTIALS.md`.
-9. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-10. Create shared team memory with `coding-scaffold knowledge --target .`.
-11. Improve skills when they miss context, overreach, or fail to verify correctly.
-12. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
+9. Use `coding-scaffold setup-addon --target . --addon llmfit` for deeper hardware-aware model sizing.
+10. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
+11. Create shared team memory with `coding-scaffold knowledge --target .`.
+12. Improve skills when they miss context, overreach, or fail to verify correctly.
+13. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 

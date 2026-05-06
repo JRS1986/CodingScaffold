@@ -8,7 +8,7 @@ RouteLLM can expose one OpenAI-compatible endpoint that routes actual requests b
 and strong/heavy-lift models.
 
 ```bash
-python -m pip install "routellm[serve,eval]"
+coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold route --target ~/dev/my-project --backend routellm
 ```
 
@@ -25,7 +25,7 @@ Use RouteLLM when endpoint-level model routing matters. For simple explainable r
 Open Multi-Agent is an optional workflow backend for repeatable TypeScript automation:
 
 ```bash
-npm install @jackchen_me/open-multi-agent
+coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 ```
 
@@ -42,4 +42,3 @@ Recommended adoption path:
 3. Run the generated workflow in plan-only mode.
 4. Review permissions, traces, and verification signals.
 5. Automate only after the team trusts the process.
-

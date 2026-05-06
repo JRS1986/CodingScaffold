@@ -51,6 +51,18 @@ Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
 Use `coding-scaffold setup-tool --tool both` when a team wants to compare both tools on the same
 project.
 
+## Optional Tooling
+
+Tool adapters are the coding surface. Add-ons support model sizing, routing, team automation, and
+knowledge navigation:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
+coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
+coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
+```
+
 ## Adding Another Tool
 
 When adding a new adapter, document:

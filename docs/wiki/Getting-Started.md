@@ -67,6 +67,22 @@ opencode
 Use `coding-scaffold setup-tool --tool opencode --install` when you want the CLI to install a
 missing tool without a second prompt, for example in a prepared dev container.
 
+## Optional Add-Ons
+
+Use the same validate-or-install flow for optional pieces:
+
+```bash
+coding-scaffold setup-addon --target . --addon llmfit
+coding-scaffold setup-addon --target . --addon obsidian
+coding-scaffold setup-addon --target . --addon routellm
+coding-scaffold setup-addon --target . --addon open-multi-agent
+```
+
+`llmfit` is useful early because it improves hardware-aware model choice. RouteLLM and Open
+Multi-Agent are advanced; add them after the first agentic coding loop is working. Obsidian is a
+desktop app, so WSL users should usually install it on Windows and open `.coding-scaffold/knowledge`
+as a vault.
+
 Inside OpenCode:
 
 ```text
