@@ -78,6 +78,7 @@ coding-scaffold setup-addon --target . --addon llmfit
 coding-scaffold setup-addon --target . --addon routellm
 coding-scaffold setup-addon --target . --addon open-multi-agent
 coding-scaffold setup-addon --target . --addon obsidian
+coding-scaffold setup-addon --target . --addon caveman-compression
 ```
 
 Shared knowledge can also be configured as part of setup:
@@ -283,6 +284,35 @@ knowledge needs different permissions. Promote mature notes upward by pull reque
 automatic sync, and use `coding-scaffold knowledge-status --target .` to check scope/maturity
 metadata.
 
+## Context Hygiene
+
+Long context is powerful, but it is not free. Agents can miss important facts in the middle of a
+large prompt, stale notes can steer a session, and compressed summaries can accidentally hide the
+detail a change needs. CodingScaffold treats context as something to budget and curate, not
+something to shovel into a model until the meter turns red.
+
+Check the project knowledge budget:
+
+```bash
+coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+```
+
+The default guardrail warns above 100,000 estimated tokens or 40% of the configured context window.
+Those thresholds are intentionally conservative. They tell the developer to narrow retrieval,
+compress supporting notes, or start a fresh session before old context starts bending the task.
+
+Create compressed sidecars for Markdown knowledge:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+```
+
+This writes `.caveman.md` sidecars next to the original files. Originals stay the reviewed source
+of truth; sidecars are optional agent input. Use compression for reference notes, session logs, and
+large knowledge articles. Keep policies, security rules, requirements, and active code uncompressed
+unless a human explicitly reviews the compressed version.
+
 ## Policy Packs
 
 Policy packs let teams carry local AI-coding defaults into generated tool config:
@@ -324,6 +354,17 @@ coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 The intended path is: validate interactively in OpenCode, capture the useful behavior as a skill,
 then graduate it into workflow automation only after the team trusts the process.
 
+Caveman Compression is an experimental optional sidecar for token-constrained contexts:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context-budget --target ~/dev/my-project --source team
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+```
+
+Use it when the knowledge base is useful but too wordy for repeated agent sessions. Avoid using it
+as a substitute for better retrieval, smaller task boundaries, or fresh sessions.
+
 ## What It Creates
 
 `coding-scaffold init` writes `.coding-scaffold/` in the target project:
@@ -350,6 +391,7 @@ Optional commands can also generate:
 - `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
 - `.coding-scaffold/OPEN_MULTI_AGENT.md`, `open-multi-agent.team.json`, and a TypeScript example.
 - Obsidian vault files under `.coding-scaffold/knowledge/.obsidian/`.
+- `.coding-scaffold/tools/caveman-compression/` and `.caveman.md` context sidecars.
 
 ## Commands
 
@@ -363,8 +405,11 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
 coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
 coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
 coding-scaffold knowledge-status --target ~/dev/my-project
+coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge
 coding-scaffold team init --target ~/dev/my-project --team platform-api
 coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
 coding-scaffold team sync --target ~/dev/my-project

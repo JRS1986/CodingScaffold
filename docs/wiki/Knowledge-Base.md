@@ -78,10 +78,12 @@ Check the current state:
 
 ```bash
 coding-scaffold knowledge-status --target ~/dev/my-project
+coding-scaffold context-budget --target ~/dev/my-project --source knowledge
 ```
 
 The status command counts notes by scope and maturity, and flags missing frontmatter on layered
-notes.
+notes. The budget command estimates whether the knowledge base is still a healthy size for an
+agent session. See [[Context Hygiene]] before compressing or loading large shared notes.
 
 ## Obsidian
 

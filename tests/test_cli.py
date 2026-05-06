@@ -12,6 +12,8 @@ def test_parser_lists_user_facing_commands() -> None:
     assert "select-model" in help_text
     assert "knowledge" in help_text
     assert "knowledge-status" in help_text
+    assert "context-budget" in help_text
+    assert "compress-context" in help_text
     assert "policy" in help_text
     assert "setup-addon" in help_text
     assert "setup-knowledge" in help_text
@@ -62,6 +64,27 @@ def test_knowledge_status_command(tmp_path, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     assert "counts" in payload
+
+
+def test_context_budget_command(tmp_path, capsys) -> None:
+    main(["knowledge", "--target", str(tmp_path)])
+    capsys.readouterr()
+
+    assert main(["context-budget", "--target", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["source"] == "knowledge"
+    assert "tokens_estimate" in payload
+
+
+def test_compress_context_command(tmp_path, capsys) -> None:
+    main(["knowledge", "--target", str(tmp_path)])
+    capsys.readouterr()
+
+    assert main(["compress-context", "--target", str(tmp_path)]) == 0
+
+    assert "compressed context sidecar" in capsys.readouterr().out
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.caveman.md").exists()
 
 
 def test_setup_knowledge_command(tmp_path) -> None:

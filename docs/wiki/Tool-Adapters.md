@@ -61,6 +61,7 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
 coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
 ```
 
 ## Adding Another Tool

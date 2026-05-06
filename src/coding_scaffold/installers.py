@@ -46,7 +46,11 @@ def install_missing_tools(
 
 
 def build_addon_install_plans(selection: str, target: Path | None = None) -> list[ToolInstallPlan]:
-    addons = ["llmfit", "routellm", "open-multi-agent", "obsidian"] if selection == "all" else [selection]
+    addons = (
+        ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression"]
+        if selection == "all"
+        else [selection]
+    )
     return [_addon_plan_for(addon, target) for addon in addons]
 
 
@@ -118,6 +122,26 @@ def _addon_plan_for(addon: str, target: Path | None = None) -> ToolInstallPlan:
             post_install="Open Multi-Agent installed. Generate workflow files with: coding-scaffold workflow --target .",
             cwd=root,
         )
+    if addon == "caveman-compression":
+        tools_dir = root / ".coding-scaffold" / "tools"
+        tool_dir = tools_dir / "caveman-compression"
+        return ToolInstallPlan(
+            tool="caveman-compression",
+            executable="local clone .coding-scaffold/tools/caveman-compression",
+            detected=tool_dir.exists(),
+            install_command=[
+                "git",
+                "clone",
+                "https://github.com/wilpel/caveman-compression.git",
+                "caveman-compression",
+            ],
+            install_description="Clone Caveman Compression for optional token-saving context compression.",
+            post_install=(
+                "Caveman Compression cloned. Try scaffold sidecars with: "
+                "coding-scaffold compress-context --target ."
+            ),
+            cwd=tools_dir,
+        )
     return _obsidian_plan()
 
 
@@ -188,6 +212,8 @@ def _install_plan(
         return ToolInstallResult(plan.tool, "skipped", f"Skipped installing {plan.tool}.")
     cwd = plan.cwd or (target.expanduser().resolve() if target else None)
     try:
+        if cwd:
+            cwd.mkdir(parents=True, exist_ok=True)
         completed = subprocess.run(plan.install_command, check=False, cwd=cwd)
     except OSError as exc:
         return ToolInstallResult(

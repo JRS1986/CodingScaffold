@@ -18,10 +18,11 @@ add `--install` to install a missing tool intentionally.
 
 ## Does the scaffold install optional add-ons too?
 
-Yes. Use `coding-scaffold setup-addon --addon llmfit`, `routellm`, `open-multi-agent`, or
-`obsidian`. The wizard can also offer add-ons interactively. RouteLLM installs into the active
-Python environment, Open Multi-Agent installs into the target Node.js project, and Obsidian remains
-manual on WSL because it is a desktop app.
+Yes. Use `coding-scaffold setup-addon --addon llmfit`, `routellm`, `open-multi-agent`,
+`obsidian`, or `caveman-compression`. The wizard can also offer add-ons interactively. RouteLLM
+installs into the active Python environment, Open Multi-Agent installs into the target Node.js
+project, Caveman Compression is cloned under `.coding-scaffold/tools/`, and Obsidian remains manual
+on WSL because it is a desktop app.
 
 ## Can setup configure the shared knowledge remote?
 
@@ -48,6 +49,14 @@ plan, edit, verify, review, and preserve reusable team habits.
 
 Markdown works in Git, GitHub, GitLab, editors, Obsidian, and memory tools. It is easy to review
 and easy to migrate.
+
+## Can CodingScaffold avoid context poisoning?
+
+It can catch the easy cases early. Run `coding-scaffold context-budget --target . --source team`
+to estimate whether shared knowledge, skills, policy, and agents are getting too large for a healthy
+session. Run `coding-scaffold compress-context --target . --source knowledge` to create optional
+compressed sidecars. Still use human judgment: narrow retrieval, keep policy uncompressed, and open
+a fresh session when history has become stale.
 
 ## Should every team use RouteLLM or Open Multi-Agent?
 

@@ -399,6 +399,20 @@ This writes `.coding-scaffold/OPEN_MULTI_AGENT.md`,
 `examples/open-multi-agent/team-coding-workflow.ts`. Start in plan-only mode and review the task
 DAG, permissions, traces, and verification signals before allowing execution.
 
+## Context Budget And Compression
+
+Large context can make agent sessions less precise. Check the budget before loading broad team
+knowledge, then compress optional reference notes only as sidecars:
+
+```bash
+coding-scaffold context-budget --target . --source team
+coding-scaffold setup-addon --target . --addon caveman-compression
+coding-scaffold compress-context --target . --source knowledge
+```
+
+Use `.caveman.md` sidecars for reference-heavy sessions. Keep original Markdown, policies,
+requirements, and active code as the source of truth.
+
 ## Adding The Next Tool
 
 New agents will keep appearing. Add one by creating a new adapter file in `.coding-scaffold/`, then
@@ -625,10 +639,12 @@ Heavy-lift model: `{routing.strong_model}`
 7. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
 8. Configure local provider keys with `CREDENTIALS.md`.
 9. Use `coding-scaffold setup-addon --target . --addon llmfit` for deeper hardware-aware model sizing.
-10. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-11. Create shared team memory with `coding-scaffold setup-knowledge --target . --backend markdown`.
-12. Improve skills when they miss context, overreach, or fail to verify correctly.
-13. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
+10. Check context health with `coding-scaffold context-budget --target . --source team`.
+11. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
+12. Create shared team memory with `coding-scaffold setup-knowledge --target . --backend markdown`.
+13. Improve skills when they miss context, overreach, or fail to verify correctly.
+14. Compress optional reference notes with `coding-scaffold setup-addon --target . --addon caveman-compression` and `coding-scaffold compress-context --target . --source knowledge`.
+15. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 

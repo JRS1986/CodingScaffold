@@ -42,7 +42,7 @@ def write_team_manifest(
         "tools": {
             "default": default_tool,
             "required_addons": ["llmfit"],
-            "optional_addons": ["obsidian", "routellm", "open-multi-agent"],
+            "optional_addons": ["obsidian", "routellm", "open-multi-agent", "caveman-compression"],
         },
         "security": {
             "secrets_allowed": False,

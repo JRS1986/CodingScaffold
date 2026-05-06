@@ -6,6 +6,13 @@ import sys
 from pathlib import Path
 
 from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
+from .context import (
+    DEFAULT_CONTEXT_WINDOW,
+    DEFAULT_MAX_CONTEXT_RATIO,
+    DEFAULT_MAX_CONTEXT_TOKENS,
+    compress_context,
+    inspect_context_budget,
+)
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
@@ -53,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument(
         "--addon",
         action="append",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
         default=[],
         help="Validate or install an optional add-on. Repeat for multiple add-ons.",
     )
@@ -81,7 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument(
         "--addon",
         action="append",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
         default=[],
         help="Validate or install an optional add-on. Repeat for multiple add-ons.",
     )
@@ -116,6 +123,27 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     knowledge_status.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
+    context_budget = sub.add_parser("context-budget", help="Estimate context size and safety budget.")
+    context_budget.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    context_budget.add_argument(
+        "--source",
+        default="knowledge",
+        help="Source to inspect: knowledge, team, or a path relative to target.",
+    )
+    context_budget.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_CONTEXT_TOKENS)
+    context_budget.add_argument("--context-window", type=int, default=DEFAULT_CONTEXT_WINDOW)
+    context_budget.add_argument("--max-ratio", type=float, default=DEFAULT_MAX_CONTEXT_RATIO)
+    context_budget.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    compress = sub.add_parser("compress-context", help="Write compressed sidecars for context files.")
+    compress.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    compress.add_argument(
+        "--source",
+        default="knowledge",
+        help="Source to compress: knowledge, team, or a path relative to target.",
+    )
+    compress.add_argument("--overwrite", action="store_true", help="Rewrite existing .caveman sidecars.")
+
     orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
@@ -133,7 +161,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_addon.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_addon.add_argument(
         "--addon",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "all"],
+        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
         default="llmfit",
     )
     setup_addon.add_argument(
@@ -285,6 +313,29 @@ def main(argv: list[str] | None = None) -> int:
             for warning in status.warnings:
                 print(f"Warning: {warning}", file=sys.stderr)
         return 1 if status.warnings and not status.counts else 0
+
+    if args.command == "context-budget":
+        budget = inspect_context_budget(
+            args.target,
+            source=args.source,
+            max_tokens=args.max_tokens,
+            context_window=args.context_window,
+            max_ratio=args.max_ratio,
+        )
+        if args.json:
+            print(json.dumps(budget.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_context_budget(budget.to_dict())
+        return 1 if budget.warnings else 0
+
+    if args.command == "compress-context":
+        result = compress_context(args.target, source=args.source, overwrite=args.overwrite)
+        print(f"Wrote {len(result.files)} compressed context sidecar(s).")
+        if result.skipped:
+            print(f"Skipped {len(result.skipped)} existing sidecar(s).")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return 0
 
     if args.command == "orchestrate":
         adapter = None if args.adapter == "none" else args.adapter
@@ -510,11 +561,12 @@ def _maybe_install_addons(
 def _prompt_addons() -> list[str]:
     answer = input(
         "Optional add-ons to validate/install "
-        "(comma-separated: llmfit, routellm, open-multi-agent, obsidian, all; empty skips) []: "
+        "(comma-separated: llmfit, routellm, open-multi-agent, obsidian, "
+        "caveman-compression, all; empty skips) []: "
     ).strip()
     if not answer:
         return []
-    allowed = {"llmfit", "routellm", "open-multi-agent", "obsidian", "all"}
+    allowed = {"llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"}
     return [part for part in (item.strip() for item in answer.split(",")) if part in allowed]
 
 
@@ -602,6 +654,16 @@ def _print_model_selection(selection: dict[str, object]) -> None:
     print("Reasons:")
     for reason in selection["reasons"]:
         print(f"- {reason}")
+
+
+def _print_context_budget(budget: dict[str, object]) -> None:
+    print(f"Source: {budget['source']}")
+    print(f"Files: {budget['file_count']}")
+    print(f"Estimated tokens: {budget['tokens_estimate']}")
+    print(f"Context window use: {float(budget['window_ratio']):.0%}")
+    print(f"Recommendation: {budget['recommendation']}")
+    for warning in budget["warnings"]:
+        print(f"Warning: {warning}", file=sys.stderr)
 
 
 def _print_doctor() -> None:

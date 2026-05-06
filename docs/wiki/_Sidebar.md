@@ -6,6 +6,7 @@
 - [[Model Selection and Providers]]
 - [[Skills and Agents]]
 - [[Knowledge Base]]
+- [[Context Hygiene]]
 - [[Team Onboarding]]
 - [[Policy Packs]]
 - [[Tool Adapters]]

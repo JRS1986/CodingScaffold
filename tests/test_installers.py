@@ -68,6 +68,30 @@ def test_install_missing_addon_installs_open_multi_agent_in_target(tmp_path, mon
     assert calls == [(["npm", "install", "@jackchen_me/open-multi-agent"], tmp_path)]
 
 
+def test_install_missing_addon_clones_caveman_compression(tmp_path, monkeypatch) -> None:
+    calls: list[tuple[list[str], object]] = []
+
+    class Completed:
+        returncode = 0
+
+    monkeypatch.setattr(
+        "coding_scaffold.installers.subprocess.run",
+        lambda command, check, cwd=None: calls.append((command, cwd)) or Completed(),
+    )
+
+    results = install_missing_addons(
+        "caveman-compression",
+        interactive=False,
+        assume_yes=True,
+        target=tmp_path,
+    )
+
+    assert results[0].status == "installed"
+    assert calls[0][0][:3] == ["git", "clone", "https://github.com/wilpel/caveman-compression.git"]
+    assert calls[0][0][3] == "caveman-compression"
+    assert calls[0][1] == tmp_path / ".coding-scaffold" / "tools"
+
+
 def test_obsidian_in_wsl_is_manual(monkeypatch) -> None:
     monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
     monkeypatch.setattr("coding_scaffold.installers._is_wsl", lambda: True)

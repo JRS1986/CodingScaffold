@@ -20,6 +20,19 @@ Generated files:
 Use RouteLLM when endpoint-level model routing matters. For simple explainable recommendations, use
 `coding-scaffold select-model`.
 
+## Context Compression
+
+Caveman Compression is an optional token-saving sidecar for large knowledge bases:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context-budget --target ~/dev/my-project --source team
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+```
+
+Use this after the team has reviewed the source notes. Compressed sidecars are agent input, not the
+canonical record.
+
 ## Open Multi-Agent
 
 Open Multi-Agent is an optional workflow backend for repeatable TypeScript automation:
