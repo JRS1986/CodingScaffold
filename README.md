@@ -1,55 +1,46 @@
 # CodingScaffold
 
-Your local-first coding scaffold
+Local-first scaffolding for agentic coding teams.
 
-CodingScaffold helps teams prepare a project for AI-assisted coding without locking themselves into
-one model provider. Clone it, install it into a venv, run the setup wizard inside a codebase, and it
-will create project-local guidance for model routing, provider setup, agent behavior, and practical
-AI coding habits.
+CodingScaffold prepares an existing project for AI-assisted development without tying the team to
+one model, one provider, or one coding agent. It creates project-local guidance for hardware fit,
+provider credentials, model selection, coding-tool adapters, skills, agent orchestration, and shared
+team knowledge.
 
 GitHub Copilot is great at helping you type the next lines. Agentic coding can do more: inspect a
 repo, build context, plan a change, edit bounded files, run verification, review the result, and
-turn the best team workflows into reusable skills. CodingScaffold is the onboarding kit for that
-shift.
+turn the best team workflows into reusable skills. This scaffold helps a team make that jump in a
+controlled, reviewable way.
 
-The default posture is privacy-friendly: local models first, cloud providers only when credentials
-or authenticated CLIs are already available. For experienced users, the output stays direct and
-operational. For beginners, the wizard can also generate a more guided first-project path that makes
-the first steps less intimidating without hiding what is happening.
-
-## Quick Start
+## Install
 
 ```bash
+git clone https://github.com/JRS1986/CodingScaffold.git
+cd CodingScaffold
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-coding-scaffold wizard --target /path/to/your/project
 ```
 
-For WSL/Linux the commands are the same. On Windows PowerShell outside WSL, activate with:
+For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-## First 10 Minutes
+## First Run
 
-Run the scaffold in a real project:
+Run the wizard inside a real project:
 
 ```bash
 coding-scaffold wizard --target ~/dev/my-project
 cd ~/dev/my-project
 ```
 
-Install the recommended adapter:
+Install the recommended coding adapter and start the first session:
 
 ```bash
 curl -fsSL https://opencode.ai/install | bash
-```
-
-Start OpenCode and run the generated first-session command:
-
-```bash
 opencode
 ```
 
@@ -59,317 +50,202 @@ Inside OpenCode:
 /first-session
 ```
 
-That command asks the agent to inspect before editing, identify the run/test commands, map the main
-code paths, and propose one safe improvement. The next step is the agentic jump:
+That command asks the agent to inspect before editing, identify run and test commands, map the main
+code paths, and propose one safe improvement. Then run a small agentic loop:
 
 ```text
-Use the explorer agent to map the relevant files, the implementer agent to make only the first safe
-change, and the reviewer agent to challenge it before I merge.
+/agentic-change
 ```
 
-This is the core difference from autocomplete: the tool is not just suggesting code, it is running a
-small, inspectable engineering workflow.
+This is the difference from autocomplete: the tool is not just suggesting code, it is running a
+small engineering workflow that you can inspect, verify, and improve.
 
-## Suggested Flow
+## Everyday Flow
 
-1. Run `coding-scaffold probe` to see what the machine can realistically host.
-2. Install a local runtime if needed, usually Ollama, llama.cpp, LM Studio, vLLM, or MLX on Apple
-   Silicon.
-3. Install `llmfit` if you want a deeper model-fit ranking:
+1. Probe the machine and provider setup:
 
    ```bash
-   brew install llmfit
-   llmfit
+   coding-scaffold probe --target ~/dev/my-project
    ```
 
-4. Run `coding-scaffold init` in each codebase you want to prepare.
-5. Generate native OpenCode files and start OpenCode:
+2. Configure local-only credentials if needed:
 
    ```bash
-   coding-scaffold adapt --target . --tool opencode
-   opencode
+   coding-scaffold credentials --target ~/dev/my-project --format env
    ```
 
-6. Inside OpenCode, run `/first-session`, then use explorer -> implementer -> reviewer for one
-   small change.
-7. Turn the workflow your team likes into a skill:
+3. Generate native OpenCode files:
 
    ```bash
-   coding-scaffold skill --target . --adapter opencode --name "Release Review"
+   coding-scaffold adapt --target ~/dev/my-project --tool opencode
    ```
 
-8. Capture decisions, useful prompts, skills, and agent patterns in the team knowledge base.
-9. Add RouteLLM later only if you need endpoint-level model routing.
-10. Add Open Multi-Agent later only when a validated skill should become repeatable automation.
+4. Ask for a model recommendation when the route is unclear:
 
-## Setup Wizard
+   ```bash
+   coding-scaffold select-model --target ~/dev/my-project \
+     --prompt "Review this authentication refactor for security regressions."
+   ```
 
-Use the wizard in any project you want to prepare:
+5. Capture repeatable workflows as skills:
 
-```bash
-coding-scaffold wizard --target ~/dev/my-project
-```
+   ```bash
+   coding-scaffold skill --target ~/dev/my-project \
+     --adapter opencode \
+     --name "Release Review"
+   ```
 
-For a guided first-project experience:
+6. Capture decisions, useful prompts, skills, and agent patterns in team memory:
 
-```bash
-coding-scaffold wizard --target ~/dev/my-project --beginner
-```
+   ```bash
+   coding-scaffold knowledge --target ~/dev/my-project
+   ```
 
-For scripts or templates:
+7. Add advanced routing or workflow automation only when the team has a real need:
 
-```bash
-coding-scaffold init --target ~/dev/my-project --language python --non-interactive
-```
+   ```bash
+   coding-scaffold route --target ~/dev/my-project --backend routellm
+   coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+   ```
 
-## Credentials
+## Core Concepts
 
-Keep credentials local to the project and out of Git. The wizard writes examples and ignore rules
-inside `.coding-scaffold/`; real keys go into local-only files.
+**Local-first routing:** The scaffold prefers local models when possible and only uses cloud
+providers when credentials or authenticated CLIs are available. Provider and model family are kept
+separate, so Azure can be the endpoint while the deployed model family is OpenAI, Anthropic, or
+something else.
 
-```bash
-coding-scaffold credentials --target ~/dev/my-project --format env
-```
+**Model selection:** `select-model` reads a prompt and recommends `routine` or `heavy-lift`. It
+does not call a model; it explains the route, provider, model family, model or deployment,
+confidence, and reasons.
 
-This creates `.coding-scaffold/.env.local`.
+**Skills:** Skills are reusable playbooks for work the team repeats: release reviews, dependency
+upgrades, frontend QA, API contract changes, incident analysis, migration checks, and project
+specific workflows.
 
-```bash
-coding-scaffold credentials --target ~/dev/my-project --format json
-```
+**Agent orchestration:** The scaffold supports `solo`, `pair`, and `team` profiles. By default it
+generates OpenCode-native agents and commands instead of inventing a parallel runtime.
 
-This creates `.coding-scaffold/credentials.local.json`.
-
-Both files are ignored by the generated `.coding-scaffold/.gitignore`. Run
-`coding-scaffold probe --target ~/dev/my-project` to check which providers are configured without
-printing secret values.
-
-## Model Selection
-
-Sometimes the useful question is not "which provider do I have?" but "which model should this prompt
-use?" CodingScaffold can read a task description and recommend the routine route or the heavy-lift
-route:
-
-```bash
-coding-scaffold select-model --target ~/dev/my-project \
-  --prompt "Review this authentication refactor for security regressions."
-```
-
-Use `--mode auto` when the developer does not want to choose on every prompt:
-
-```bash
-coding-scaffold select-model --target ~/dev/my-project --mode auto \
-  --prompt "Fix this failing formatter test."
-```
-
-This is intentionally separate from RouteLLM. RouteLLM can sit behind an OpenAI-compatible endpoint
-and route actual requests. `select-model` is the visible, explainable decision helper: it classifies
-the prompt, names the route, provider, model family, model or deployment, confidence, and reasons.
-
-Provider and model family are kept separate. Azure can be the provider while the deployed model
-family is OpenAI, Anthropic, or something else. Skills and agents should ask for `routine` or
-`heavy-lift`; the scaffold maps that to the configured endpoint and deployment.
+**Team knowledge:** Decisions, project vocabulary, useful prompts, trusted agents, and validated
+skills belong in reviewed Markdown, not in one person’s chat history.
 
 ## Coding Tool Adapters
 
-CodingScaffold does not require one coding agent. It writes adapter hints for current tools and is
-designed to stay open for whatever arrives next.
-
-OpenCode is the recommended default for most teams today. It appears more mature: official install
-paths, terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, many providers,
+OpenCode is the recommended default for most teams today. It has official install paths,
+terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, broad provider support,
 local-model support, and GitHub Copilot sign-in.
 
 ```bash
 curl -fsSL https://opencode.ai/install | bash
-opencode
-```
-
-OpenClaude is worth tracking if your team wants to experiment with a fast-moving, Claude-Code-like
-community workflow across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and
-provider profiles. Treat it as experimental and review provenance, licensing, and security before
-standardizing on it.
-
-```bash
-npm install -g @gitlawb/openclaude
-openclaude
-```
-
-Generated adapter hints live in `.coding-scaffold/opencode.json`,
-`.coding-scaffold/openclaude.json`, and `.coding-scaffold/TOOLS.md`.
-
-Generate OpenCode-native project files:
-
-```bash
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 ```
 
-This writes `opencode.json`, `.opencode/agents/`, and `.opencode/commands/` in the target project.
-The scaffold’s orchestration profiles use those OpenCode agents and commands instead of inventing a
-parallel agent runtime.
-
-## Skills And Agent Orchestration
-
-Skills are reusable playbooks for work your team repeats: release reviews, dependency upgrades,
-frontend QA, incident analysis, API contract changes, or migration checks. Create one from the CLI:
+OpenClaude is worth tracking if your team wants a fast-moving, Claude-Code-like community workflow
+across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and provider profiles.
+Treat it as experimental and review provenance, licensing, and security before standardizing on it.
 
 ```bash
-coding-scaffold skill --target ~/dev/my-project --name "Release Review" \
-  --adapter opencode \
-  --description "Review a release candidate before tagging."
+npm install -g @gitlawb/openclaude
+coding-scaffold adapt --target ~/dev/my-project --tool openclaude
 ```
-
-This writes a template into `.coding-scaffold/skills/`.
-
-Skills are where teams get leverage. A good skill captures a senior engineer's habit once and makes
-it available to every teammate: what to inspect, what to avoid, how to verify, and when to escalate.
-Treat skills like lightweight internal tooling. Write them, run them, review their output, and
-improve them when they miss something.
-
-Agent orchestration helps decide how many agents to use and how they should hand work to each other.
-The scaffold supports three simple profiles:
-
-- `solo`: one agent with explicit checkpoints.
-- `pair`: builder plus reviewer, a good default for normal feature work.
-- `team`: explorer, planner, implementer, and verifier for larger changes with disjoint scopes.
-
-```bash
-coding-scaffold orchestrate --target ~/dev/my-project --profile pair
-```
-
-This writes `.coding-scaffold/orchestration.json`; the generated `ORCHESTRATION.md` explains when to
-use each profile and how to keep handoffs clean. By default it also generates OpenCode-native
-agents/commands.
 
 ## Knowledge Base
 
-Agentic coding gets much better when the team has shared memory: decision records, session notes,
-project vocabulary, validated skills, trusted agents, and links to the source-of-truth docs. Create
-a Markdown-first knowledge base:
+The knowledge base is Markdown-first so it works in GitHub, GitLab, local editors, OpenCode,
+Obsidian, and optional memory tools.
+
+Plain Markdown:
 
 ```bash
 coding-scaffold knowledge --target ~/dev/my-project
 ```
 
-To connect a shared GitHub or GitLab knowledge repository:
+Shared GitHub or GitLab memory:
 
 ```bash
 coding-scaffold knowledge --target ~/dev/my-project \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
-This writes `.coding-scaffold/KNOWLEDGE.md`, `.coding-scaffold/knowledge.json`, and a linked
-`.coding-scaffold/knowledge/` folder with decision, session, skill, agent, glossary, link, and sync
-templates. With the default OpenCode adapter it also creates `/capture-knowledge` and
-`/share-agent-pattern` commands so useful session findings can become reviewed team assets.
+Obsidian vault mode:
 
-MemPalace is a good optional fit once Markdown memory grows large enough to need local semantic
-retrieval or MCP memory tools:
+```bash
+coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
+```
+
+This creates Obsidian-friendly folders, backlinks, frontmatter templates, and `.obsidian/` settings
+while keeping Markdown as the source of truth.
+
+Optional MemPalace index:
 
 ```bash
 coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
 ```
 
-The scaffold keeps Markdown as the source of truth and treats MemPalace as an index. That gives the
-team reviewable knowledge in Git today and leaves the door open for richer local memory tomorrow.
+Use Obsidian when humans want better navigation and graph-style reading. Use MemPalace when the
+Markdown corpus grows large enough to benefit from semantic retrieval or MCP memory workflows.
 
-## Optional RouteLLM
+## Advanced Options
 
-RouteLLM is an advanced option for teams that want one OpenAI-compatible endpoint that routes
-between a weak/routine model and a strong/heavy-lift model. It is not required for onboarding.
+RouteLLM can provide one OpenAI-compatible endpoint that routes actual requests between a
+weak/routine model and a strong/heavy-lift model:
 
 ```bash
 python -m pip install "routellm[serve,eval]"
 coding-scaffold route --target ~/dev/my-project --backend routellm
 ```
 
-This writes `.coding-scaffold/ROUTELLM.md` and `.coding-scaffold/routellm.config.yaml`. Read the
-guide before using it: common RouteLLM routers such as `mf` may still require `OPENAI_API_KEY` for
-embeddings, even if one routed model is local.
-
-## Optional Open Multi-Agent
-
-Open Multi-Agent is the advanced path for teams that want to turn a proven human-in-the-loop coding
-workflow into repeatable open-source automation. Keep OpenCode as the first daily driver: it is the
-place where developers learn the workflow, validate skills, and decide what is actually useful. Add
-Open Multi-Agent when a skill has become valuable enough to run as a TypeScript workflow, backend
-job, or CI-like check.
+Open Multi-Agent can turn a validated human-in-the-loop workflow into repeatable TypeScript
+automation:
 
 ```bash
 npm install @jackchen_me/open-multi-agent
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 ```
 
-This writes `.coding-scaffold/OPEN_MULTI_AGENT.md`,
-`.coding-scaffold/open-multi-agent.team.json`, and
-`examples/open-multi-agent/team-coding-workflow.ts`. The generated guide keeps the adoption path
-explicit: validate interactively first, capture the skill, run the workflow in plan-only mode, then
-allow execution only after the team has reviewed permissions, traces, and verification signals.
-
-That keeps the scaffold open: OpenCode for interactive agentic coding, RouteLLM for optional model
-routing, Open Multi-Agent for optional workflow automation, and local/OpenAI-compatible providers
-underneath.
+The intended path is: validate interactively in OpenCode, capture the useful behavior as a skill,
+then graduate it into workflow automation only after the team trusts the process.
 
 ## What It Creates
 
-`coding-scaffold init` writes a `.coding-scaffold/` folder in the target project:
+`coding-scaffold init` writes `.coding-scaffold/` in the target project:
 
 - `.gitignore`: keeps generated local credential files out of Git.
-- `.env.example`: env-based credential template.
-- `credentials.example.json`: JSON-based credential template.
+- `.env.example` and `credentials.example.json`: local credential templates.
 - `CREDENTIALS.md`: local credential setup guide.
-- `TOOLS.md`: OpenCode/OpenClaude installation and adapter guidance.
-- `ORCHESTRATION.md`: practical agent-role guidance.
-- `orchestration.json`: selected orchestration profile and routing hints.
-- `skills/README.md`: project-skill folder and usage guide.
-- `KNOWLEDGE.md`: shared team memory guide when generated with `coding-scaffold knowledge`.
-- `knowledge.json`: knowledge-base config with optional shared Git remote.
-- `knowledge/`: linked Markdown knowledge base for decisions, sessions, skills, agents, and links.
-- `project.json`: project language, target, repo path, privacy mode, and user preferences.
-- `hardware.json`: CPU, RAM, OS, WSL status, detected GPU/VRAM, and llmfit availability.
-- `providers.json`: local and cloud providers detected from CLIs and environment variables.
-- `routing.json`: local-first routing policy and selected weak/strong model candidates.
-- `model-selection.json`: provider-abstracted routine/heavy-lift model selection policy.
-- `MODEL_SELECTION.md`: prompt-based model recommendation and auto-mode guide.
-- `GETTING_STARTED.md`: how to use the scaffold after cloning and running the wizard.
-- `SKILLS.md`: quick intro to efficient AI coding skills.
-- `BEGINNER_PATH.md`: optional first-project guide when using beginner mode.
-- `THEME.md`: human-readable onboarding voice guide for agents and reviewers.
-- `theme.json`: onboarding style tokens used by generated beginner guidance.
-- `opencode.json`: a portable provider/model hint file for OpenCode-style tools.
-- `openclaude.json`: equivalent hints for OpenClaude-style tools.
-- `ROUTELLM.md`: optional RouteLLM setup guide when generated with `coding-scaffold route`.
-- `routellm.config.yaml`: optional RouteLLM server config when a strong/weak pair exists.
-- `OPEN_MULTI_AGENT.md`: optional advanced workflow backend guide when generated with
-  `coding-scaffold workflow`.
-- `open-multi-agent.team.json`: optional Open Multi-Agent team-role config.
-- `examples/open-multi-agent/team-coding-workflow.ts`: optional TypeScript starter workflow.
+- `providers.json`: detected local and cloud providers without secret values.
+- `hardware.json`: CPU, RAM, OS, WSL status, GPU/VRAM, and llmfit availability.
+- `routing.json`: selected local-first routing policy.
+- `model-selection.json` and `MODEL_SELECTION.md`: routine/heavy-lift model guidance.
+- `TOOLS.md`: OpenCode/OpenClaude adapter guidance.
+- `ORCHESTRATION.md` and `orchestration.json`: agent-role guidance.
+- `skills/README.md` and `SKILLS.md`: project skill guidance.
+- `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.
+- `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
 - `AGENTS.md`: project-specific operating notes for coding agents.
-- `FIRST_SESSION.md`: the recommended first agentic coding walkthrough.
+- `THEME.md` and `theme.json`: onboarding voice and style hints.
 
-## Notes On Models
+Optional commands can also generate:
 
-The scaffold keeps model names configurable because model availability changes quickly. It seeds a
-conservative catalog around Qwen Coder, DeepSeek Coder, Codestral, StarCoder2, and cloud fallbacks.
-If you prefer a specific current model, such as a Qwen 40B-class coder, enter it during intake or
-pass it non-interactively:
-
-```bash
-coding-scaffold init --preferred-local-model "qwen/qwen3-coder-40b"
-```
+- `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`.
+- `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
+- `.coding-scaffold/OPEN_MULTI_AGENT.md`, `open-multi-agent.team.json`, and a TypeScript example.
+- Obsidian vault files under `.coding-scaffold/knowledge/.obsidian/`.
 
 ## Commands
 
 ```bash
 coding-scaffold probe --json
+coding-scaffold wizard --target ~/dev/my-project
+coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold credentials --target ~/dev/my-project --format env
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
-coding-scaffold knowledge --target ~/dev/my-project --shared-remote https://github.com/acme/team-ai-knowledge.git
+coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold route --target ~/dev/my-project --backend routellm
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
-coding-scaffold wizard --target ~/dev/my-project --beginner
-coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold doctor
 ```
 
@@ -377,11 +253,11 @@ coding-scaffold doctor
 
 - Cross-platform Linux and WSL behavior.
 - No secret collection; the scaffold only records whether credentials appear available.
-- Local-first routing with cloud escalation when explicitly available.
-- Small, reviewable Python modules with minimal dependencies.
+- Local-first routing with explicit cloud escalation.
+- Open-source toolchain with no vendor lock-in.
 - Generated config that is transparent and easy to edit by hand.
+- Team knowledge, skills, and agents that can be reviewed like code.
 
 ## License
 
-CodingScaffold is licensed under the Apache License 2.0. It is permissive, business-friendly, and
-keeps the open-source toolchain easy to adopt in team environments.
+CodingScaffold is licensed under the Apache License 2.0.

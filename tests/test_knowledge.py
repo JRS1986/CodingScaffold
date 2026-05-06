@@ -30,6 +30,19 @@ def test_write_mempalace_knowledge_base_adds_optional_index_guide(tmp_path) -> N
     assert "capture-knowledge.md" not in names
 
 
+def test_write_obsidian_knowledge_base_adds_vault_files(tmp_path) -> None:
+    result = write_knowledge_base(tmp_path, backend="obsidian", adapter=None)
+
+    names = {path.name for path in result.files}
+    assert "00 Start Here.md" in names
+    assert "Decision.md" in names
+    assert "app.json" in names
+    config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
+    assert config["backend"] == "obsidian"
+    assert config["obsidian"]["vault_path"] == ".coding-scaffold/knowledge"
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / ".obsidian" / "graph.json").exists()
+
+
 def test_write_knowledge_base_preserves_existing_notes(tmp_path) -> None:
     index = tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md"
     index.parent.mkdir(parents=True)

@@ -37,6 +37,8 @@ def write_knowledge_base(
     _collect(files, skipped, knowledge / "glossary.md", _glossary_template())
     _collect(files, skipped, knowledge / "links.md", _links_template())
     _collect(files, skipped, knowledge / "sync.md", _sync_template(shared_remote))
+    if backend == "obsidian":
+        _collect_obsidian_files(files, skipped, knowledge)
     if backend == "mempalace":
         _collect(files, skipped, knowledge / "mempalace.md", _mempalace_template())
     if adapter == "opencode":
@@ -93,6 +95,11 @@ def _knowledge_json(backend: str, shared_remote: str | None) -> str:
             "install": "python -m pip install mempalace",
             "mine": "mempalace mine .coding-scaffold/knowledge",
         },
+        "obsidian": {
+            "optional": True,
+            "vault_path": ".coding-scaffold/knowledge",
+            "open": "Open .coding-scaffold/knowledge as an Obsidian vault.",
+        },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
@@ -103,6 +110,11 @@ def _knowledge_guide(backend: str, shared_remote: str | None) -> str:
         "This scaffold also generated `knowledge/mempalace.md` for optional MemPalace indexing."
         if backend == "mempalace"
         else "Run `coding-scaffold knowledge --backend mempalace` later if you want MemPalace notes."
+    )
+    obsidian_line = (
+        "This scaffold also generated Obsidian vault settings, templates, and a start page."
+        if backend == "obsidian"
+        else "Run `coding-scaffold knowledge --backend obsidian` later if you want an Obsidian vault."
     )
     return f"""# Team Knowledge Base
 
@@ -129,6 +141,13 @@ git clone <team-knowledge-repo> .coding-scaffold/knowledge
 ```
 
 or keep this folder in the project repo if the knowledge is project-specific and safe to share.
+
+## Optional Obsidian
+
+{obsidian_line}
+
+Obsidian is useful when humans want backlinks, graph navigation, templates, and a pleasant reading
+surface. It still uses Markdown files, so Git remains the review and sharing mechanism.
 
 ## Optional MemPalace
 
@@ -171,6 +190,210 @@ def _knowledge_index() -> str:
 
 Add links to the notes that every agent should read before working in this project.
 """
+
+
+def _collect_obsidian_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
+    _collect(files, skipped, knowledge / "00 Start Here.md", _obsidian_start_here())
+    _collect(files, skipped, knowledge / "10 Decisions" / "README.md", _obsidian_decisions_readme())
+    _collect(files, skipped, knowledge / "20 Skills" / "README.md", _obsidian_skills_readme())
+    _collect(files, skipped, knowledge / "30 Agents" / "README.md", _obsidian_agents_readme())
+    _collect(files, skipped, knowledge / "40 Sessions" / "README.md", _obsidian_sessions_readme())
+    _collect(files, skipped, knowledge / "50 Glossary" / "README.md", _obsidian_glossary_readme())
+    _collect(files, skipped, knowledge / "90 Inbox" / "README.md", _obsidian_inbox_readme())
+    _collect(files, skipped, knowledge / "Templates" / "Decision.md", _obsidian_decision_template())
+    _collect(files, skipped, knowledge / "Templates" / "Skill.md", _obsidian_skill_template())
+    _collect(files, skipped, knowledge / "Templates" / "Agent.md", _obsidian_agent_template())
+    _collect(files, skipped, knowledge / ".obsidian" / "app.json", _obsidian_app_json())
+    _collect(files, skipped, knowledge / ".obsidian" / "graph.json", _obsidian_graph_json())
+    _collect(files, skipped, knowledge / ".obsidian" / "templates.json", _obsidian_templates_json())
+
+
+def _obsidian_start_here() -> str:
+    return """---
+type: index
+tags: [coding-scaffold, team-memory]
+---
+# Start Here
+
+This vault is the human-readable team memory for agentic coding.
+
+## Maps
+
+- [[10 Decisions/README|Decisions]]
+- [[20 Skills/README|Skills]]
+- [[30 Agents/README|Agents]]
+- [[40 Sessions/README|Sessions]]
+- [[50 Glossary/README|Glossary]]
+- [[90 Inbox/README|Inbox]]
+
+## Operating Rule
+
+Markdown is the source of truth. Obsidian is the reading and linking layer. Review important
+knowledge changes in Git before agents treat them as defaults.
+"""
+
+
+def _obsidian_decisions_readme() -> str:
+    return """---
+type: map
+tags: [decisions]
+---
+# Decisions
+
+Use decision notes for architecture, model routing, tool choices, data handling, and workflow
+conventions. Link notes back to [[00 Start Here]] and to related skills or agents.
+"""
+
+
+def _obsidian_skills_readme() -> str:
+    return """---
+type: map
+tags: [skills]
+---
+# Skills
+
+Use this map for skill explanations, ownership, examples, and review history. Runnable skill files
+still live in `.coding-scaffold/skills/`.
+"""
+
+
+def _obsidian_agents_readme() -> str:
+    return """---
+type: map
+tags: [agents]
+---
+# Agents
+
+Document trusted agent roles here. Link each role to the skills, decisions, and verification habits
+it depends on.
+"""
+
+
+def _obsidian_sessions_readme() -> str:
+    return """---
+type: map
+tags: [sessions]
+---
+# Sessions
+
+Capture durable findings from useful agentic coding sessions. Promote repeatable patterns into
+[[20 Skills/README|Skills]] or [[30 Agents/README|Agents]].
+"""
+
+
+def _obsidian_glossary_readme() -> str:
+    return """---
+type: map
+tags: [glossary]
+---
+# Glossary
+
+Add project terms, internal systems, acronyms, and domain language that agents should not
+rediscover.
+"""
+
+
+def _obsidian_inbox_readme() -> str:
+    return """---
+type: inbox
+tags: [inbox]
+---
+# Inbox
+
+Drop rough notes here first. Move them into decisions, skills, agents, sessions, or glossary once
+they become durable.
+"""
+
+
+def _obsidian_decision_template() -> str:
+    return """---
+type: decision
+status: proposed
+tags: [decision]
+---
+# Decision: Title
+
+Related: [[00 Start Here]]
+
+## Context
+
+## Decision
+
+## Consequences
+
+## Agent Notes
+"""
+
+
+def _obsidian_skill_template() -> str:
+    return """---
+type: skill
+status: draft
+tags: [skill]
+---
+# Skill: Title
+
+Related agents:
+
+## When To Use
+
+## Workflow
+
+## Verification
+
+## Maintenance Notes
+"""
+
+
+def _obsidian_agent_template() -> str:
+    return """---
+type: agent
+status: draft
+tags: [agent]
+---
+# Agent: Title
+
+Related skills:
+
+## Responsibility
+
+## Allowed Context
+
+## Write Scope
+
+## Handoff Rules
+"""
+
+
+def _obsidian_app_json() -> str:
+    return json.dumps(
+        {
+            "attachmentFolderPath": "Attachments",
+            "alwaysUpdateLinks": True,
+            "newFileLocation": "folder",
+            "newFileFolderPath": "90 Inbox",
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _obsidian_graph_json() -> str:
+    return json.dumps(
+        {
+            "collapse-filter": False,
+            "search": "",
+            "showAttachments": False,
+            "showOrphans": True,
+            "showTags": True,
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _obsidian_templates_json() -> str:
+    return json.dumps({"folder": "Templates"}, indent=2, sort_keys=True) + "\n"
 
 
 def _decisions_readme() -> str:

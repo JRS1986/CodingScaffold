@@ -56,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     knowledge = sub.add_parser("knowledge", help="Create a shared team knowledge base.")
     knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge.add_argument("--backend", choices=["markdown", "mempalace"], default="markdown")
+    knowledge.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
