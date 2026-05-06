@@ -34,6 +34,40 @@ def write_knowledge_base(
     _collect(files, skipped, knowledge / "sessions" / "session-template.md", _session_template())
     _collect(files, skipped, knowledge / "skills" / "README.md", _shared_skills_readme())
     _collect(files, skipped, knowledge / "agents" / "README.md", _shared_agents_readme())
+    _collect(files, skipped, knowledge / "sharing" / "README.md", _hierarchy_readme())
+    _collect(
+        files,
+        skipped,
+        knowledge / "team" / "README.md",
+        _layer_readme("team", ["project context", "local prompts", "first skill drafts", "session findings"]),
+    )
+    _collect(
+        files,
+        skipped,
+        knowledge / "department" / "README.md",
+        _layer_readme(
+            "department",
+            ["reusable runbooks", "system patterns", "validated agent roles", "department decisions"],
+        ),
+    )
+    _collect(
+        files,
+        skipped,
+        knowledge / "unit" / "README.md",
+        _layer_readme(
+            "unit",
+            ["domain vocabulary", "reference architecture", "shared provider policy", "tool defaults"],
+        ),
+    )
+    _collect(
+        files,
+        skipped,
+        knowledge / "company" / "README.md",
+        _layer_readme(
+            "company",
+            ["approved standards", "approved skills", "approved agents", "security and privacy rules"],
+        ),
+    )
     _collect(files, skipped, knowledge / "glossary.md", _glossary_template())
     _collect(files, skipped, knowledge / "links.md", _links_template())
     _collect(files, skipped, knowledge / "sync.md", _sync_template(shared_remote))
@@ -84,6 +118,13 @@ def _knowledge_json(backend: str, shared_remote: str | None) -> str:
             ".opencode/agents",
             ".opencode/commands",
         ],
+        "layers": {
+            "team": ".coding-scaffold/knowledge/team",
+            "department": ".coding-scaffold/knowledge/department",
+            "unit": ".coding-scaffold/knowledge/unit",
+            "company": ".coding-scaffold/knowledge/company",
+        },
+        "maturity_levels": ["draft", "validated", "recommended", "standard"],
         "entrypoints": {
             "index": ".coding-scaffold/knowledge/INDEX.md",
             "decisions": ".coding-scaffold/knowledge/decisions/",
@@ -131,6 +172,31 @@ Shared remote: `{remote}`
 3. Promote working prompts into `.coding-scaffold/skills/`.
 4. Promote reliable agent patterns into `.opencode/agents/` or the tool-specific adapter.
 5. Review knowledge changes like code.
+
+## Hierarchical Sharing
+
+Use folders for audience and ownership before adding remote complexity:
+
+- `knowledge/team/`: project context, local prompts, first skill drafts, session findings.
+- `knowledge/department/`: reusable runbooks, system patterns, validated agent roles.
+- `knowledge/unit/`: domain vocabulary, reference architecture, shared provider policy.
+- `knowledge/company/`: standards, approved skills, approved agents, security and privacy rules.
+
+Use frontmatter on promoted notes:
+
+```yaml
+scope: team
+maturity: draft
+owner: platform-ai
+tags: [testing, opencode]
+source_project: example-service
+reviewed_by: ""
+expires: 2026-12-31
+```
+
+Promote knowledge upward by pull request: `draft` -> `validated` -> `recommended` -> `standard`.
+Use separate Git remotes only when access boundaries differ. If the same audience can read every
+layer, one repo with folders, tags, and CODEOWNERS is usually easier to maintain.
 
 ## Shared Repo
 
@@ -182,6 +248,7 @@ def _knowledge_index() -> str:
 - [Session notes](sessions/session-template.md)
 - [Shared skills](skills/README.md)
 - [Shared agents](agents/README.md)
+- [Hierarchical sharing](sharing/README.md)
 - [Glossary](glossary.md)
 - [Links](links.md)
 - [Sync guide](sync.md)
@@ -189,6 +256,60 @@ def _knowledge_index() -> str:
 ## High-Signal Notes
 
 Add links to the notes that every agent should read before working in this project.
+"""
+
+
+def _hierarchy_readme() -> str:
+    return """# Hierarchical Knowledge Sharing
+
+Use this structure to keep useful knowledge close to the right audience while still allowing mature
+patterns to move upward.
+
+## Scopes
+
+- `team`: project facts, local prompts, drafts, and session discoveries.
+- `department`: reusable runbooks, validated skills, system-specific guidance.
+- `unit`: domain vocabulary, reference architecture, shared provider and tool policy.
+- `company`: approved standards, approved agents, privacy rules, and defaults.
+
+## Maturity
+
+- `draft`: captured from real work but not reviewed.
+- `validated`: used in at least one project and reviewed by peers.
+- `recommended`: useful across multiple teams or systems.
+- `standard`: approved default for the scope.
+
+## Promotion
+
+Promote upward by pull request. Keep the old note linked until the promoted version is trusted.
+Never promote secrets, customer data, unreleased strategy, or private incident details into broader
+layers.
+
+Use multiple Git remotes only when access differs. Otherwise prefer one shared repo with folders,
+frontmatter, tags, and CODEOWNERS.
+"""
+
+
+def _layer_readme(scope: str, examples: list[str]) -> str:
+    return f"""# {scope.title()} Knowledge
+
+Audience: `{scope}`
+
+Use this layer for:
+
+{chr(10).join(f"- {example}" for example in examples)}
+
+Recommended frontmatter:
+
+```yaml
+scope: {scope}
+maturity: draft
+owner: ""
+tags: []
+source_project: ""
+reviewed_by: ""
+expires: ""
+```
 """
 
 

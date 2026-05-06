@@ -10,6 +10,7 @@ def test_parser_lists_user_facing_commands() -> None:
 
     assert "select-model" in help_text
     assert "knowledge" in help_text
+    assert "policy" in help_text
     assert "workflow" in help_text
 
 
@@ -55,6 +56,28 @@ def test_adapt_route_and_workflow_commands(tmp_path) -> None:
     assert (tmp_path / "opencode.json").exists()
     assert (tmp_path / ".coding-scaffold" / "ROUTELLM.md").exists()
     assert (tmp_path / ".coding-scaffold" / "OPEN_MULTI_AGENT.md").exists()
+
+
+def test_policy_command(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "policy",
+                "--target",
+                str(tmp_path),
+                "--scope",
+                "company",
+                "--enable-provider",
+                "ollama",
+                "--disable-mcp-server",
+                "jira",
+            ]
+        )
+        == 0
+    )
+
+    assert (tmp_path / ".coding-scaffold" / "policy" / "company.md").exists()
+    assert (tmp_path / "opencode.json").exists()
 
 
 def test_select_model_with_prompt(tmp_path, capsys) -> None:

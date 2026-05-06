@@ -12,6 +12,7 @@ from .hardware import probe_hardware
 from .intake import IntakeAnswers, collect_intake
 from .knowledge import write_knowledge_base
 from .model_selection import select_model_for_prompt
+from .policy import write_policy_pack
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
@@ -64,6 +65,46 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
+    policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    policy.add_argument(
+        "--scope",
+        choices=["company", "unit", "department", "team"],
+        default="company",
+        help="Audience and ownership layer for this policy.",
+    )
+    policy.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    policy.add_argument("--share", choices=["disabled", "manual", "auto"], default="disabled")
+    policy.add_argument(
+        "--mcp",
+        choices=["project-empty", "keep"],
+        default="project-empty",
+        help="Project MCP default. Use disable-mcp-server for named inherited servers.",
+    )
+    policy.add_argument(
+        "--enable-provider",
+        action="append",
+        default=[],
+        help="Allowlist an OpenCode provider id. Repeat for multiple providers.",
+    )
+    policy.add_argument(
+        "--disable-provider",
+        action="append",
+        default=[],
+        help="Disable an OpenCode provider id. Repeat for multiple providers.",
+    )
+    policy.add_argument(
+        "--disable-mcp-server",
+        action="append",
+        default=[],
+        help="Disable a named OpenCode MCP server. Repeat for multiple servers.",
+    )
+    policy.add_argument(
+        "--relaxed-permissions",
+        action="store_true",
+        help="Do not force edit/bash approval in generated OpenCode policy.",
+    )
 
     adapt = sub.add_parser("adapt", help="Generate native config for a coding tool.")
     adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -129,6 +170,24 @@ def main(argv: list[str] | None = None) -> int:
         adapter = None if args.adapter == "none" else args.adapter
         path = write_orchestration_plan(args.target, args.profile, adapter)
         print(f"Wrote agent orchestration plan to {path}")
+        return 0
+
+    if args.command == "policy":
+        adapter = None if args.adapter == "none" else args.adapter
+        result = write_policy_pack(
+            target=args.target,
+            scope=args.scope,
+            adapter=adapter,
+            share=args.share,
+            mcp=args.mcp,
+            enabled_providers=args.enable_provider,
+            disabled_providers=args.disable_provider or None,
+            disabled_mcp_servers=args.disable_mcp_server,
+            strict_permissions=not args.relaxed_permissions,
+        )
+        print(f"Wrote {len(result.files)} policy file(s).")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
         return 0
 
     if args.command == "adapt":

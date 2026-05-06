@@ -28,6 +28,15 @@ Generated files include:
 Before running `/first-session`, make sure OpenCode can reach at least one model through its own
 provider setup, a local OpenAI-compatible endpoint, GitHub Copilot sign-in, or cloud credentials.
 
+For company or team defaults, generate a policy pack:
+
+```bash
+coding-scaffold policy --target ~/dev/my-project --scope company
+```
+
+This can set `share: disabled`, add policy instructions, ask before edit/bash actions, disable
+named MCP servers, and add provider allow/deny lists in `opencode.json`.
+
 ## OpenClaude
 
 OpenClaude support is intentionally lightweight because the project moves quickly:

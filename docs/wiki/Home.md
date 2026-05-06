@@ -15,6 +15,7 @@ CodingScaffold creates project-local guidance and lightweight configuration for:
 - reusable team skills
 - agent orchestration profiles
 - shared Markdown, Obsidian, or MemPalace-ready knowledge bases
+- policy packs for provider, sharing, permission, and MCP defaults
 - optional RouteLLM and Open Multi-Agent workflows
 
 It does not collect secrets, does not require one model vendor, and does not force a hosted service
@@ -34,7 +35,8 @@ call happens later, inside the coding tool, when a developer runs an agent comma
 3. [[Model Selection and Providers]]: local-first routing, Azure/OpenAI/Anthropic abstraction, and auto mode.
 4. [[Skills and Agents]]: how teams turn good workflows into reusable assets.
 5. [[Knowledge Base]]: Markdown, Obsidian, MemPalace, and shared GitHub/GitLab memory.
-6. [[Team Rollout]]: a practical adoption plan for a team workshop or internal pilot.
+6. [[Policy Packs]]: local OpenCode policy defaults for company/unit/team rollout.
+7. [[Team Rollout]]: a practical adoption plan for a team workshop or internal pilot.
 
 ## Design Posture
 

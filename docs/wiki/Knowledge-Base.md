@@ -29,6 +29,49 @@ coding-scaffold knowledge --target ~/dev/my-project \
 You can keep the knowledge base inside the project repo, or clone a separate repo into
 `.coding-scaffold/knowledge`.
 
+## Hierarchical Sharing
+
+Start with structure before adding multiple remotes:
+
+```text
+.coding-scaffold/knowledge/
+  company/
+  unit/
+  department/
+  team/
+  sharing/
+```
+
+Use each layer for a different audience:
+
+- `team`: project facts, local prompts, first skill drafts, session findings.
+- `department`: reusable runbooks, system patterns, validated agent roles.
+- `unit`: domain vocabulary, reference architecture, shared provider policy.
+- `company`: standards, approved skills, approved agents, security and privacy rules.
+
+Use frontmatter to make ownership and promotion visible:
+
+```yaml
+scope: team
+maturity: draft
+owner: platform-ai
+tags: [testing, opencode]
+source_project: billing-api
+reviewed_by: ""
+expires: 2026-12-31
+```
+
+Use maturity levels as a trust ladder:
+
+- `draft`: captured from real work but not reviewed.
+- `validated`: tried in at least one project and reviewed by peers.
+- `recommended`: useful across multiple teams or systems.
+- `standard`: approved default for this scope.
+
+Promote knowledge upward by pull request. Keep secrets out of every layer. Use separate Git remotes
+only when access boundaries differ; otherwise one shared repo with folders, tags, and CODEOWNERS is
+easier to operate.
+
 ## Obsidian
 
 Obsidian mode keeps Markdown as the source of truth while adding vault structure, backlinks,
@@ -59,4 +102,3 @@ Good knowledge entries answer:
 - where is the source of truth?
 - which skill or agent should use this?
 - when should this knowledge be reviewed or removed?
-

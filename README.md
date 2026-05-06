@@ -123,7 +123,17 @@ small engineering workflow that you can inspect, verify, and improve.
    coding-scaffold knowledge --target ~/dev/my-project
    ```
 
-7. Add advanced routing or workflow automation only when the team has a real need:
+7. Apply local policy defaults when your team has provider, sharing, or MCP rules:
+
+   ```bash
+   coding-scaffold policy --target ~/dev/my-project \
+     --scope company \
+     --enable-provider ollama \
+     --disable-provider opencode \
+     --disable-mcp-server jira
+   ```
+
+8. Add advanced routing or workflow automation only when the team has a real need:
 
    ```bash
    coding-scaffold route --target ~/dev/my-project --backend routellm
@@ -149,7 +159,13 @@ specific workflows.
 generates OpenCode-native agents and commands instead of inventing a parallel runtime.
 
 **Team knowledge:** Decisions, project vocabulary, useful prompts, trusted agents, and validated
-skills belong in reviewed Markdown, not in one person’s chat history.
+skills belong in reviewed Markdown, not in one person’s chat history. Knowledge can be organized by
+scope (`team`, `department`, `unit`, `company`) and maturity (`draft`, `validated`, `recommended`,
+`standard`) so useful patterns can move upward through review.
+
+**Policy packs:** Company, unit, department, or team defaults can be generated as reviewable local
+policy. For OpenCode this can disable conversation sharing, keep project MCP empty by default,
+disable named MCP servers, constrain provider ids, and ask before edit/bash actions.
 
 ## Coding Tool Adapters
 
@@ -207,6 +223,30 @@ coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
 Use Obsidian when humans want better navigation and graph-style reading. Use MemPalace when the
 Markdown corpus grows large enough to benefit from semantic retrieval or MCP memory workflows.
 
+Hierarchical sharing is built in. Start with one repo and folder scopes when everyone has the same
+access. Use multiple Git remotes only when company, unit, department, or team knowledge needs
+different permissions. Promote mature notes upward by pull request instead of automatic sync.
+
+## Policy Packs
+
+Policy packs let teams carry local AI-coding defaults into generated tool config:
+
+```bash
+coding-scaffold policy --target ~/dev/my-project --scope company
+```
+
+This writes `.coding-scaffold/policy/` and, for OpenCode, updates `opencode.json` with conservative
+defaults:
+
+- `share: disabled`
+- policy instructions loaded from `.coding-scaffold/policy/*.md`
+- edit/bash permissions set to `ask`
+- optional provider allow/deny lists
+- optional named MCP server disable entries
+
+The generated config is not a security boundary by itself. Treat it as project-local guardrails and
+combine it with reviewed credentials, CI checks, identity policy, and network controls.
+
 ## Advanced Options
 
 RouteLLM can provide one OpenAI-compatible endpoint that routes actual requests between a
@@ -243,6 +283,7 @@ then graduate it into workflow automation only after the team trusts the process
 - `ORCHESTRATION.md` and `orchestration.json`: agent-role guidance.
 - `skills/README.md` and `SKILLS.md`: project skill guidance.
 - `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.
+- `.coding-scaffold/policy/`: optional company/unit/department/team policy packs.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
 - `AGENTS.md`: project-specific operating notes for coding agents.
 - `THEME.md` and `theme.json`: onboarding voice and style hints.
@@ -266,6 +307,7 @@ coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
 coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
 coding-scaffold orchestrate --target ~/dev/my-project --profile pair
+coding-scaffold policy --target ~/dev/my-project --scope company
 coding-scaffold route --target ~/dev/my-project --backend routellm
 coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 coding-scaffold doctor

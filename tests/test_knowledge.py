@@ -19,7 +19,10 @@ def test_write_markdown_knowledge_base_creates_linked_files(tmp_path) -> None:
     config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
     assert config["backend"] == "markdown"
     assert config["shared_remote"] == "https://github.com/acme/team-knowledge.git"
+    assert config["layers"]["company"] == ".coding-scaffold/knowledge/company"
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "decisions" / "0001-decision-template.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "sharing" / "README.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "company" / "README.md").exists()
 
 
 def test_write_mempalace_knowledge_base_adds_optional_index_guide(tmp_path) -> None:
