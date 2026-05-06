@@ -29,10 +29,8 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     names = {path.name for path in manifest.files}
     assert "project.json" in names
     assert "AGENTS.md" in names
-    assert "theme.json" in names
     assert "GETTING_STARTED.md" in names
     assert "SKILLS.md" in names
-    assert "THEME.md" in names
     assert "CREDENTIALS.md" in names
     assert "MODEL_SELECTION.md" in names
     assert "model-selection.json" in names

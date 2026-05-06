@@ -82,7 +82,7 @@ def _write_opencode(root: Path, routing: dict[str, object]) -> AdapterResult:
     _collect_write(files, skipped, commands / "first-session.md", _opencode_first_session())
     _collect_write(files, skipped, commands / "agentic-change.md", _opencode_agentic_change())
     _collect_write(files, skipped, commands / "review.md", _opencode_review_command())
-    _collect_write(files, skipped, commands / "route-42.md", _opencode_route_42())
+    _collect_write(files, skipped, commands / "recheck-route.md", _opencode_recheck_route())
     return AdapterResult(files, skipped)
 
 
@@ -194,8 +194,8 @@ Findings first. Do not edit files unless explicitly asked after the review.
 """
 
 
-def _opencode_route_42() -> str:
-    return """ROUTE-42: the current answer or plan feels off. Re-inspect the relevant files, state assumptions,
+def _opencode_recheck_route() -> str:
+    return """The current answer or plan feels off. Re-inspect the relevant files, state assumptions,
 choose whether this should use the routine or heavy-lift model, and propose the smallest next step.
 """
 

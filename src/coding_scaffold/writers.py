@@ -9,7 +9,6 @@ from .intake import IntakeAnswers
 from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
 from .providers import Provider
 from .router import RoutingPlan
-from .theme import FESTO_TN_AI
 
 
 @dataclass(frozen=True)
@@ -28,7 +27,6 @@ def write_scaffold(
     target.mkdir(parents=True, exist_ok=True)
     scaffold_dir = target / ".coding-scaffold"
     scaffold_dir.mkdir(exist_ok=True)
-    _remove_stale_frontend_preview(scaffold_dir)
 
     files = [
         _write_json(scaffold_dir / "project.json", intake.to_dict()),
@@ -36,7 +34,6 @@ def write_scaffold(
         _write_json(scaffold_dir / "providers.json", [provider.to_dict() for provider in providers]),
         _write_json(scaffold_dir / "routing.json", routing.to_dict()),
         _write_json(scaffold_dir / "model-selection.json", _model_selection_json(routing)),
-        _write_json(scaffold_dir / "theme.json", FESTO_TN_AI.to_dict()),
         _write_json(scaffold_dir / "opencode.json", _opencode_config(routing)),
         _write_json(scaffold_dir / "openclaude.json", _openclaude_config(routing)),
         _write_text(scaffold_dir / "routellm.config.yaml", _routellm_yaml(routing)),
@@ -52,7 +49,6 @@ def write_scaffold(
         _write_text(scaffold_dir / "FIRST_SESSION.md", _first_session_md()),
         _write_text(scaffold_dir / "GETTING_STARTED.md", _getting_started_md(intake, routing)),
         _write_text(scaffold_dir / "SKILLS.md", _skills_md()),
-        _write_text(scaffold_dir / "THEME.md", _theme_md()),
         _write_text(scaffold_dir / "AGENTS.md", _agents_md(intake, routing)),
     ]
     if intake.mode == "beginner":
@@ -69,14 +65,6 @@ def _write_text(path: Path, payload: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload, encoding="utf-8")
     return path
-
-
-def _remove_stale_frontend_preview(scaffold_dir: Path) -> None:
-    # Earlier scaffold versions wrote a static preview; remove only those generated artifacts.
-    for name in ("index.html", "theme.css"):
-        path = scaffold_dir / name
-        if path.exists():
-            path.unlink()
 
 
 def _opencode_config(routing: RoutingPlan) -> dict[str, object]:
@@ -315,8 +303,8 @@ on how the organization configured it. Skills should ask for a capability like `
 - complex-change: architecture, security, migrations, reviews, orchestration, incidents, or long prompts
 - standard-change: normal work with no obvious heavy-lift signal
 
-ROUTE-42 remains the manual override: if the recommendation feels wrong, inspect context and pick
-the safer route.
+If the recommendation feels wrong, treat that as a manual override: inspect context and pick the
+safer route.
 """
 
 
@@ -536,7 +524,7 @@ and update the skill when it misses context or suggests unsafe steps.
 def _agents_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
     return f"""# Coding Agent Notes
 
-Tone: efficient engineering toolset with optional Festo Coding Challenge flavor
+Tone: efficient engineering toolset with clear, practical onboarding
 
 Project language: {intake.language}
 Project target: {intake.project_target}
@@ -550,7 +538,7 @@ Guidance mode: {intake.mode}
 - Keep changes small, tested, and reversible.
 - Do not collect or write API keys into this repository.
 - Prefer local inference unless the task explicitly needs cloud quality and credentials are available.
-- Use Challenge-style copy only in beginner guidance or onboarding docs.
+- Keep generated guidance direct, neutral, and project-focused.
 
 ## Model Routing
 
@@ -575,12 +563,12 @@ Guidance mode: {intake.mode}
 - Team for broad work with disjoint file ownership.
 - Never let multiple agents edit the same file without an explicit maintainer merge step.
 
-## Pop-Culture Signal Words
+## Communication Habits
 
-- ROUTE-42: routing sanity check when an answer feels off.
-- Great Scott: checkpoint before timeline-risk changes such as migrations or broad refactors.
-- Protocol-droid clarity: handoffs must state assumptions, commands, and expected signals.
-- This is the way: small change, fast test, clear rollback.
+- Routing recheck: pause and reassess when an answer feels off.
+- Change checkpoint: pause before migrations, dependency upgrades, or broad refactors.
+- Explicit handoff: state assumptions, commands, expected signals, and next steps.
+- Small change, fast test, clear rollback.
 """
 
 
@@ -622,7 +610,7 @@ Heavy-lift model: `{routing.strong_model}`
 2. Run `/first-session` to inspect without editing.
 3. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
 4. Read the verification output and review findings yourself.
-5. Use ROUTE-42 when an answer feels wrong: restate the task, add context, or route to the stronger model.
+5. Recheck the route when an answer feels wrong: restate the task, add context, or use the stronger model.
 6. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
 7. Configure local provider keys with `CREDENTIALS.md`.
 8. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
@@ -783,11 +771,10 @@ that peers can run, inspect, and improve without tying the team to one vendor.
 def _beginner_path_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
     return f"""# Beginner Path: Your First AI-Enabled Coding Project
 
-You open the project and the terminal hums awake. A small companion, Pneumon, blinks at the edge of
-the prompt. The archive is not asking you to solve everything at once. It is asking for the first
-stable signal.
+This guide helps you complete one careful AI-assisted coding session without handing the whole
+project to an agent at once.
 
-## Challenge 1: Wake The Project
+## 1. Inspect The Project
 
 Goal: understand what you have before asking an AI to change it.
 
@@ -801,7 +788,7 @@ Then ask your coding agent:
 Inspect this project and tell me the language, test command, run command, and risky areas. Do not edit yet.
 ```
 
-## Challenge 2: Stabilize The Local Crystal
+## 2. Check Model And Privacy Defaults
 
 Goal: use local models for routine work when possible.
 
@@ -809,13 +796,13 @@ Routine model: `{routing.weak_model}`
 Heavy-lift model: `{routing.strong_model}`
 Privacy mode: `{intake.privacy}`
 
-If The Glitch appears as a vague answer, use ROUTE-42:
+If an answer seems vague or overconfident, run a route recheck:
 
 ```text
-ROUTE-42: restate the task, list the exact files you inspected, and suggest the smallest next step.
+Restate the task, list the exact files you inspected, and suggest the smallest next step.
 ```
 
-## Challenge 3: Make One Small Change
+## 3. Make One Small Change
 
 Goal: complete a tiny, reviewable improvement.
 
@@ -825,41 +812,16 @@ Ask:
 Pick one small improvement in this project. Explain it first, then implement it, then run the narrowest test.
 ```
 
-## Challenge 4: Great Scott Gate
+## 4. Pause Before Broad Changes
 
 Goal: learn when to pause.
 
-Say "Great Scott" before migrations, broad refactors, dependency upgrades, generated code rewrites,
-or anything that changes public behavior. Make a checkpoint and ask for a plan before edits.
+Pause before migrations, broad refactors, dependency upgrades, generated code rewrites, or anything
+that changes public behavior. Make a checkpoint and ask for a plan before edits.
 
-## Challenge 5: This Is The Way
+## 5. Keep The Habit
 
 Goal: build a repeatable habit.
 
 Small change. Fast test. Clear rollback. Short review.
-"""
-
-
-def _theme_md() -> str:
-    theme = FESTO_TN_AI
-    references = "\n".join(f"- {item}" for item in theme.reference_bits)
-    return f"""# Voice And Onboarding Style
-
-The scaffold is an efficient coding enablement tool first. The Festo Coding Challenge voice is
-reserved for beginner onboarding, workshop material, and optional narrative guides.
-
-## Voice
-
-{theme.voice}
-
-## How To Use The Style
-
-- Use second person for beginner guidance.
-- Keep experienced-user docs direct and operational.
-- Turn practical tasks into short challenge beats only when that lowers anxiety or improves recall.
-- Do not turn config files, routing plans, or provider docs into fiction.
-
-## Signal References
-
-{references}
 """
