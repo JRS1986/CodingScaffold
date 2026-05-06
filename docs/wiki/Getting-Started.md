@@ -37,7 +37,15 @@ cd ~/dev/my-project
 ```
 
 The wizard writes `.coding-scaffold/` with project facts, provider hints, routing guidance, and
-first-session documentation.
+first-session documentation. It also asks which coding environment to use:
+
+- `opencode`: default, recommended for the first rollout.
+- `openclaude`: experimental option for teams tracking that workflow.
+- `both`: generate both sets of guidance.
+- `manual`: skip tool adapter generation and wire your own environment.
+
+If the selected tool is missing and stdin is interactive, the wizard asks before installing it.
+Nothing is installed silently.
 
 If you need project-local credentials, create an ignored template and fill only the providers you
 intend to use:
@@ -51,10 +59,13 @@ coding-scaffold credentials --target . --format env
 OpenCode is the recommended default adapter for the first team rollout.
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+coding-scaffold setup-tool --tool opencode
 coding-scaffold adapt --target . --tool opencode
 opencode
 ```
+
+Use `coding-scaffold setup-tool --tool opencode --install` when you want the CLI to install a
+missing tool without a second prompt, for example in a prepared dev container.
 
 Inside OpenCode:
 

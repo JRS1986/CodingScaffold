@@ -35,7 +35,12 @@ def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> 
             else _bool_value("Existing codebase", _has_code(target), interactive)
         ),
         privacy=_value(provided.privacy, "Privacy mode", "local-first", interactive),
-        agent=_value(provided.agent, "Coding agent target", "opencode", interactive),
+        agent=_value(
+            provided.agent,
+            "Coding environment / IDE (opencode/openclaude/both/manual)",
+            "opencode",
+            interactive,
+        ),
         preferred_local_model=_value(
             provided.preferred_local_model,
             "Preferred local model",

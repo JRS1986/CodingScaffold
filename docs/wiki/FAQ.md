@@ -10,6 +10,12 @@ No. The wizard, hardware probe, credential templates, adapter generation, and `s
 recommendations work without calling a model. You need an LLM only when a coding tool such as
 OpenCode or OpenClaude starts an actual agent session.
 
+## Does the wizard install tools?
+
+Yes, when it is running interactively and the selected coding environment is missing. It asks before
+installing. You can also run `coding-scaffold setup-tool --tool opencode` to validate the tool, or
+add `--install` to install a missing tool intentionally.
+
 ## Does it require cloud APIs?
 
 No. It can work local-only. Cloud providers are used only when credentials are configured and the

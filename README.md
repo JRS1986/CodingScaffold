@@ -42,26 +42,37 @@ For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
 
 ## First Run
 
-Run the wizard inside a real project:
+Run the wizard inside a real project. It asks which coding environment you want to use, with
+OpenCode as the default, OpenClaude as an option, and `manual` when you want to wire the tool
+yourself.
 
 ```bash
 coding-scaffold wizard --target ~/dev/my-project
 cd ~/dev/my-project
 ```
 
-The wizard can run before any model is configured. If you already have `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a local runtime installed, the scaffold
-will detect that. To keep credentials project-local, create an ignored template and fill it on your
-machine:
+The wizard can run before any model is configured. It validates the selected coding tool and, when
+stdin is interactive, asks before installing a missing tool. OpenCode uses the official install
+script; OpenClaude uses the npm package. Nothing is installed silently.
+
+If you already have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a
+local runtime installed, the scaffold will detect that. To keep credentials project-local, create an
+ignored template and fill it on your machine:
 
 ```bash
 coding-scaffold credentials --target . --format env
 ```
 
-Then install the recommended coding adapter and start the first session:
+You can also validate or install the coding tool directly:
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+coding-scaffold setup-tool --tool opencode
+coding-scaffold setup-tool --tool opencode --install
+```
+
+Then start the first session:
+
+```bash
 opencode
 ```
 
@@ -174,7 +185,7 @@ terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, broad pro
 local-model support, and GitHub Copilot sign-in.
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+coding-scaffold setup-tool --tool opencode
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 ```
 
@@ -183,7 +194,7 @@ across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and p
 Treat it as experimental and review provenance, licensing, and security before standardizing on it.
 
 ```bash
-npm install -g @gitlawb/openclaude
+coding-scaffold setup-tool --tool openclaude
 coding-scaffold adapt --target ~/dev/my-project --tool openclaude
 ```
 
@@ -302,6 +313,7 @@ coding-scaffold probe --json
 coding-scaffold wizard --target ~/dev/my-project
 coding-scaffold init --target ~/dev/my-project --language python --non-interactive
 coding-scaffold credentials --target ~/dev/my-project --format env
+coding-scaffold setup-tool --tool opencode
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"

@@ -3,6 +3,7 @@ import json
 import sys
 
 from coding_scaffold.cli import build_parser, main
+from coding_scaffold.installers import ToolInstallResult
 
 
 def test_parser_lists_user_facing_commands() -> None:
@@ -11,6 +12,7 @@ def test_parser_lists_user_facing_commands() -> None:
     assert "select-model" in help_text
     assert "knowledge" in help_text
     assert "policy" in help_text
+    assert "setup-tool" in help_text
     assert "workflow" in help_text
 
 
@@ -78,6 +80,19 @@ def test_policy_command(tmp_path) -> None:
 
     assert (tmp_path / ".coding-scaffold" / "policy" / "company.md").exists()
     assert (tmp_path / "opencode.json").exists()
+
+
+def test_setup_tool_command(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.cli.install_missing_tools",
+        lambda tool, interactive, assume_yes=False: [
+            ToolInstallResult(tool, "present", "opencode is already installed.")
+        ],
+    )
+
+    assert main(["setup-tool", "--tool", "opencode"]) == 0
+
+    assert "opencode: present" in capsys.readouterr().out
 
 
 def test_select_model_with_prompt(tmp_path, capsys) -> None:

@@ -10,7 +10,7 @@ files does not require an LLM; running an adapter session does.
 OpenCode is the recommended first adapter.
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+coding-scaffold setup-tool --tool opencode
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 ```
 
@@ -42,11 +42,14 @@ named MCP servers, and add provider allow/deny lists in `opencode.json`.
 OpenClaude support is intentionally lightweight because the project moves quickly:
 
 ```bash
-npm install -g @gitlawb/openclaude
+coding-scaffold setup-tool --tool openclaude
 coding-scaffold adapt --target ~/dev/my-project --tool openclaude
 ```
 
 Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
+
+Use `coding-scaffold setup-tool --tool both` when a team wants to compare both tools on the same
+project.
 
 ## Adding Another Tool
 

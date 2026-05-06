@@ -9,6 +9,7 @@ from .adapters import write_route_backend, write_tool_adapter, write_workflow_ba
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
+from .installers import install_missing_tools
 from .intake import IntakeAnswers, collect_intake
 from .knowledge import write_knowledge_base
 from .model_selection import select_model_for_prompt
@@ -36,14 +37,19 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--agent", choices=["opencode", "openclaude", "both"], default=None)
+    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], default=None)
+    init.add_argument("--coding-tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
     init.add_argument("--preferred-local-model", help="Preferred local model name.")
     init.add_argument("--mode", choices=["standard", "beginner"], default=None)
     init.add_argument("--non-interactive", action="store_true", help="Use defaults for missing values.")
+    init.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
 
     wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
+    wizard.add_argument("--coding-tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    wizard.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
+    wizard.add_argument("--no-install-tools", action="store_true", help="Do not offer coding tool installation.")
 
     credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
     credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -65,6 +71,14 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    setup_tool = sub.add_parser("setup-tool", help="Install or validate a coding environment.")
+    setup_tool.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+    setup_tool.add_argument(
+        "--install",
+        action="store_true",
+        help="Install missing tools without an extra prompt when stdin is not interactive.",
+    )
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -172,6 +186,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote agent orchestration plan to {path}")
         return 0
 
+    if args.command == "setup-tool":
+        results = install_missing_tools(
+            args.tool,
+            interactive=sys.stdin.isatty(),
+            assume_yes=args.install,
+        )
+        for result in results:
+            print(f"{result.tool}: {result.status} - {result.message}")
+        return 1 if any(result.status == "failed" for result in results) else 0
+
     if args.command == "policy":
         adapter = None if args.adapter == "none" else args.adapter
         result = write_policy_pack(
@@ -244,15 +268,41 @@ def main(argv: list[str] | None = None) -> int:
         providers = detect_providers(load_local_credentials(target))
         routing = build_routing_plan(answers, hardware, providers)
         manifest = write_scaffold(target, answers, hardware, providers, routing)
-        adapter = write_tool_adapter(target, answers.agent or "opencode")
+        selected_tool = answers.agent or "opencode"
+        install_results = _maybe_install_tools(selected_tool, args, is_wizard)
+        adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
-        print(f"Wrote {len(adapter.files)} tool adapter file(s)")
+        if adapter:
+            print(f"Wrote {len(adapter.files)} tool adapter file(s)")
+        else:
+            print("Skipped tool adapter generation.")
+        for result in install_results:
+            print(f"{result.tool}: {result.status} - {result.message}")
         print(f"Selected weak model: {routing.weak_model or 'none'}")
         print(f"Selected strong model: {routing.strong_model or 'none'}")
         print("Next: read .coding-scaffold/GETTING_STARTED.md")
         return 0
 
     return 2
+
+
+def _maybe_install_tools(
+    selection: str,
+    args: argparse.Namespace,
+    is_wizard: bool,
+):
+    if selection == "manual":
+        return []
+    if getattr(args, "no_install_tools", False):
+        return []
+    should_offer = getattr(args, "install_tools", False) or (is_wizard and sys.stdin.isatty())
+    if not should_offer:
+        return []
+    return install_missing_tools(
+        selection,
+        interactive=sys.stdin.isatty(),
+        assume_yes=getattr(args, "install_tools", False),
+    )
 
 
 def _print_probe(payload: dict[str, object]) -> None:

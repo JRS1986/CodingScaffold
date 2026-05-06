@@ -324,10 +324,11 @@ that want stability and a visible ecosystem.
 Install:
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+coding-scaffold setup-tool --tool opencode
 ```
 
-Alternatives include npm, Bun, pnpm, Yarn, Homebrew, and paru depending on your platform.
+Use `coding-scaffold setup-tool --tool opencode --install` when you intentionally want the CLI to
+install a missing tool without a second prompt, for example in a prepared dev container.
 
 Generate OpenCode-native config:
 
@@ -357,7 +358,7 @@ and team comfort before standardizing on it.
 Install:
 
 ```bash
-npm install -g @gitlawb/openclaude
+coding-scaffold setup-tool --tool openclaude
 ```
 
 Use this scaffold with OpenClaude:
@@ -573,6 +574,13 @@ Guidance mode: {intake.mode}
 
 
 def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
+    selected_tool = intake.agent or "opencode"
+    setup_hint = (
+        "Validate or install the selected coding environment with "
+        f"`coding-scaffold setup-tool --tool {selected_tool}`."
+        if selected_tool != "manual"
+        else "Use your manually selected coding environment and keep its config next to this scaffold."
+    )
     return f"""# Getting Started
 
 This scaffold is meant to be cloned, installed into a local venv, and run as a setup wizard inside
@@ -600,23 +608,25 @@ On WSL/Linux the flow is the same. On Windows PowerShell outside WSL, activate w
 Project language: `{intake.language}`
 Project target: `{intake.project_target}`
 Privacy mode: `{intake.privacy}`
+Coding environment: `{intake.agent}`
 Guidance mode: `{intake.mode}`
 Routine model: `{routing.weak_model}`
 Heavy-lift model: `{routing.strong_model}`
 
 ## Daily Use
 
-1. Start OpenCode with `opencode`.
-2. Run `/first-session` to inspect without editing.
-3. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
-4. Read the verification output and review findings yourself.
-5. Recheck the route when an answer feels wrong: restate the task, add context, or use the stronger model.
-6. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
-7. Configure local provider keys with `CREDENTIALS.md`.
-8. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-9. Create shared team memory with `coding-scaffold knowledge --target .`.
-10. Improve skills when they miss context, overreach, or fail to verify correctly.
-11. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
+1. {setup_hint}
+2. Start OpenCode with `opencode`, OpenClaude with `openclaude`, or your manually selected tool.
+3. Run `/first-session` to inspect without editing.
+4. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
+5. Read the verification output and review findings yourself.
+6. Recheck the route when an answer feels wrong: restate the task, add context, or use the stronger model.
+7. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
+8. Configure local provider keys with `CREDENTIALS.md`.
+9. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
+10. Create shared team memory with `coding-scaffold knowledge --target .`.
+11. Improve skills when they miss context, overreach, or fail to verify correctly.
+12. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 
 
