@@ -2,6 +2,9 @@
 
 CodingScaffold stays tool-neutral while generating useful native files for current coding agents.
 
+Adapters are where the scaffold hands off to tools that actually call models. Generating adapter
+files does not require an LLM; running an adapter session does.
+
 ## OpenCode
 
 OpenCode is the recommended first adapter.
@@ -21,6 +24,9 @@ Generated files include:
 - `.opencode/commands/agentic-change.md`
 - `.opencode/commands/review.md`
 - `.opencode/commands/recheck-route.md`
+
+Before running `/first-session`, make sure OpenCode can reach at least one model through its own
+provider setup, a local OpenAI-compatible endpoint, GitHub Copilot sign-in, or cloud credentials.
 
 ## OpenClaude
 
@@ -45,4 +51,3 @@ When adding a new adapter, document:
 - edit mode
 - verification flow
 - how to share skills and agents
-

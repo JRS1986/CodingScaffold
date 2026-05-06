@@ -20,6 +20,13 @@ CodingScaffold creates project-local guidance and lightweight configuration for:
 It does not collect secrets, does not require one model vendor, and does not force a hosted service
 into the workflow.
 
+## First-Start Rule
+
+CodingScaffold itself can start without an LLM. The wizard, hardware probe, credential templates,
+adapter generation, and `select-model` command are local Python workflows. The first actual model
+call happens later, inside the coding tool, when a developer runs an agent command such as
+`/first-session` in OpenCode.
+
 ## Recommended Reading
 
 1. [[Getting Started]]: install, run the wizard, and complete the first agentic coding session.
@@ -38,4 +45,3 @@ CodingScaffold is intentionally boring where that helps:
 - Local credentials stay local.
 - Generated files are readable and editable by hand.
 - Advanced orchestration is optional and comes after the team validates the workflow.
-

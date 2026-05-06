@@ -2,6 +2,14 @@
 
 CodingScaffold separates model recommendation from request routing.
 
+## Bootstrap Boundary
+
+Model recommendation is available before any LLM is configured. CodingScaffold reads local project
+metadata, hardware facts, credential presence, and the prompt text. It then recommends a route. It
+does not proxy the prompt or call a provider.
+
+Actual request routing happens later in the coding tool or an optional backend such as RouteLLM.
+
 ## Recommendation
 
 Use `select-model` when you want an explainable routing suggestion:
@@ -68,4 +76,3 @@ If the endpoint serves Anthropic-family models, set:
 ```text
 AZURE_AI_MODEL_FAMILY=anthropic
 ```
-

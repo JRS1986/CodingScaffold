@@ -4,6 +4,12 @@
 
 No. It is a scaffold that prepares a project for coding agents and local-first model routing.
 
+## Do I need an LLM for the first start?
+
+No. The wizard, hardware probe, credential templates, adapter generation, and `select-model`
+recommendations work without calling a model. You need an LLM only when a coding tool such as
+OpenCode or OpenClaude starts an actual agent session.
+
 ## Does it require cloud APIs?
 
 No. It can work local-only. Cloud providers are used only when credentials are configured and the
@@ -28,4 +34,3 @@ and easy to migrate.
 
 No. Start with the wizard, OpenCode, skills, and knowledge. Add RouteLLM or Open Multi-Agent only
 after the team has a proven need.
-

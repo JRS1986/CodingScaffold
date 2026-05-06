@@ -12,6 +12,18 @@ repo, build context, plan a change, edit bounded files, run verification, review
 turn the best team workflows into reusable skills. This scaffold helps a team make that jump in a
 controlled, reviewable way.
 
+## Bootstrap Contract
+
+CodingScaffold does not need an LLM to start. The wizard, hardware probe, provider detection,
+credential templates, adapter generation, and `select-model` recommendations are local Python
+workflows. `select-model` reads the task text with a deterministic classifier and recommends a
+route; it does not send the prompt to a model.
+
+An LLM is needed only when a coding agent actually starts working, for example when OpenCode runs
+`/first-session` or `/agentic-change`. At that point the selected tool must already have a usable
+path to a model through Ollama, LM Studio, llama-server, GitHub Copilot, OpenAI, Anthropic, Azure,
+OpenRouter, GitHub Models, or another compatible provider.
+
 ## Install
 
 ```bash
@@ -37,7 +49,16 @@ coding-scaffold wizard --target ~/dev/my-project
 cd ~/dev/my-project
 ```
 
-Install the recommended coding adapter and start the first session:
+The wizard can run before any model is configured. If you already have `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a local runtime installed, the scaffold
+will detect that. To keep credentials project-local, create an ignored template and fill it on your
+machine:
+
+```bash
+coding-scaffold credentials --target . --format env
+```
+
+Then install the recommended coding adapter and start the first session:
 
 ```bash
 curl -fsSL https://opencode.ai/install | bash
@@ -51,7 +72,8 @@ Inside OpenCode:
 ```
 
 That command asks the agent to inspect before editing, identify run and test commands, map the main
-code paths, and propose one safe improvement. Then run a small agentic loop:
+code paths, and propose one safe improvement. This is the first step that requires OpenCode to be
+connected to a working model. Then run a small agentic loop:
 
 ```text
 /agentic-change
