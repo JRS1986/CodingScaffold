@@ -8,7 +8,7 @@ project vocabulary, skill notes, agent patterns, and source-of-truth links.
 Plain Markdown is the default:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project
+coding-scaffold knowledge create --target ~/dev/my-project
 ```
 
 This creates:
@@ -22,7 +22,7 @@ This creates:
 Use a shared remote when multiple people should contribute:
 
 ```bash
-coding-scaffold setup-knowledge --target ~/dev/my-project \
+coding-scaffold setup knowledge --target ~/dev/my-project \
   --backend markdown \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
@@ -77,8 +77,8 @@ easier to operate.
 Check the current state:
 
 ```bash
-coding-scaffold knowledge-status --target ~/dev/my-project
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+coding-scaffold knowledge status --target ~/dev/my-project
+coding-scaffold context budget --target ~/dev/my-project --source knowledge
 ```
 
 The status command counts notes by scope and maturity, and flags missing frontmatter on layered
@@ -91,8 +91,8 @@ Obsidian mode keeps Markdown as the source of truth while adding vault structure
 frontmatter templates, and graph-friendly navigation:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
-coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
+coding-scaffold setup addon --target ~/dev/my-project --addon obsidian
+coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
 ```
 
 Use this when humans want a better reading and navigation layer. In WSL, install the desktop app on
@@ -103,7 +103,7 @@ Windows and open `.coding-scaffold/knowledge` as a vault.
 MemPalace mode adds notes for optional local semantic retrieval and MCP-compatible memory workflows:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
+coding-scaffold knowledge create --target ~/dev/my-project --backend mempalace
 ```
 
 Use this when the Markdown corpus grows large enough that search and semantic retrieval matter.

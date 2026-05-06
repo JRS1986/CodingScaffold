@@ -14,9 +14,9 @@ controlled, reviewable way.
 
 ## Bootstrap Contract
 
-CodingScaffold does not need an LLM to start. The wizard, hardware probe, provider detection,
-credential templates, adapter generation, and `select-model` recommendations are local Python
-workflows. `select-model` reads the task text with a deterministic classifier and recommends a
+CodingScaffold does not need an LLM to start. Guided setup, hardware probe, provider detection,
+credential templates, adapter generation, and `tools select-model` recommendations are local Python
+workflows. `tools select-model` reads the task text with a deterministic classifier and recommends a
 route; it does not send the prompt to a model.
 
 An LLM is needed only when a coding agent actually starts working, for example when OpenCode runs
@@ -42,16 +42,16 @@ For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
 
 ## First Run
 
-Run the wizard inside a real project. It asks which coding environment you want to use, with
+Run guided setup inside a real project. It asks which coding environment you want to use, with
 OpenCode as the default, OpenClaude as an option, and `manual` when you want to wire the tool
 yourself.
 
 ```bash
-coding-scaffold wizard --target ~/dev/my-project
+coding-scaffold setup run --target ~/dev/my-project
 cd ~/dev/my-project
 ```
 
-The wizard can run before any model is configured. It validates the selected coding tool and, when
+Setup can run before any model is configured. It validates the selected coding tool and, when
 stdin is interactive, asks before installing a missing tool. OpenCode uses the official install
 script; OpenClaude uses the npm package. It can also configure the knowledge backend and optional
 shared Git remote during setup. Nothing is installed silently.
@@ -67,27 +67,36 @@ coding-scaffold credentials --target . --format env
 You can also validate or install the coding tool directly:
 
 ```bash
-coding-scaffold setup-tool --tool opencode
-coding-scaffold setup-tool --tool opencode --install
+coding-scaffold setup tool --tool opencode
+coding-scaffold setup tool --tool opencode --install
 ```
 
 Optional add-ons use the same pattern:
 
 ```bash
-coding-scaffold setup-addon --target . --addon llmfit
-coding-scaffold setup-addon --target . --addon routellm
-coding-scaffold setup-addon --target . --addon open-multi-agent
-coding-scaffold setup-addon --target . --addon obsidian
-coding-scaffold setup-addon --target . --addon caveman-compression  # optional external compression engine
+coding-scaffold setup addon --target . --addon llmfit
+coding-scaffold setup addon --target . --addon routellm
+coding-scaffold setup addon --target . --addon open-multi-agent
+coding-scaffold setup addon --target . --addon obsidian
+coding-scaffold setup addon --target . --addon caveman-compression  # optional external compression engine
 ```
 
 Shared knowledge can also be configured as part of setup:
 
 ```bash
-coding-scaffold setup-knowledge --target . \
+coding-scaffold setup knowledge --target . \
   --backend obsidian \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
+
+When CodingScaffold improves later, refresh generated files without losing local edits:
+
+```bash
+coding-scaffold setup update --target .
+```
+
+Files that still match their generated checksum are updated in place. Files you edited are preserved
+and the new generated version is staged next to them as `.new`.
 
 If you join an experienced team, connect to its onboarding manifest instead. This pulls the common
 knowledge base and exposes approved skills, agents, policy, and config locally:
@@ -139,13 +148,13 @@ small engineering workflow that you can inspect, verify, and improve.
 3. Generate native OpenCode files:
 
    ```bash
-   coding-scaffold adapt --target ~/dev/my-project --tool opencode
+   coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
    ```
 
 4. Ask for a model recommendation when the route is unclear:
 
    ```bash
-   coding-scaffold select-model --target ~/dev/my-project \
+   coding-scaffold tools select-model --target ~/dev/my-project \
      --prompt "Review this authentication refactor for security regressions."
    ```
 
@@ -160,7 +169,7 @@ small engineering workflow that you can inspect, verify, and improve.
 6. Capture decisions, useful prompts, skills, and agent patterns in team memory:
 
    ```bash
-   coding-scaffold setup-knowledge --target ~/dev/my-project \
+   coding-scaffold setup knowledge --target ~/dev/my-project \
      --backend obsidian \
      --shared-remote https://github.com/acme/team-ai-knowledge.git
    ```
@@ -185,8 +194,8 @@ small engineering workflow that you can inspect, verify, and improve.
 9. Add advanced routing or workflow automation only when the team has a real need:
 
    ```bash
-   coding-scaffold route --target ~/dev/my-project --backend routellm
-   coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+   coding-scaffold tools route --target ~/dev/my-project --backend routellm
+   coding-scaffold tools workflow --target ~/dev/my-project --backend open-multi-agent
    ```
 
 ## Core Concepts
@@ -196,7 +205,7 @@ providers when credentials or authenticated CLIs are available. Provider and mod
 separate, so Azure can be the endpoint while the deployed model family is OpenAI, Anthropic, or
 something else.
 
-**Model selection:** `select-model` reads a prompt and recommends `routine` or `heavy-lift`. It
+**Model selection:** `tools select-model` reads a prompt and recommends `routine` or `heavy-lift`. It
 does not call a model; it explains the route, provider, model family, model or deployment,
 confidence, and reasons.
 
@@ -210,7 +219,7 @@ generates OpenCode-native agents and commands instead of inventing a parallel ru
 **Team knowledge:** Decisions, project vocabulary, useful prompts, trusted agents, and validated
 skills belong in reviewed Markdown, not in one person’s chat history. Knowledge can use scope
 (`team`, `department`, `unit`, `company`) and maturity (`draft`, `validated`, `recommended`,
-`standard`) frontmatter; `knowledge-status` reports what exists and flags missing metadata.
+`standard`) frontmatter; `knowledge status` reports what exists and flags missing metadata.
 
 **Team onboarding:** Experienced teams can publish a non-secret onboarding manifest that points to
 shared knowledge, approved skills, approved agents, policy, config, default tool choices, and
@@ -228,8 +237,8 @@ terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, broad pro
 local-model support, and GitHub Copilot sign-in.
 
 ```bash
-coding-scaffold setup-tool --tool opencode
-coding-scaffold adapt --target ~/dev/my-project --tool opencode
+coding-scaffold setup tool --tool opencode
+coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
 ```
 
 OpenClaude is worth tracking if your team wants a fast-moving, Claude-Code-like community workflow
@@ -237,8 +246,8 @@ across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and p
 Treat it as experimental and review provenance, licensing, and security before standardizing on it.
 
 ```bash
-coding-scaffold setup-tool --tool openclaude
-coding-scaffold adapt --target ~/dev/my-project --tool openclaude
+coding-scaffold setup tool --tool openclaude
+coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
 ```
 
 ## Knowledge Base
@@ -249,21 +258,21 @@ Obsidian, and optional memory tools.
 Plain Markdown:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project
+coding-scaffold knowledge create --target ~/dev/my-project
 ```
 
 Shared GitHub or GitLab memory:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project \
+coding-scaffold knowledge create --target ~/dev/my-project \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
 Obsidian vault mode:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
-coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
+coding-scaffold setup addon --target ~/dev/my-project --addon obsidian
+coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
 ```
 
 This creates Obsidian-friendly folders, backlinks, frontmatter templates, and `.obsidian/` settings
@@ -272,7 +281,7 @@ while keeping Markdown as the source of truth.
 Optional MemPalace index:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
+coding-scaffold knowledge create --target ~/dev/my-project --backend mempalace
 ```
 
 Use Obsidian when humans want better navigation and graph-style reading. Use MemPalace when the
@@ -281,7 +290,7 @@ Markdown corpus grows large enough to benefit from semantic retrieval or MCP mem
 Hierarchical sharing is an optional organization pattern. Start with one repo and folder scopes when
 everyone has the same access. Use multiple Git remotes only when company, unit, department, or team
 knowledge needs different permissions. Promote mature notes upward by pull request instead of
-automatic sync, and use `coding-scaffold knowledge-status --target .` to check scope/maturity
+automatic sync, and use `coding-scaffold knowledge status --target .` to check scope/maturity
 metadata.
 
 ## Context Hygiene
@@ -294,7 +303,7 @@ something to shovel into a model until the meter turns red.
 Check the project knowledge budget:
 
 ```bash
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+coding-scaffold context budget --target ~/dev/my-project --source knowledge
 ```
 
 The default guardrail warns above 100,000 estimated tokens or 40% of the configured context window.
@@ -304,7 +313,7 @@ compress supporting notes, or start a fresh session before old context starts be
 Create compressed sidecars for Markdown knowledge:
 
 ```bash
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+coding-scaffold context compress --target ~/dev/my-project --source knowledge
 ```
 
 This writes `.caveman.md` sidecars next to the original files. Originals stay the reviewed source
@@ -316,11 +325,11 @@ The default compressor is built in and works offline. If you want to experiment 
 Caveman Compression project, install it as an optional engine and call it explicitly:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
-After compression, `context-budget` still estimates original files by default so budgets do not
+After compression, `context budget` still estimates original files by default so budgets do not
 double-count source notes and sidecars. Use `--prefer compressed` to estimate a sidecar-first agent
 session, or `--prefer both` when you intentionally want to measure the full stored corpus.
 
@@ -350,16 +359,16 @@ RouteLLM can provide one OpenAI-compatible endpoint that routes actual requests 
 weak/routine model and a strong/heavy-lift model:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
-coding-scaffold route --target ~/dev/my-project --backend routellm
+coding-scaffold setup addon --target ~/dev/my-project --addon routellm
+coding-scaffold tools route --target ~/dev/my-project --backend routellm
 ```
 
 Open Multi-Agent can turn a validated human-in-the-loop workflow into repeatable TypeScript
 automation:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
-coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold tools workflow --target ~/dev/my-project --backend open-multi-agent
 ```
 
 The intended path is: validate interactively in OpenCode, capture the useful behavior as a skill,
@@ -370,9 +379,9 @@ compressor does not require it; install the add-on only when you want to compare
 compressor against the scaffold default:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold context-budget --target ~/dev/my-project --source team
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context budget --target ~/dev/my-project --source team
+coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
 Use it when the knowledge base is useful but too wordy for repeated agent sessions. Avoid using it
@@ -380,7 +389,7 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 
 ## What It Creates
 
-`coding-scaffold init` writes `.coding-scaffold/` in the target project:
+`coding-scaffold setup run` writes `.coding-scaffold/` in the target project:
 
 - `.gitignore`: keeps generated local credential files out of Git.
 - `.env.example` and `credentials.example.json`: local credential templates.
@@ -397,6 +406,7 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 - `.coding-scaffold/team-onboarding.json` and `team-provenance.json`: optional experienced-team onboarding.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
 - `AGENTS.md`: project-specific operating notes for coding agents.
+- `scaffold-version.json`: checksums that let `coding-scaffold setup update` refresh generated files safely.
 
 Optional commands can also generate:
 
@@ -410,33 +420,33 @@ Optional commands can also generate:
 
 ```bash
 coding-scaffold probe --json
-coding-scaffold wizard --target ~/dev/my-project
-coding-scaffold init --target ~/dev/my-project --language python --non-interactive
+coding-scaffold setup run --target ~/dev/my-project
 coding-scaffold credentials --target ~/dev/my-project --format env
-coding-scaffold setup-tool --tool opencode
-coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
-coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
-coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
-coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
-coding-scaffold knowledge-status --target ~/dev/my-project
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge --prefer compressed
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+coding-scaffold setup tool --tool opencode
+coding-scaffold setup addon --target ~/dev/my-project --addon llmfit
+coding-scaffold setup addon --target ~/dev/my-project --addon routellm
+coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold setup addon --target ~/dev/my-project --addon obsidian
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold setup knowledge --target ~/dev/my-project --backend obsidian
+coding-scaffold setup update --target ~/dev/my-project
+coding-scaffold knowledge status --target ~/dev/my-project
+coding-scaffold context budget --target ~/dev/my-project --source knowledge
+coding-scaffold context budget --target ~/dev/my-project --source knowledge --prefer compressed
+coding-scaffold context compress --target ~/dev/my-project --source knowledge
+coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
 coding-scaffold team init --target ~/dev/my-project --team platform-api
 coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
 coding-scaffold team sync --target ~/dev/my-project
 coding-scaffold team doctor --target ~/dev/my-project
-coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
-coding-scaffold adapt --target ~/dev/my-project --tool opencode
+coding-scaffold tools select-model --target ~/dev/my-project --prompt "Review this migration"
+coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
-coding-scaffold knowledge --target ~/dev/my-project --backend obsidian
-coding-scaffold orchestrate --target ~/dev/my-project --profile pair
+coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
+coding-scaffold tools orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold policy --target ~/dev/my-project --scope company
-coding-scaffold route --target ~/dev/my-project --backend routellm
-coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+coding-scaffold tools route --target ~/dev/my-project --backend routellm
+coding-scaffold tools workflow --target ~/dev/my-project --backend open-multi-agent
 coding-scaffold doctor
 ```
 

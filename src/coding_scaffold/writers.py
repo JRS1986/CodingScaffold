@@ -9,6 +9,7 @@ from .intake import IntakeAnswers
 from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
 from .providers import Provider
 from .router import RoutingPlan
+from .scaffold_version import write_scaffold_version
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,7 @@ def write_scaffold(
     providers: list[Provider],
     routing: RoutingPlan,
 ) -> ScaffoldManifest:
+    target = target.expanduser().resolve()
     target.mkdir(parents=True, exist_ok=True)
     scaffold_dir = target / ".coding-scaffold"
     scaffold_dir.mkdir(exist_ok=True)
@@ -53,6 +55,7 @@ def write_scaffold(
     ]
     if intake.mode == "beginner":
         files.append(_write_text(scaffold_dir / "BEGINNER_PATH.md", _beginner_path_md(intake, routing)))
+    files.append(write_scaffold_version(target, files))
     return ScaffoldManifest(scaffold_dir=scaffold_dir, files=files)
 
 
@@ -80,7 +83,7 @@ def _opencode_config(routing: RoutingPlan) -> dict[str, object]:
             },
         },
         "nativeAdapter": {
-            "command": "coding-scaffold adapt --target . --tool opencode",
+            "command": "coding-scaffold tools adapt --target . --tool opencode",
             "writes": ["opencode.json", ".opencode/agents/*.md", ".opencode/commands/*.md"],
         },
         "routing": routing.to_dict(),
@@ -127,7 +130,7 @@ def _model_selection_json(routing: RoutingPlan) -> dict[str, object]:
     return {
         "default_mode": "recommend",
         "auto_mode": {
-            "command": "coding-scaffold select-model --target . --mode auto --prompt '...'",
+            "command": "coding-scaffold tools select-model --target . --mode auto --prompt '...'",
             "meaning": "select a route without asking each time; still prints the decision",
         },
         "routes": {
@@ -274,13 +277,13 @@ routine route or the heavy-lift route?
 Run a recommendation:
 
 ```bash
-coding-scaffold select-model --target . --prompt "Review this migration for rollback risks."
+coding-scaffold tools select-model --target . --prompt "Review this migration for rollback risks."
 ```
 
 Use auto mode when you do not want to choose each time:
 
 ```bash
-coding-scaffold select-model --target . --mode auto --prompt "Fix this failing formatter test."
+coding-scaffold tools select-model --target . --mode auto --prompt "Fix this failing formatter test."
 ```
 
 The command does not call a model. It reads the task text, classifies the risk, and returns the
@@ -325,16 +328,16 @@ that want stability and a visible ecosystem.
 Install:
 
 ```bash
-coding-scaffold setup-tool --tool opencode
+coding-scaffold setup tool --tool opencode
 ```
 
-Use `coding-scaffold setup-tool --tool opencode --install` when you intentionally want the CLI to
+Use `coding-scaffold setup tool --tool opencode --install` when you intentionally want the CLI to
 install a missing tool without a second prompt, for example in a prepared dev container.
 
 Generate OpenCode-native config:
 
 ```bash
-coding-scaffold adapt --target . --tool opencode
+coding-scaffold tools adapt --target . --tool opencode
 ```
 
 This writes `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`. Then run:
@@ -359,7 +362,7 @@ and team comfort before standardizing on it.
 Install:
 
 ```bash
-coding-scaffold setup-tool --tool openclaude
+coding-scaffold setup tool --tool openclaude
 ```
 
 Use this scaffold with OpenClaude:
@@ -376,8 +379,8 @@ RouteLLM is optional advanced routing, not the default onboarding path. Use it w
 OpenAI-compatible local router endpoint between a weak/routine model and a strong/heavy-lift model.
 
 ```bash
-coding-scaffold setup-addon --target . --addon routellm
-coding-scaffold route --target . --backend routellm
+coding-scaffold setup addon --target . --addon routellm
+coding-scaffold tools route --target . --backend routellm
 ```
 
 Read `.coding-scaffold/ROUTELLM.md` before starting the server; some routers require an
@@ -390,8 +393,8 @@ when a skill has proven useful in OpenCode and should become a repeatable TypeSc
 backend job, or CI-like check.
 
 ```bash
-coding-scaffold setup-addon --target . --addon open-multi-agent
-coding-scaffold workflow --target . --backend open-multi-agent
+coding-scaffold setup addon --target . --addon open-multi-agent
+coding-scaffold tools workflow --target . --backend open-multi-agent
 ```
 
 This writes `.coding-scaffold/OPEN_MULTI_AGENT.md`,
@@ -405,13 +408,13 @@ Large context can make agent sessions less precise. Check the budget before load
 knowledge, then compress optional reference notes only as sidecars:
 
 ```bash
-coding-scaffold context-budget --target . --source team
-coding-scaffold compress-context --target . --source knowledge
+coding-scaffold context budget --target . --source team
+coding-scaffold context compress --target . --source knowledge
 ```
 
 Use `.caveman.md` sidecars for reference-heavy sessions. The default compressor is built in. Install
 `caveman-compression` only when you want to try the upstream engine with
-`coding-scaffold compress-context --target . --source knowledge --engine caveman`.
+`coding-scaffold context compress --target . --source knowledge --engine caveman`.
 Keep original Markdown, policies, requirements, and active code as the source of truth.
 
 ## Adding The Next Tool
@@ -458,7 +461,7 @@ where possible, and keeps generic JSON/Markdown notes for other tools.
 Use for small tasks. One agent inspects, edits, verifies, and summarizes. Keep checkpoints explicit.
 
 ```bash
-coding-scaffold orchestrate --target . --profile solo
+coding-scaffold tools orchestrate --target . --profile solo
 ```
 
 ### Pair
@@ -467,7 +470,7 @@ Use for normal feature work. A builder makes the change; a reviewer looks for re
 tests, and unclear behavior. This is the default because it catches more without adding much process.
 
 ```bash
-coding-scaffold orchestrate --target . --profile pair
+coding-scaffold tools orchestrate --target . --profile pair
 ```
 
 ### Team
@@ -476,7 +479,7 @@ Use for larger changes. Split into explorer, planner, implementer, and verifier 
 agent a clear scope and avoid overlapping file ownership.
 
 ```bash
-coding-scaffold orchestrate --target . --profile team
+coding-scaffold tools orchestrate --target . --profile team
 ```
 
 Add `--adapter none` if you only want the generic `.coding-scaffold/orchestration.json` file.
@@ -506,7 +509,7 @@ reviewer loop so the user sees the difference between a coding assistant and an 
 When an interactive workflow has proven itself, generate an optional Open Multi-Agent backend:
 
 ```bash
-coding-scaffold workflow --target . --backend open-multi-agent
+coding-scaffold tools workflow --target . --backend open-multi-agent
 ```
 
 Use this for repeatable automation, not discovery. Keep discovery and skill validation in OpenCode;
@@ -593,13 +596,13 @@ def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
     selected_tool = intake.tool or "opencode"
     setup_hint = (
         "Validate or install the selected coding environment with "
-        f"`coding-scaffold setup-tool --tool {selected_tool}`."
+        f"`coding-scaffold setup tool --tool {selected_tool}`."
         if selected_tool != "manual"
         else "Use your manually selected coding environment and keep its config next to this scaffold."
     )
     return f"""# Getting Started
 
-This scaffold is meant to be cloned, installed into a local venv, and run as a setup wizard inside
+This scaffold is meant to be cloned, installed into a local venv, and run as guided setup inside
 the project you want to prepare for AI-assisted coding.
 
 The goal is not just "better autocomplete." The goal is a controlled workflow where agents inspect,
@@ -613,13 +616,13 @@ cd coding-scaffold
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-coding-scaffold wizard --target /path/to/your/project
+coding-scaffold setup run --target /path/to/your/project
 ```
 
 On WSL/Linux the flow is the same. On Windows PowerShell outside WSL, activate with
 `.venv\\Scripts\\Activate.ps1`.
 
-## What The Wizard Did Here
+## What Setup Did Here
 
 Project language: `{intake.language}`
 Project target: `{intake.project_target}`
@@ -637,15 +640,15 @@ Heavy-lift model: `{routing.strong_model}`
 4. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
 5. Read the verification output and review findings yourself.
 6. Recheck the route when an answer feels wrong: restate the task, add context, or use the stronger model.
-7. Ask `coding-scaffold select-model --target . --prompt "..."` when the right model route is unclear.
+7. Ask `coding-scaffold tools select-model --target . --prompt "..."` when the right model route is unclear.
 8. Configure local provider keys with `CREDENTIALS.md`.
-9. Use `coding-scaffold setup-addon --target . --addon llmfit` for deeper hardware-aware model sizing.
-10. Check context health with `coding-scaffold context-budget --target . --source team`.
+9. Use `coding-scaffold setup addon --target . --addon llmfit` for deeper hardware-aware model sizing.
+10. Check context health with `coding-scaffold context budget --target . --source team`.
 11. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-12. Create shared team memory with `coding-scaffold setup-knowledge --target . --backend markdown`.
+12. Create shared team memory with `coding-scaffold setup knowledge --target . --backend markdown`.
 13. Improve skills when they miss context, overreach, or fail to verify correctly.
-14. Compress optional reference notes with `coding-scaffold compress-context --target . --source knowledge`; use `--engine caveman` only after installing the optional Caveman Compression add-on.
-15. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
+14. Compress optional reference notes with `coding-scaffold context compress --target . --source knowledge`; use `--engine caveman` only after installing the optional Caveman Compression add-on.
+15. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup addon --target . --addon open-multi-agent` and `coding-scaffold tools workflow --target . --backend open-multi-agent`.
 """
 
 
@@ -789,7 +792,7 @@ The template is written to `.coding-scaffold/skills/`.
 When a skill consistently helps, turn it into repeatable automation:
 
 ```bash
-coding-scaffold workflow --target . --backend open-multi-agent
+coding-scaffold tools workflow --target . --backend open-multi-agent
 ```
 
 Use the generated Open Multi-Agent example as a starting point for reviewed TypeScript workflows

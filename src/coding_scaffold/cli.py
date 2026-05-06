@@ -25,7 +25,14 @@ from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
 from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team, write_team_manifest
+from .updater import refresh_scaffold
 from .writers import write_scaffold
+
+CODING_TOOLS = ["opencode", "openclaude", "both", "manual"]
+INSTALLABLE_TOOLS = ["opencode", "openclaude", "both"]
+ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
+KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "mempalace"]
+KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,13 +40,27 @@ def build_parser() -> argparse.ArgumentParser:
         prog="coding-scaffold",
         description="Prepare a local-first AI coding scaffold for a project.",
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
     probe = sub.add_parser("probe", help="Inspect hardware and provider availability.")
     probe.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     probe.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
 
-    init = sub.add_parser("init", help="Create or update .coding-scaffold in a project.")
+    setup = sub.add_parser("setup", help="Start here: run setup, install add-ons, or refresh generated files.")
+    setup_sub = setup.add_subparsers(dest="setup_action", required=True, metavar="action")
+    setup_run = setup_sub.add_parser("run", help="Run the guided project setup.")
+    _add_setup_run_args(setup_run)
+    setup_tool_canonical = setup_sub.add_parser("tool", help="Install or validate a coding tool.")
+    _add_setup_tool_args(setup_tool_canonical)
+    setup_addon_canonical = setup_sub.add_parser("addon", help="Install or validate an optional add-on.")
+    _add_setup_addon_args(setup_addon_canonical)
+    setup_knowledge_canonical = setup_sub.add_parser("knowledge", help="Configure shared team knowledge.")
+    _add_setup_knowledge_args(setup_knowledge_canonical)
+    setup_update = setup_sub.add_parser("update", help="Refresh generated scaffold files without losing edits.")
+    setup_update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    setup_update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    init = sub.add_parser("init", help=argparse.SUPPRESS)
     init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     init.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
@@ -73,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
 
-    wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
+    wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
     wizard.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"])
@@ -118,12 +139,28 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    knowledge_sub = knowledge.add_subparsers(dest="knowledge_action", metavar="action")
+    knowledge_create = knowledge_sub.add_parser("create", help="Create or update shared team knowledge.")
+    knowledge_create.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_create.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
+    knowledge_create.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
+    knowledge_create.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
+    knowledge_status_canonical.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_status_canonical.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
-    knowledge_status = sub.add_parser("knowledge-status", help="Report knowledge scope and maturity.")
+    knowledge_status = sub.add_parser("knowledge-status", help=argparse.SUPPRESS)
     knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     knowledge_status.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
-    context_budget = sub.add_parser("context-budget", help="Estimate context size and safety budget.")
+    context = sub.add_parser("context", help="Inspect and compress context safely.")
+    context_sub = context.add_subparsers(dest="context_action", required=True, metavar="action")
+    context_budget_canonical = context_sub.add_parser("budget", help="Estimate context size and safety budget.")
+    _add_context_budget_args(context_budget_canonical)
+    context_compress_canonical = context_sub.add_parser("compress", help="Write compressed context sidecars.")
+    _add_context_compress_args(context_compress_canonical)
+
+    context_budget = sub.add_parser("context-budget", help=argparse.SUPPRESS)
     context_budget.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     context_budget.add_argument(
         "--source",
@@ -141,7 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     context_budget.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
-    compress = sub.add_parser("compress-context", help="Write compressed sidecars for context files.")
+    compress = sub.add_parser("compress-context", help=argparse.SUPPRESS)
     compress.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     compress.add_argument(
         "--source",
@@ -156,12 +193,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compression engine. `caveman` uses the optional cloned upstream tool when available.",
     )
 
-    orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
+    orchestrate = sub.add_parser("orchestrate", help=argparse.SUPPRESS)
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
-    setup_tool = sub.add_parser("setup-tool", help="Install or validate a coding environment.")
+    setup_tool = sub.add_parser("setup-tool", help=argparse.SUPPRESS)
     setup_tool.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
     setup_tool.add_argument(
         "--install",
@@ -169,7 +206,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Install missing tools without an extra prompt when stdin is not interactive.",
     )
 
-    setup_addon = sub.add_parser("setup-addon", help="Install or validate optional scaffold add-ons.")
+    setup_addon = sub.add_parser("setup-addon", help=argparse.SUPPRESS)
     setup_addon.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_addon.add_argument(
         "--addon",
@@ -182,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Install missing add-ons without an extra prompt when stdin is not interactive.",
     )
 
-    setup_knowledge = sub.add_parser("setup-knowledge", help="Configure shared team knowledge.")
+    setup_knowledge = sub.add_parser("setup-knowledge", help=argparse.SUPPRESS)
     setup_knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_knowledge.add_argument(
         "--backend",
@@ -254,30 +291,195 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not force edit/bash approval in generated OpenCode policy.",
     )
 
-    adapt = sub.add_parser("adapt", help="Generate native config for a coding tool.")
+    tools = sub.add_parser("tools", help="Generate adapters, routing backends, workflows, and model picks.")
+    tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
+    tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
+    tools_adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    tools_adapt.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+    tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
+    tools_route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
+    tools_select = tools_sub.add_parser("select-model", help="Recommend a model route for a prompt.")
+    tools_select.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    tools_select.add_argument("--prompt", help="Prompt or task description to classify.")
+    tools_select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
+    tools_select.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    tools_workflow = tools_sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
+    tools_workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    tools_workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
+    tools_orchestrate = tools_sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
+    tools_orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    tools_orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
+    tools_orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
     adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     adapt.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
 
-    route = sub.add_parser("route", help="Generate optional routing backend docs/config.")
+    route = sub.add_parser("route", help=argparse.SUPPRESS)
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     route.add_argument("--backend", choices=["routellm"], default="routellm")
 
-    select = sub.add_parser("select-model", help="Recommend a model route for a prompt.")
+    select = sub.add_parser("select-model", help=argparse.SUPPRESS)
     select.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     select.add_argument("--prompt", help="Prompt or task description to classify.")
     select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
     select.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
-    workflow = sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
+    workflow = sub.add_parser("workflow", help=argparse.SUPPRESS)
     workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
 
+    update = sub.add_parser("update", help=argparse.SUPPRESS)
+    update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
     sub.add_parser("doctor", help="Print setup recommendations.")
+    _hide_suppressed_subcommands(sub)
     return parser
+
+
+def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None:
+    subparsers._choices_actions = [  # noqa: SLF001 - argparse has no public hook for this.
+        action for action in subparsers._choices_actions if action.help is not argparse.SUPPRESS
+    ]
+
+
+def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
+    parser.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
+    parser.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
+    parser.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
+    parser.add_argument("--tool", choices=CODING_TOOLS)
+    parser.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    parser.add_argument("--coding-tool", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    parser.add_argument("--preferred-local-model", help="Preferred local model name.")
+    parser.add_argument("--mode", choices=["standard", "beginner"], default=None)
+    parser.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
+    parser.add_argument("--non-interactive", action="store_true", help="Use defaults for missing values.")
+    parser.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
+    parser.add_argument("--no-install-tools", action="store_true", help="Do not offer coding tool installation.")
+    parser.add_argument(
+        "--addon",
+        action="append",
+        choices=ADDONS,
+        default=[],
+        help="Validate or install an optional add-on. Repeat for multiple add-ons.",
+    )
+    parser.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
+    parser.add_argument("--no-install-addons", action="store_true", help="Do not offer optional add-on setup.")
+    parser.add_argument(
+        "--knowledge-backend",
+        choices=KNOWLEDGE_BACKENDS_WITH_NONE,
+        default=None,
+        help="Configure shared knowledge during setup.",
+    )
+    parser.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
+    parser.add_argument("--no-knowledge", action="store_true", help="Do not offer knowledge setup.")
+
+
+def _add_setup_tool_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        help="Install missing tools without an extra prompt when stdin is not interactive.",
+    )
+
+
+def _add_setup_addon_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument("--addon", choices=ADDONS, default="llmfit")
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        help="Install missing add-ons without an extra prompt when stdin is not interactive.",
+    )
+
+
+def _add_setup_knowledge_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument(
+        "--backend",
+        choices=KNOWLEDGE_BACKENDS,
+        default="markdown",
+        help="Knowledge backend to generate.",
+    )
+    parser.add_argument("--shared-remote", help="GitHub/GitLab repo URL for shared knowledge.")
+    parser.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+
+def _add_context_budget_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument(
+        "--source",
+        default="knowledge",
+        help="Source to inspect: knowledge, team, or a path relative to target.",
+    )
+    parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_CONTEXT_TOKENS)
+    parser.add_argument("--context-window", type=int, default=DEFAULT_CONTEXT_WINDOW)
+    parser.add_argument("--max-ratio", type=float, default=DEFAULT_MAX_CONTEXT_RATIO)
+    parser.add_argument(
+        "--prefer",
+        choices=["original", "compressed", "both"],
+        default="original",
+        help="Estimate original files, compressed sidecars when present, or both.",
+    )
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+
+def _add_context_compress_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument(
+        "--source",
+        default="knowledge",
+        help="Source to compress: knowledge, team, or a path relative to target.",
+    )
+    parser.add_argument("--overwrite", action="store_true", help="Rewrite existing .caveman sidecars.")
+    parser.add_argument(
+        "--engine",
+        choices=["builtin", "caveman", "auto"],
+        default="builtin",
+        help="Compression engine. `caveman` uses the optional cloned upstream tool when available.",
+    )
+
+
+def _normalize_grouped_command(args: argparse.Namespace) -> None:
+    if args.command == "setup":
+        mapping = {
+            "run": "wizard",
+            "tool": "setup-tool",
+            "addon": "setup-addon",
+            "knowledge": "setup-knowledge",
+            "update": "update",
+        }
+        args.command = mapping[args.setup_action]
+        return
+    if args.command == "knowledge":
+        action = getattr(args, "knowledge_action", None)
+        if action == "status":
+            args.command = "knowledge-status"
+        return
+    if args.command == "context":
+        args.command = {
+            "budget": "context-budget",
+            "compress": "compress-context",
+        }[args.context_action]
+        return
+    if args.command == "tools":
+        args.command = {
+            "adapt": "adapt",
+            "route": "route",
+            "select-model": "select-model",
+            "workflow": "workflow",
+            "orchestrate": "orchestrate",
+        }[args.tools_action]
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    _normalize_grouped_command(args)
 
     if args.command == "probe":
         target = args.target.expanduser().resolve()
@@ -450,6 +652,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote {len(result.files)} policy file(s).")
         for warning in result.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "update":
+        target = args.target.expanduser().resolve()
+        intake = _load_project_intake(target)
+        hardware = probe_hardware()
+        providers = detect_providers(load_local_credentials(target))
+        routing = build_routing_plan(intake, hardware, providers)
+        result = refresh_scaffold(target, intake, hardware, providers, routing)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Updated {len(result.updated)} generated file(s).")
+            print(f"Staged {len(result.staged)} edited file update(s) as .new.")
+            print(f"Skipped {len(result.skipped)} already-current file(s).")
+            for path in result.staged:
+                print(f"Review staged update: {path}")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
         return 0
 
     if args.command == "adapt":
@@ -660,6 +881,37 @@ def _load_routing_or_probe(target: Path) -> RoutingPlan:
         probe_hardware(),
         detect_providers(load_local_credentials(target)),
     )
+
+
+def _load_project_intake(target: Path) -> IntakeAnswers:
+    path = target / ".coding-scaffold" / "project.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return collect_intake(target, IntakeAnswers(), interactive=False)
+    if not isinstance(payload, dict):
+        return collect_intake(target, IntakeAnswers(), interactive=False)
+    return collect_intake(
+        target,
+        IntakeAnswers(
+            language=_string_or_none(payload.get("language")),
+            project_target=_string_or_none(payload.get("project_target")),
+            existing_codebase=_bool_or_none(payload.get("existing_codebase")),
+            privacy=_string_or_none(payload.get("privacy")),
+            tool=_string_or_none(payload.get("tool") or payload.get("agent")),
+            preferred_local_model=_string_or_none(payload.get("preferred_local_model")),
+            mode=_string_or_none(payload.get("mode")),
+        ),
+        interactive=False,
+    )
+
+
+def _string_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _bool_or_none(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
 
 
 def _print_model_selection(selection: dict[str, object]) -> None:

@@ -12,10 +12,10 @@ Actual request routing happens later in the coding tool or an optional backend s
 
 ## Recommendation
 
-Use `select-model` when you want an explainable routing suggestion:
+Use `tools select-model` when you want an explainable routing suggestion:
 
 ```bash
-coding-scaffold select-model --target ~/dev/my-project \
+coding-scaffold tools select-model --target ~/dev/my-project \
   --prompt "Review this authentication refactor for security regressions."
 ```
 
@@ -34,7 +34,7 @@ The command does not call a model. It classifies the task and reports:
 Use auto mode when a developer does not want to choose each time:
 
 ```bash
-coding-scaffold select-model --target ~/dev/my-project --mode auto \
+coding-scaffold tools select-model --target ~/dev/my-project --mode auto \
   --prompt "Fix this failing formatter test."
 ```
 

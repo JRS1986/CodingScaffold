@@ -9,17 +9,160 @@ from coding_scaffold.installers import ToolInstallResult
 def test_parser_lists_user_facing_commands() -> None:
     help_text = build_parser().format_help()
 
-    assert "select-model" in help_text
-    assert "knowledge" in help_text
-    assert "knowledge-status" in help_text
-    assert "context-budget" in help_text
-    assert "compress-context" in help_text
-    assert "policy" in help_text
-    assert "setup-addon" in help_text
-    assert "setup-knowledge" in help_text
-    assert "setup-tool" in help_text
-    assert "team" in help_text
-    assert "workflow" in help_text
+    visible = [
+        "probe",
+        "setup",
+        "credentials",
+        "skill",
+        "knowledge",
+        "context",
+        "team",
+        "policy",
+        "tools",
+        "doctor",
+    ]
+    for command in visible:
+        assert command in help_text
+    assert "select-model" not in help_text
+    assert "setup-addon" not in help_text
+    assert "setup-knowledge" not in help_text
+    assert "setup-tool" not in help_text
+    assert "compress-context" not in help_text
+    assert "context-budget" not in help_text
+    assert "==SUPPRESS==" not in help_text
+    assert len(visible) <= 10
+
+
+def test_setup_run_command(tmp_path, capsys) -> None:
+    assert main(["setup", "run", "--target", str(tmp_path), "--language", "python", "--non-interactive"]) == 0
+
+    output = capsys.readouterr().out
+    assert "Wrote scaffold" in output
+    assert (tmp_path / ".coding-scaffold" / "GETTING_STARTED.md").exists()
+
+
+def test_grouped_context_commands(tmp_path, capsys) -> None:
+    main(["knowledge", "create", "--target", str(tmp_path)])
+    capsys.readouterr()
+
+    assert main(["context", "budget", "--target", str(tmp_path), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["source"] == "knowledge"
+    assert main(["context", "compress", "--target", str(tmp_path)]) == 0
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.caveman.md").exists()
+
+
+def test_grouped_tools_commands(tmp_path) -> None:
+    assert main(["tools", "adapt", "--target", str(tmp_path), "--tool", "opencode"]) == 0
+    assert main(["tools", "route", "--target", str(tmp_path), "--backend", "routellm"]) == 0
+    assert main(["tools", "workflow", "--target", str(tmp_path), "--backend", "open-multi-agent"]) == 0
+
+    assert (tmp_path / "opencode.json").exists()
+    assert (tmp_path / ".coding-scaffold" / "ROUTELLM.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "OPEN_MULTI_AGENT.md").exists()
+
+
+def test_setup_update_preserves_edited_files(tmp_path, capsys) -> None:
+    assert main(["setup", "run", "--target", str(tmp_path), "--language", "python", "--non-interactive"]) == 0
+    agents = tmp_path / ".coding-scaffold" / "AGENTS.md"
+    agents.write_text(agents.read_text(encoding="utf-8") + "\nCustom local note.\n", encoding="utf-8")
+    capsys.readouterr()
+
+    assert main(["setup", "update", "--target", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["staged"]
+    assert agents.read_text(encoding="utf-8").endswith("Custom local note.\n")
+    assert (tmp_path / ".coding-scaffold" / "AGENTS.md.new").exists()
+    assert (tmp_path / ".coding-scaffold" / "scaffold-version.json").exists()
+
+
+def test_knowledge_status_grouped_command(tmp_path, capsys) -> None:
+    main(["knowledge", "create", "--target", str(tmp_path)])
+    capsys.readouterr()
+
+    assert main(["knowledge", "status", "--target", str(tmp_path), "--json"]) == 0
+
+    assert "counts" in json.loads(capsys.readouterr().out)
+
+
+def test_setup_tool_command_grouped(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.cli.install_missing_tools",
+        lambda tool, interactive, assume_yes=False: [
+            ToolInstallResult(tool, "present", "opencode is already installed.")
+        ],
+    )
+
+    assert main(["setup", "tool", "--tool", "opencode"]) == 0
+
+    assert "opencode: present" in capsys.readouterr().out
+
+
+def test_setup_addon_command_grouped(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.cli.install_missing_addons",
+        lambda addon, interactive, assume_yes=False, target=None: [
+            ToolInstallResult(addon, "present", "llmfit is already installed.")
+        ],
+    )
+
+    assert main(["setup", "addon", "--target", str(tmp_path), "--addon", "llmfit"]) == 0
+
+    assert "llmfit: present" in capsys.readouterr().out
+
+
+def test_setup_knowledge_command_grouped(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "setup",
+                "knowledge",
+                "--target",
+                str(tmp_path),
+                "--backend",
+                "markdown",
+                "--shared-remote",
+                "https://example.test/team-ai-knowledge.git",
+            ]
+        )
+        == 0
+    )
+
+    config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
+    assert config["shared_remote"] == "https://example.test/team-ai-knowledge.git"
+
+
+def test_hidden_legacy_commands_still_work(tmp_path, capsys) -> None:
+    assert main(["context-budget", "--target", str(tmp_path), "--json"]) == 0
+    assert main(["tools", "select-model", "--target", str(tmp_path), "--prompt", "Fix this test"]) == 0
+
+    assert "Route: routine" in capsys.readouterr().out
+
+
+def test_legacy_update_alias_works(tmp_path, capsys) -> None:
+    assert main(["setup", "run", "--target", str(tmp_path), "--language", "python", "--non-interactive"]) == 0
+    capsys.readouterr()
+
+    assert main(["update", "--target", str(tmp_path)]) == 0
+
+    assert "Updated" in capsys.readouterr().out
+
+
+def test_hidden_legacy_setup_commands_remain_compatible(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.cli.install_missing_tools",
+        lambda tool, interactive, assume_yes=False: [
+            ToolInstallResult(tool, "present", "opencode is already installed.")
+        ],
+    )
+
+    assert main(["setup-tool", "--tool", "opencode"]) == 0
+    assert main(["setup-knowledge", "--target", str(tmp_path), "--backend", "markdown"]) == 0
+
+    output = capsys.readouterr().out
+    assert "opencode: present" in output
+    assert (tmp_path / ".coding-scaffold" / "knowledge.json").exists()
 
 
 def test_probe_json_command(capsys) -> None:

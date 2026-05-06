@@ -8,8 +8,8 @@ RouteLLM can expose one OpenAI-compatible endpoint that routes actual requests b
 and strong/heavy-lift models.
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
-coding-scaffold route --target ~/dev/my-project --backend routellm
+coding-scaffold setup addon --target ~/dev/my-project --addon routellm
+coding-scaffold tools route --target ~/dev/my-project --backend routellm
 ```
 
 Generated files:
@@ -18,7 +18,7 @@ Generated files:
 - `.coding-scaffold/routellm.config.yaml`
 
 Use RouteLLM when endpoint-level model routing matters. For simple explainable recommendations, use
-`coding-scaffold select-model`.
+`coding-scaffold tools select-model`.
 
 ## Context Compression
 
@@ -26,15 +26,15 @@ The built-in compressor writes token-saving sidecars for large knowledge bases w
 installation:
 
 ```bash
-coding-scaffold context-budget --target ~/dev/my-project --source team
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+coding-scaffold context budget --target ~/dev/my-project --source team
+coding-scaffold context compress --target ~/dev/my-project --source knowledge
 ```
 
 Caveman Compression is optional when you want to try the upstream engine explicitly:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
 Use either path after the team has reviewed the source notes. Compressed sidecars are agent input,
@@ -45,8 +45,8 @@ not the canonical record.
 Open Multi-Agent is an optional workflow backend for repeatable TypeScript automation:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
-coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
+coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold tools workflow --target ~/dev/my-project --backend open-multi-agent
 ```
 
 Generated files:

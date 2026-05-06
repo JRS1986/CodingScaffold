@@ -6,7 +6,7 @@ This page is a practical plan for introducing CodingScaffold to a team.
 
 Use one real project and one safe issue.
 
-1. Run `coding-scaffold wizard`.
+1. Run `coding-scaffold setup run`.
 2. Install OpenCode.
 3. Run `/first-session`.
 4. Pick one small improvement.

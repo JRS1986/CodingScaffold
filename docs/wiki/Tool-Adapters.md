@@ -10,8 +10,8 @@ files does not require an LLM; running an adapter session does.
 OpenCode is the recommended first adapter.
 
 ```bash
-coding-scaffold setup-tool --tool opencode
-coding-scaffold adapt --target ~/dev/my-project --tool opencode
+coding-scaffold setup tool --tool opencode
+coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
 ```
 
 Generated files include:
@@ -42,13 +42,13 @@ named MCP servers, and add provider allow/deny lists in `opencode.json`.
 OpenClaude support is intentionally lightweight because the project moves quickly:
 
 ```bash
-coding-scaffold setup-tool --tool openclaude
-coding-scaffold adapt --target ~/dev/my-project --tool openclaude
+coding-scaffold setup tool --tool openclaude
+coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
 ```
 
 Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
 
-Use `coding-scaffold setup-tool --tool both` when a team wants to compare both tools on the same
+Use `coding-scaffold setup tool --tool both` when a team wants to compare both tools on the same
 project.
 
 ## Optional Tooling
@@ -57,11 +57,11 @@ Tool adapters are the coding surface. Add-ons support model sizing, routing, tea
 knowledge navigation:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
-coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
-coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
-coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold setup addon --target ~/dev/my-project --addon llmfit
+coding-scaffold setup addon --target ~/dev/my-project --addon routellm
+coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
+coding-scaffold setup addon --target ~/dev/my-project --addon obsidian
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
 ```
 
 ## Adding Another Tool

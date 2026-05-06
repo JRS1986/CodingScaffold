@@ -24,7 +24,7 @@ risk earlier because it knows the project layout, team knowledge folders, and ge
 ## Check The Budget
 
 ```bash
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+coding-scaffold context budget --target ~/dev/my-project --source knowledge
 ```
 
 Defaults:
@@ -38,7 +38,7 @@ Defaults:
 Machine-readable output is available for CI or team checks:
 
 ```bash
-coding-scaffold context-budget --target ~/dev/my-project --source team --json
+coding-scaffold context budget --target ~/dev/my-project --source team --json
 ```
 
 Use a warning as a prompt to narrow the task, retrieve fewer files, compress support notes, or open
@@ -47,7 +47,7 @@ a fresh coding session.
 Estimate a sidecar-first session after compression:
 
 ```bash
-coding-scaffold context-budget --target ~/dev/my-project --source knowledge --prefer compressed
+coding-scaffold context budget --target ~/dev/my-project --source knowledge --prefer compressed
 ```
 
 Use `--prefer both` only when you intentionally want to measure the full stored corpus.
@@ -57,14 +57,14 @@ Use `--prefer both` only when you intentionally want to measure the full stored 
 The default compressor is built into CodingScaffold and works offline:
 
 ```bash
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+coding-scaffold context compress --target ~/dev/my-project --source knowledge
 ```
 
 Caveman Compression is available as an optional experimental engine:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
 This writes files like:
@@ -105,9 +105,9 @@ sidecars after merge.
 A useful team ritual is:
 
 ```bash
-coding-scaffold knowledge-status --target .
-coding-scaffold context-budget --target . --source team
-coding-scaffold compress-context --target . --source knowledge
+coding-scaffold knowledge status --target .
+coding-scaffold context budget --target . --source team
+coding-scaffold context compress --target . --source knowledge
 ```
 
 Run it before large refactors, onboarding sessions, and workflow demos. It keeps the agent’s memory

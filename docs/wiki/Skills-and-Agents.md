@@ -33,7 +33,7 @@ A good skill is short and procedural:
 Generate an orchestration plan:
 
 ```bash
-coding-scaffold orchestrate --target ~/dev/my-project --profile pair
+coding-scaffold tools orchestrate --target ~/dev/my-project --profile pair
 ```
 
 Profiles:

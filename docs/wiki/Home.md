@@ -25,14 +25,14 @@ into the workflow.
 
 ## First-Start Rule
 
-CodingScaffold itself can start without an LLM. The wizard, hardware probe, credential templates,
-adapter generation, and `select-model` command are local Python workflows. The first actual model
+CodingScaffold itself can start without an LLM. Setup, hardware probe, credential templates,
+adapter generation, and `tools select-model` command are local Python workflows. The first actual model
 call happens later, inside the coding tool, when a developer runs an agent command such as
 `/first-session` in OpenCode.
 
 ## Recommended Reading
 
-1. [[Getting Started]]: install, run the wizard, and complete the first agentic coding session.
+1. [[Getting Started]]: install, run setup, refresh safely, and complete the first agentic coding session.
 2. [[Core Concepts]]: understand the main ideas before introducing it to a team.
 3. [[Model Selection and Providers]]: local-first routing, Azure/OpenAI/Anthropic abstraction, and auto mode.
 4. [[Skills and Agents]]: how teams turn good workflows into reusable assets.
