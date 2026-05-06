@@ -13,6 +13,7 @@ def test_parser_lists_user_facing_commands() -> None:
     assert "knowledge" in help_text
     assert "policy" in help_text
     assert "setup-addon" in help_text
+    assert "setup-knowledge" in help_text
     assert "setup-tool" in help_text
     assert "workflow" in help_text
 
@@ -49,6 +50,50 @@ def test_knowledge_command(tmp_path) -> None:
     assert main(["knowledge", "--target", str(tmp_path), "--shared-remote", "https://example.test/kb.git"]) == 0
 
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").exists()
+
+
+def test_setup_knowledge_command(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "setup-knowledge",
+                "--target",
+                str(tmp_path),
+                "--backend",
+                "markdown",
+                "--shared-remote",
+                "https://example.test/team-ai-knowledge.git",
+            ]
+        )
+        == 0
+    )
+
+    config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
+    assert config["shared_remote"] == "https://example.test/team-ai-knowledge.git"
+
+
+def test_init_can_configure_knowledge_during_setup(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "init",
+                "--target",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--non-interactive",
+                "--knowledge-backend",
+                "obsidian",
+                "--knowledge-remote",
+                "https://example.test/team-ai-knowledge.git",
+            ]
+        )
+        == 0
+    )
+
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / ".obsidian" / "graph.json").exists()
+    config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
+    assert config["backend"] == "obsidian"
 
 
 def test_adapt_route_and_workflow_commands(tmp_path) -> None:

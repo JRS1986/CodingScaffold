@@ -625,7 +625,7 @@ Heavy-lift model: `{routing.strong_model}`
 8. Configure local provider keys with `CREDENTIALS.md`.
 9. Use `coding-scaffold setup-addon --target . --addon llmfit` for deeper hardware-aware model sizing.
 10. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
-11. Create shared team memory with `coding-scaffold knowledge --target .`.
+11. Create shared team memory with `coding-scaffold setup-knowledge --target . --backend markdown`.
 12. Improve skills when they miss context, overreach, or fail to verify correctly.
 13. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
 """

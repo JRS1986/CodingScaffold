@@ -22,7 +22,8 @@ This creates:
 Use a shared remote when multiple people should contribute:
 
 ```bash
-coding-scaffold knowledge --target ~/dev/my-project \
+coding-scaffold setup-knowledge --target ~/dev/my-project \
+  --backend markdown \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 

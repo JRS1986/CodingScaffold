@@ -45,13 +45,22 @@ first-session documentation. It also asks which coding environment to use:
 - `manual`: skip tool adapter generation and wire your own environment.
 
 If the selected tool is missing and stdin is interactive, the wizard asks before installing it.
-Nothing is installed silently.
+Nothing is installed silently. The wizard can also configure the knowledge backend and shared Git
+remote during this setup phase.
 
 If you need project-local credentials, create an ignored template and fill only the providers you
 intend to use:
 
 ```bash
 coding-scaffold credentials --target . --format env
+```
+
+Configure shared knowledge during setup:
+
+```bash
+coding-scaffold setup-knowledge --target . \
+  --backend obsidian \
+  --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
 ## Install OpenCode

@@ -23,6 +23,12 @@ Yes. Use `coding-scaffold setup-addon --addon llmfit`, `routellm`, `open-multi-a
 Python environment, Open Multi-Agent installs into the target Node.js project, and Obsidian remains
 manual on WSL because it is a desktop app.
 
+## Can setup configure the shared knowledge remote?
+
+Yes. Use `coding-scaffold setup-knowledge --target . --backend obsidian --shared-remote <repo>`.
+The wizard can also ask for this during setup. The remote URL is metadata only; credentials and
+tokens stay local.
+
 ## Does it require cloud APIs?
 
 No. It can work local-only. Cloud providers are used only when credentials are configured and the

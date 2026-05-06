@@ -51,6 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate or install an optional add-on. Repeat for multiple add-ons.",
     )
     init.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
+    init.add_argument(
+        "--knowledge-backend",
+        choices=["none", "markdown", "obsidian", "mempalace"],
+        default=None,
+        help="Configure shared knowledge during setup.",
+    )
+    init.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
 
     wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -67,6 +74,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     wizard.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
     wizard.add_argument("--no-install-addons", action="store_true", help="Do not offer optional add-on setup.")
+    wizard.add_argument(
+        "--knowledge-backend",
+        choices=["none", "markdown", "obsidian", "mempalace"],
+        default=None,
+        help="Configure shared knowledge during setup.",
+    )
+    wizard.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
+    wizard.add_argument("--no-knowledge", action="store_true", help="Do not offer knowledge setup.")
 
     credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
     credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -109,6 +124,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Install missing add-ons without an extra prompt when stdin is not interactive.",
     )
+
+    setup_knowledge = sub.add_parser("setup-knowledge", help="Configure shared team knowledge.")
+    setup_knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    setup_knowledge.add_argument(
+        "--backend",
+        choices=["markdown", "obsidian", "mempalace"],
+        default="markdown",
+        help="Knowledge backend to generate.",
+    )
+    setup_knowledge.add_argument("--shared-remote", help="GitHub/GitLab repo URL for shared knowledge.")
+    setup_knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -237,6 +263,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{result.tool}: {result.status} - {result.message}")
         return 1 if any(result.status == "failed" for result in results) else 0
 
+    if args.command == "setup-knowledge":
+        shared_remote = args.shared_remote
+        if shared_remote is None and sys.stdin.isatty():
+            shared_remote = _prompt_optional(
+                "Shared knowledge Git remote URL (empty keeps knowledge project-local)"
+            )
+        adapter = None if args.adapter == "none" else args.adapter
+        result = write_knowledge_base(args.target, args.backend, shared_remote or None, adapter)
+        print(f"Wrote {len(result.files)} knowledge file(s).")
+        if shared_remote:
+            print(f"Configured shared knowledge remote: {shared_remote}")
+        if result.skipped:
+            print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
+        return 0
+
     if args.command == "policy":
         adapter = None if args.adapter == "none" else args.adapter
         result = write_policy_pack(
@@ -312,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         selected_tool = answers.agent or "opencode"
         install_results = _maybe_install_tools(selected_tool, args, is_wizard)
         addon_results = _maybe_install_addons(args, is_wizard, target)
+        knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
         adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
         if adapter:
@@ -322,6 +364,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{result.tool}: {result.status} - {result.message}")
         for result in addon_results:
             print(f"{result.tool}: {result.status} - {result.message}")
+        if knowledge_result:
+            print(f"Wrote {len(knowledge_result.files)} knowledge file(s)")
+            if knowledge_result.skipped:
+                print(f"Skipped {len(knowledge_result.skipped)} existing knowledge file(s)")
         print(f"Selected weak model: {routing.weak_model or 'none'}")
         print(f"Selected strong model: {routing.strong_model or 'none'}")
         print("Next: read .coding-scaffold/GETTING_STARTED.md")
@@ -383,6 +429,43 @@ def _prompt_addons() -> list[str]:
         return []
     allowed = {"llmfit", "routellm", "open-multi-agent", "obsidian", "all"}
     return [part for part in (item.strip() for item in answer.split(",")) if part in allowed]
+
+
+def _maybe_setup_knowledge(
+    args: argparse.Namespace,
+    is_wizard: bool,
+    target: Path,
+    selected_tool: str,
+):
+    if getattr(args, "no_knowledge", False):
+        return None
+    backend = getattr(args, "knowledge_backend", None)
+    shared_remote = getattr(args, "knowledge_remote", None)
+    if is_wizard and sys.stdin.isatty() and backend is None:
+        backend = _prompt_choice(
+            "Knowledge base backend (none/markdown/obsidian/mempalace)",
+            "markdown",
+            {"none", "markdown", "obsidian", "mempalace"},
+        )
+        if backend != "none" and shared_remote is None:
+            shared_remote = _prompt_optional(
+                "Shared knowledge Git remote URL (empty keeps knowledge project-local)"
+            )
+    if backend is None or backend == "none":
+        return None
+    adapter = "opencode" if selected_tool in {"opencode", "both"} else None
+    return write_knowledge_base(target, backend, shared_remote or None, adapter)
+
+
+def _prompt_choice(label: str, default: str, allowed: set[str]) -> str:
+    answer = input(f"{label} [{default}]: ").strip().lower()
+    if not answer:
+        return default
+    return answer if answer in allowed else default
+
+
+def _prompt_optional(label: str) -> str:
+    return input(f"{label}: ").strip()
 
 
 def _print_probe(payload: dict[str, object]) -> None:

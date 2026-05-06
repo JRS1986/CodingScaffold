@@ -53,7 +53,8 @@ cd ~/dev/my-project
 
 The wizard can run before any model is configured. It validates the selected coding tool and, when
 stdin is interactive, asks before installing a missing tool. OpenCode uses the official install
-script; OpenClaude uses the npm package. Nothing is installed silently.
+script; OpenClaude uses the npm package. It can also configure the knowledge backend and optional
+shared Git remote during setup. Nothing is installed silently.
 
 If you already have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a
 local runtime installed, the scaffold will detect that. To keep credentials project-local, create an
@@ -77,6 +78,14 @@ coding-scaffold setup-addon --target . --addon llmfit
 coding-scaffold setup-addon --target . --addon routellm
 coding-scaffold setup-addon --target . --addon open-multi-agent
 coding-scaffold setup-addon --target . --addon obsidian
+```
+
+Shared knowledge can also be configured as part of setup:
+
+```bash
+coding-scaffold setup-knowledge --target . \
+  --backend obsidian \
+  --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
 Then start the first session:
@@ -140,7 +149,9 @@ small engineering workflow that you can inspect, verify, and improve.
 6. Capture decisions, useful prompts, skills, and agent patterns in team memory:
 
    ```bash
-   coding-scaffold knowledge --target ~/dev/my-project
+   coding-scaffold setup-knowledge --target ~/dev/my-project \
+     --backend obsidian \
+     --shared-remote https://github.com/acme/team-ai-knowledge.git
    ```
 
 7. Apply local policy defaults when your team has provider, sharing, or MCP rules:
@@ -328,6 +339,7 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon llmfit
 coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
+coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
