@@ -24,6 +24,26 @@ def test_context_budget_can_inspect_team_assets(tmp_path) -> None:
     assert budget.files[0].path == ".coding-scaffold/skills/review.md"
 
 
+def test_compress_team_source_skips_policy_by_default(tmp_path) -> None:
+    policy = tmp_path / ".coding-scaffold" / "policy"
+    skills = tmp_path / ".coding-scaffold" / "skills"
+    policy.mkdir(parents=True)
+    skills.mkdir(parents=True)
+    (policy / "company.md").write_text(
+        "# Policy\n\nPlease note that the exact security policy should stay canonical. " * 10,
+        encoding="utf-8",
+    )
+    (skills / "review.md").write_text(
+        "# Review Skill\n\nPlease note that this long reusable skill can be compressed. " * 10,
+        encoding="utf-8",
+    )
+
+    result = compress_context(tmp_path, source="team")
+
+    assert skills / "review.caveman.md" in result.files
+    assert not (policy / "company.caveman.md").exists()
+
+
 def test_compress_context_writes_sidecars_without_overwriting(tmp_path) -> None:
     knowledge = tmp_path / ".coding-scaffold" / "knowledge"
     knowledge.mkdir(parents=True)

@@ -24,6 +24,7 @@ from .policy import write_policy_pack
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
+from .scaffold_version import write_scaffold_version
 from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team, write_team_manifest
 from .updater import refresh_scaffold
 from .writers import write_scaffold
@@ -732,6 +733,8 @@ def main(argv: list[str] | None = None) -> int:
         addon_results = _maybe_install_addons(args, is_wizard, target)
         knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
         adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
+        if adapter:
+            write_scaffold_version(target, [*manifest.files, *adapter.files])
         print(f"Wrote scaffold to {manifest.scaffold_dir}")
         if adapter:
             print(f"Wrote {len(adapter.files)} tool adapter file(s)")

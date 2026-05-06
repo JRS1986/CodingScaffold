@@ -60,6 +60,10 @@ The default compressor is built into CodingScaffold and works offline:
 coding-scaffold context compress --target ~/dev/my-project --source knowledge
 ```
 
+`context compress --source team` compresses knowledge, skills, and OpenCode agent notes, but skips
+`.coding-scaffold/policy` by default because policy text is reviewed config where exact wording can
+matter.
+
 Caveman Compression is available as an optional experimental engine:
 
 ```bash

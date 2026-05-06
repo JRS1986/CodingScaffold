@@ -15,6 +15,7 @@ from .scaffold_version import (
     sha256,
     write_scaffold_hashes,
 )
+from .adapters import write_tool_adapter
 from .writers import write_scaffold
 
 
@@ -49,7 +50,14 @@ def refresh_scaffold(
     with tempfile.TemporaryDirectory() as temp:
         temp_root = Path(temp).resolve()
         manifest = write_scaffold(temp_root, intake, hardware, providers, routing)
+        adapter = (
+            write_tool_adapter(temp_root, intake.tool)
+            if intake.tool and intake.tool != "manual"
+            else None
+        )
         generated_files = [path for path in manifest.files if path.exists()]
+        if adapter:
+            generated_files.extend(path for path in adapter.files if path.exists())
         next_hashes: dict[str, str] = {}
         for generated in generated_files:
             relative = display_path(generated, temp_root)

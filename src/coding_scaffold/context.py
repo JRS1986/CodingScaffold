@@ -150,7 +150,13 @@ def compress_context(
     written: list[Path] = []
     skipped: list[Path] = []
     warnings: list[str] = []
-    for path in _iter_source_files(root, source, COMPRESSIBLE_SUFFIXES, prefer="original"):
+    for path in _iter_source_files(
+        root,
+        source,
+        COMPRESSIBLE_SUFFIXES,
+        prefer="original",
+        include_policy=False,
+    ):
         output = _compressed_path(path)
         if output.exists() and not overwrite:
             skipped.append(output)
@@ -173,8 +179,9 @@ def _iter_source_files(
     source: str,
     suffixes: set[str],
     prefer: str = "original",
+    include_policy: bool = True,
 ) -> list[Path]:
-    paths = _source_paths(root, source)
+    paths = _source_paths(root, source, include_policy=include_policy)
     files: list[Path] = []
     for path in paths:
         if not path.exists():
@@ -189,17 +196,19 @@ def _iter_source_files(
     return sorted(_select_preferred_files(files, prefer))
 
 
-def _source_paths(root: Path, source: str) -> list[Path]:
+def _source_paths(root: Path, source: str, include_policy: bool = True) -> list[Path]:
     scaffold = root / ".coding-scaffold"
     if source == "knowledge":
         return [scaffold / "knowledge"]
     if source == "team":
-        return [
+        paths = [
             scaffold / "knowledge",
             scaffold / "skills",
-            scaffold / "policy",
             root / ".opencode" / "agents",
         ]
+        if include_policy:
+            paths.append(scaffold / "policy")
+        return paths
     candidate = Path(source).expanduser()
     return [candidate if candidate.is_absolute() else root / candidate]
 

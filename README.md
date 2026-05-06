@@ -319,7 +319,8 @@ coding-scaffold context compress --target ~/dev/my-project --source knowledge
 This writes `.caveman.md` sidecars next to the original files. Originals stay the reviewed source
 of truth; sidecars are optional agent input. Use compression for reference notes, session logs, and
 large knowledge articles. Keep policies, security rules, requirements, and active code uncompressed
-unless a human explicitly reviews the compressed version.
+unless a human explicitly reviews the compressed version. For that reason,
+`context compress --source team` skips `.coding-scaffold/policy` by default.
 
 The default compressor is built in and works offline. If you want to experiment with the upstream
 Caveman Compression project, install it as an optional engine and call it explicitly:

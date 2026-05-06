@@ -39,6 +39,8 @@ def test_setup_run_command(tmp_path, capsys) -> None:
     output = capsys.readouterr().out
     assert "Wrote scaffold" in output
     assert (tmp_path / ".coding-scaffold" / "GETTING_STARTED.md").exists()
+    version = json.loads((tmp_path / ".coding-scaffold" / "scaffold-version.json").read_text())
+    assert ".opencode/agents/reviewer.md" in version["files"]
 
 
 def test_grouped_context_commands(tmp_path, capsys) -> None:
@@ -65,7 +67,9 @@ def test_grouped_tools_commands(tmp_path) -> None:
 def test_setup_update_preserves_edited_files(tmp_path, capsys) -> None:
     assert main(["setup", "run", "--target", str(tmp_path), "--language", "python", "--non-interactive"]) == 0
     agents = tmp_path / ".coding-scaffold" / "AGENTS.md"
+    reviewer = tmp_path / ".opencode" / "agents" / "reviewer.md"
     agents.write_text(agents.read_text(encoding="utf-8") + "\nCustom local note.\n", encoding="utf-8")
+    reviewer.write_text(reviewer.read_text(encoding="utf-8") + "\nCustom reviewer note.\n", encoding="utf-8")
     capsys.readouterr()
 
     assert main(["setup", "update", "--target", str(tmp_path), "--json"]) == 0
@@ -73,7 +77,9 @@ def test_setup_update_preserves_edited_files(tmp_path, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["staged"]
     assert agents.read_text(encoding="utf-8").endswith("Custom local note.\n")
+    assert reviewer.read_text(encoding="utf-8").endswith("Custom reviewer note.\n")
     assert (tmp_path / ".coding-scaffold" / "AGENTS.md.new").exists()
+    assert (tmp_path / ".opencode" / "agents" / "reviewer.md.new").exists()
     assert (tmp_path / ".coding-scaffold" / "scaffold-version.json").exists()
 
 
