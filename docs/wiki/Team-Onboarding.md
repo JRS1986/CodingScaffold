@@ -14,6 +14,14 @@ coding-scaffold team doctor
 opencode
 ```
 
+Run `--dry-run` first when connecting to a new source:
+
+```bash
+coding-scaffold team connect \
+  --manifest https://github.com/acme/platform-ai-onboarding.git \
+  --dry-run
+```
+
 `team connect` copies the manifest into `.coding-scaffold/team-onboarding.json`, syncs shared
 sources, imports Markdown skills, imports OpenCode agents, imports config and policy files, and
 writes `.coding-scaffold/team-provenance.json`.
@@ -39,8 +47,8 @@ The manifest can point to:
 - default coding tool
 - required and optional add-ons
 
-Keep it non-secret. It should contain repo URLs, scopes, paths, and defaults, not API keys or
-tokens.
+Keep it JSON and non-secret. It should contain repo URLs, scopes, paths, and defaults, not API keys
+or tokens.
 
 ## Sync Model
 

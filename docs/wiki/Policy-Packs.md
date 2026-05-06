@@ -23,7 +23,7 @@ The default policy is conservative:
 - `share: disabled`
 - `.coding-scaffold/policy/*.md` added as instructions
 - edit and bash permissions set to `ask`
-- provider `opencode` disabled by default
+- optional provider allow/deny lists using OpenCode's `enabled_providers` and `disabled_providers`
 - project MCP configuration kept empty unless named servers are explicitly disabled
 
 Example with explicit provider and MCP controls:
@@ -33,7 +33,7 @@ coding-scaffold policy --target ~/dev/my-project \
   --scope company \
   --enable-provider ollama \
   --enable-provider azure-ai \
-  --disable-provider opencode \
+  --disable-provider openai \
   --disable-mcp-server jira
 ```
 

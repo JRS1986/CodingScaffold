@@ -11,6 +11,7 @@ def test_parser_lists_user_facing_commands() -> None:
 
     assert "select-model" in help_text
     assert "knowledge" in help_text
+    assert "knowledge-status" in help_text
     assert "policy" in help_text
     assert "setup-addon" in help_text
     assert "setup-knowledge" in help_text
@@ -51,6 +52,16 @@ def test_knowledge_command(tmp_path) -> None:
     assert main(["knowledge", "--target", str(tmp_path), "--shared-remote", "https://example.test/kb.git"]) == 0
 
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").exists()
+
+
+def test_knowledge_status_command(tmp_path, capsys) -> None:
+    main(["knowledge", "--target", str(tmp_path)])
+    capsys.readouterr()
+
+    assert main(["knowledge-status", "--target", str(tmp_path), "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert "counts" in payload
 
 
 def test_setup_knowledge_command(tmp_path) -> None:
@@ -162,6 +173,33 @@ def test_team_init_and_doctor_commands(tmp_path, capsys) -> None:
     assert "team-onboarding.json" in output
     assert main(["team", "doctor", "--target", str(tmp_path)]) == 0
     assert "Team: platform-api" in capsys.readouterr().out
+
+
+def test_team_connect_noninteractive_requires_yes(tmp_path, capsys) -> None:
+    manifest = tmp_path / "team-onboarding.json"
+    manifest.write_text(json.dumps({"team": "platform-api", "security": {"secrets_allowed": False}}))
+
+    assert main(["team", "connect", "--target", str(tmp_path / "project"), "--manifest", str(manifest)]) == 1
+
+    assert "without --yes" in capsys.readouterr().err
+
+
+def test_init_accepts_canonical_tool_flag(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "init",
+                "--target",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--tool",
+                "manual",
+                "--non-interactive",
+            ]
+        )
+        == 0
+    )
 
 
 def test_select_model_with_prompt(tmp_path, capsys) -> None:

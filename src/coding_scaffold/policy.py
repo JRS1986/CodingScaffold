@@ -28,7 +28,7 @@ def write_policy_pack(
     policy_dir.mkdir(parents=True, exist_ok=True)
 
     enabled = _dedupe(enabled_providers or [])
-    disabled = _dedupe(disabled_providers or ["opencode"])
+    disabled = _dedupe(disabled_providers or [])
     mcp_servers = _dedupe(disabled_mcp_servers or [])
     files: list[Path] = []
     warnings: list[str] = []
@@ -189,9 +189,10 @@ reviewable configuration, not as a replacement for network controls, identity po
 - Disabled MCP servers: `{_format_list(opencode["disabled_mcp_servers"])}`
 - Ask before edit/bash: `{opencode["strict_permissions"]}`
 
-`share: disabled` prevents accidental conversation sharing through OpenCode. Provider lists keep
-model routing explicit. MCP servers are best managed by name; if an organization injects remote MCP
-defaults, disable each approved server explicitly and verify the effective OpenCode config.
+`share`, `permission`, `mcp`, `enabled_providers`, and `disabled_providers` are OpenCode config
+schema keys. Provider lists keep model routing explicit. MCP servers are best managed by name; if
+an organization injects remote MCP defaults, disable each approved server explicitly and verify the
+effective OpenCode config with `opencode debug config`.
 
 ## Knowledge Promotion
 

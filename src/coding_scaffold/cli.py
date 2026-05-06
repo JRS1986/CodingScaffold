@@ -11,13 +11,13 @@ from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
 from .intake import IntakeAnswers, collect_intake
-from .knowledge import write_knowledge_base
+from .knowledge import inspect_knowledge_status, write_knowledge_base
 from .model_selection import select_model_for_prompt
 from .policy import write_policy_pack
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
-from .team import connect_team, doctor_team, sync_team, write_team_manifest
+from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team, write_team_manifest
 from .writers import write_scaffold
 
 
@@ -38,8 +38,14 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], default=None)
-    init.add_argument("--coding-tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    init.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], default=None, help=argparse.SUPPRESS)
+    init.add_argument(
+        "--coding-tool",
+        choices=["opencode", "openclaude", "both", "manual"],
+        dest="agent",
+        help=argparse.SUPPRESS,
+    )
     init.add_argument("--preferred-local-model", help="Preferred local model name.")
     init.add_argument("--mode", choices=["standard", "beginner"], default=None)
     init.add_argument("--non-interactive", action="store_true", help="Use defaults for missing values.")
@@ -63,7 +69,13 @@ def build_parser() -> argparse.ArgumentParser:
     wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument("--coding-tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    wizard.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    wizard.add_argument(
+        "--coding-tool",
+        choices=["opencode", "openclaude", "both", "manual"],
+        dest="agent",
+        help=argparse.SUPPRESS,
+    )
     wizard.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
     wizard.add_argument("--no-install-tools", action="store_true", help="Do not offer coding tool installation.")
     wizard.add_argument(
@@ -99,6 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    knowledge_status = sub.add_parser("knowledge-status", help="Report knowledge scope and maturity.")
+    knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_status.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -141,6 +157,8 @@ def build_parser() -> argparse.ArgumentParser:
     team.add_argument("action", choices=["init", "connect", "sync", "doctor"])
     team.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     team.add_argument("--manifest", help="Local manifest file or Git repo containing team-onboarding.json.")
+    team.add_argument("--dry-run", action="store_true", help="Preview team imports without writing files.")
+    team.add_argument("--yes", action="store_true", help="Apply team imports without an interactive prompt.")
     team.add_argument("--team", default="team", help="Team name for `team init`.")
     team.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
     team.add_argument(
@@ -256,6 +274,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
         return 0
 
+    if args.command == "knowledge-status":
+        status = inspect_knowledge_status(args.target)
+        if args.json:
+            print(json.dumps(status.to_dict(), indent=2, sort_keys=True))
+        else:
+            for scope, maturities in sorted(status.counts.items()):
+                summary = ", ".join(f"{maturity}: {count}" for maturity, count in sorted(maturities.items()))
+                print(f"{scope}: {summary}")
+            for warning in status.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 1 if status.warnings and not status.counts else 0
+
     if args.command == "orchestrate":
         adapter = None if args.adapter == "none" else args.adapter
         path = write_orchestration_plan(args.target, args.profile, adapter)
@@ -310,9 +340,23 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Wrote team onboarding manifest to {path}")
             return 0
         if args.action == "connect":
-            result = connect_team(args.target, args.manifest)
+            if args.dry_run:
+                result = preview_team(args.target, args.manifest)
+            elif not args.yes and not sys.stdin.isatty():
+                result = TeamResult([], ["Refusing non-interactive team connect without --yes. Run --dry-run first."])
+            elif not args.yes and not _confirm_team_import(preview_team(args.target, args.manifest)):
+                result = TeamResult([], ["Skipped team connect."])
+            else:
+                result = connect_team(args.target, args.manifest)
         elif args.action == "sync":
-            result = sync_team(args.target)
+            if args.dry_run:
+                result = sync_team(args.target, dry_run=True)
+            elif not args.yes and not sys.stdin.isatty():
+                result = TeamResult([], ["Refusing non-interactive team sync without --yes. Run --dry-run first."])
+            elif not args.yes and not _confirm_team_import(sync_team(args.target, dry_run=True)):
+                result = TeamResult([], ["Skipped team sync."])
+            else:
+                result = sync_team(args.target)
         else:
             result = doctor_team(args.target)
         for action in result.actions:
@@ -509,6 +553,17 @@ def _prompt_choice(label: str, default: str, allowed: set[str]) -> str:
 
 def _prompt_optional(label: str) -> str:
     return input(f"{label}: ").strip()
+
+
+def _confirm_team_import(preview: TeamResult) -> bool:
+    for action in preview.actions:
+        print(action)
+    for warning in preview.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    if preview.warnings and not preview.actions:
+        return False
+    answer = input(f"Apply these {len(preview.actions)} team onboarding action(s)? [y/N]: ").strip()
+    return answer.lower() in {"y", "yes"}
 
 
 def _print_probe(payload: dict[str, object]) -> None:

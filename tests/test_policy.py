@@ -19,7 +19,7 @@ def test_write_policy_pack_creates_opencode_policy(tmp_path) -> None:
     opencode = json.loads((tmp_path / "opencode.json").read_text())
     assert opencode["share"] == "disabled"
     assert opencode["enabled_providers"] == ["ollama", "azure-ai"]
-    assert opencode["disabled_providers"] == ["opencode"]
+    assert "disabled_providers" not in opencode
     assert opencode["mcp"]["jira"]["enabled"] is False
     assert opencode["permission"]["edit"] == "ask"
 

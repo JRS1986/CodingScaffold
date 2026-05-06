@@ -177,7 +177,7 @@ small engineering workflow that you can inspect, verify, and improve.
    coding-scaffold policy --target ~/dev/my-project \
      --scope company \
      --enable-provider ollama \
-     --disable-provider opencode \
+     --disable-provider openai \
      --disable-mcp-server jira
    ```
 
@@ -207,9 +207,9 @@ specific workflows.
 generates OpenCode-native agents and commands instead of inventing a parallel runtime.
 
 **Team knowledge:** Decisions, project vocabulary, useful prompts, trusted agents, and validated
-skills belong in reviewed Markdown, not in one person’s chat history. Knowledge can be organized by
-scope (`team`, `department`, `unit`, `company`) and maturity (`draft`, `validated`, `recommended`,
-`standard`) so useful patterns can move upward through review.
+skills belong in reviewed Markdown, not in one person’s chat history. Knowledge can use scope
+(`team`, `department`, `unit`, `company`) and maturity (`draft`, `validated`, `recommended`,
+`standard`) frontmatter; `knowledge-status` reports what exists and flags missing metadata.
 
 **Team onboarding:** Experienced teams can publish a non-secret onboarding manifest that points to
 shared knowledge, approved skills, approved agents, policy, config, default tool choices, and
@@ -277,9 +277,11 @@ coding-scaffold knowledge --target ~/dev/my-project --backend mempalace
 Use Obsidian when humans want better navigation and graph-style reading. Use MemPalace when the
 Markdown corpus grows large enough to benefit from semantic retrieval or MCP memory workflows.
 
-Hierarchical sharing is built in. Start with one repo and folder scopes when everyone has the same
-access. Use multiple Git remotes only when company, unit, department, or team knowledge needs
-different permissions. Promote mature notes upward by pull request instead of automatic sync.
+Hierarchical sharing is an optional organization pattern. Start with one repo and folder scopes when
+everyone has the same access. Use multiple Git remotes only when company, unit, department, or team
+knowledge needs different permissions. Promote mature notes upward by pull request instead of
+automatic sync, and use `coding-scaffold knowledge-status --target .` to check scope/maturity
+metadata.
 
 ## Policy Packs
 
@@ -341,7 +343,6 @@ then graduate it into workflow automation only after the team trusts the process
 - `.coding-scaffold/team-onboarding.json` and `team-provenance.json`: optional experienced-team onboarding.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
 - `AGENTS.md`: project-specific operating notes for coding agents.
-- `THEME.md` and `theme.json`: onboarding voice and style hints.
 
 Optional commands can also generate:
 
@@ -363,6 +364,7 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
 coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
+coding-scaffold knowledge-status --target ~/dev/my-project
 coding-scaffold team init --target ~/dev/my-project --team platform-api
 coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
 coding-scaffold team sync --target ~/dev/my-project

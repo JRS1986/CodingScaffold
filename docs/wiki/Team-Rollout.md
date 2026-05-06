@@ -37,6 +37,7 @@ New joiners should be able to run:
 
 ```bash
 coding-scaffold team connect --target . --manifest <team-onboarding-repo>
+coding-scaffold team connect --target . --manifest <team-onboarding-repo> --dry-run
 coding-scaffold team doctor --target .
 ```
 

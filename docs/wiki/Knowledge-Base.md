@@ -32,7 +32,8 @@ You can keep the knowledge base inside the project repo, or clone a separate rep
 
 ## Hierarchical Sharing
 
-Start with structure before adding multiple remotes:
+Hierarchical sharing is an optional organization pattern. Start with structure before adding
+multiple remotes:
 
 ```text
 .coding-scaffold/knowledge/
@@ -72,6 +73,15 @@ Use maturity levels as a trust ladder:
 Promote knowledge upward by pull request. Keep secrets out of every layer. Use separate Git remotes
 only when access boundaries differ; otherwise one shared repo with folders, tags, and CODEOWNERS is
 easier to operate.
+
+Check the current state:
+
+```bash
+coding-scaffold knowledge-status --target ~/dev/my-project
+```
+
+The status command counts notes by scope and maturity, and flags missing frontmatter on layered
+notes.
 
 ## Obsidian
 

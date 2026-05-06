@@ -1,6 +1,6 @@
 import json
 
-from coding_scaffold.knowledge import write_knowledge_base
+from coding_scaffold.knowledge import inspect_knowledge_status, write_knowledge_base
 
 
 def test_write_markdown_knowledge_base_creates_linked_files(tmp_path) -> None:
@@ -55,3 +55,16 @@ def test_write_knowledge_base_preserves_existing_notes(tmp_path) -> None:
 
     assert index in result.skipped
     assert index.read_text(encoding="utf-8") == "# Human Notes\n"
+
+
+def test_inspect_knowledge_status_counts_scope_and_maturity(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "testing.md"
+    note.write_text(
+        "---\nscope: team\nmaturity: validated\n---\n# Testing\n",
+        encoding="utf-8",
+    )
+
+    status = inspect_knowledge_status(tmp_path)
+
+    assert status.counts["team"]["validated"] == 1

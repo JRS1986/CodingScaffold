@@ -155,6 +155,7 @@ def _scaffold_gitignore() -> str:
     return """.env.local
 credentials.local.json
 *.secret.*
+team/
 """
 
 

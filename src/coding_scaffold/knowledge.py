@@ -11,6 +11,15 @@ class KnowledgeResult:
     skipped: list[Path]
 
 
+@dataclass(frozen=True)
+class KnowledgeStatus:
+    counts: dict[str, dict[str, int]]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {"counts": self.counts, "warnings": self.warnings}
+
+
 def write_knowledge_base(
     target: Path,
     backend: str = "markdown",
@@ -89,6 +98,52 @@ def write_knowledge_base(
             _opencode_share_agent_pattern(),
         )
     return KnowledgeResult(files, skipped)
+
+
+def inspect_knowledge_status(target: Path) -> KnowledgeStatus:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    counts: dict[str, dict[str, int]] = {}
+    warnings: list[str] = []
+    if not knowledge.exists():
+        return KnowledgeStatus({}, ["No knowledge base found. Run `coding-scaffold setup-knowledge`."])
+    for path in knowledge.rglob("*.md"):
+        frontmatter = _frontmatter(path)
+        scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
+        maturity = frontmatter.get("maturity") or "unspecified"
+        counts.setdefault(scope, {})
+        counts[scope][maturity] = counts[scope].get(maturity, 0) + 1
+        if "scope" not in frontmatter and _is_layered_note(path, knowledge):
+            warnings.append(f"{path.relative_to(knowledge)} is missing frontmatter field: scope")
+        if "maturity" not in frontmatter and _is_layered_note(path, knowledge):
+            warnings.append(f"{path.relative_to(knowledge)} is missing frontmatter field: maturity")
+    return KnowledgeStatus(counts, warnings)
+
+
+def _frontmatter(path: Path) -> dict[str, str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    values: dict[str, str] = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        key, separator, value = line.partition(":")
+        if separator:
+            values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def _scope_from_path(path: Path, knowledge: Path) -> str:
+    try:
+        first = path.relative_to(knowledge).parts[0]
+    except (IndexError, ValueError):
+        return "unspecified"
+    return first if first in {"team", "department", "unit", "company"} else "unspecified"
+
+
+def _is_layered_note(path: Path, knowledge: Path) -> bool:
+    return _scope_from_path(path, knowledge) != "unspecified" and path.name != "README.md"
 
 
 def _write(files: list[Path], path: Path, payload: str, overwrite: bool) -> None:

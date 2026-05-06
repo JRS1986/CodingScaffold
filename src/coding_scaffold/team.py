@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -54,24 +55,50 @@ def write_team_manifest(
 
 def connect_team(target: Path, manifest: str | None = None) -> TeamResult:
     root = target.expanduser().resolve()
-    source = _resolve_manifest(root, manifest)
-    payload = _read_manifest(source)
-    local_manifest = root / ".coding-scaffold" / "team-onboarding.json"
-    local_manifest.parent.mkdir(parents=True, exist_ok=True)
-    local_manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    result = sync_team(target)
-    return TeamResult(
-        [f"Connected team manifest: {source}", *result.actions],
-        result.warnings,
-    )
+    try:
+        source = _resolve_manifest(root, manifest)
+        payload = _read_manifest(source)
+        local_manifest = root / ".coding-scaffold" / "team-onboarding.json"
+        local_manifest.parent.mkdir(parents=True, exist_ok=True)
+        local_manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        result = sync_team(target)
+        return TeamResult(
+            [f"Connected team manifest: {source}", *result.actions],
+            result.warnings,
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        return TeamResult([], [str(exc)])
 
 
-def sync_team(target: Path) -> TeamResult:
+def preview_team(target: Path, manifest: str | None = None) -> TeamResult:
+    root = target.expanduser().resolve()
+    try:
+        if manifest:
+            with tempfile.TemporaryDirectory() as temp:
+                source = _resolve_manifest(Path(temp), manifest)
+                payload = _read_manifest(source)
+                result = _sync_team_payload(root, payload, dry_run=True)
+                return TeamResult([f"Preview team manifest: {source}", *result.actions], result.warnings)
+        local = root / ".coding-scaffold" / "team-onboarding.json"
+        payload = _read_manifest(local)
+        return _sync_team_payload(root, payload, dry_run=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        return TeamResult([], [str(exc)])
+
+
+def sync_team(target: Path, *, dry_run: bool = False) -> TeamResult:
     root = target.expanduser().resolve()
     manifest = root / ".coding-scaffold" / "team-onboarding.json"
     if not manifest.exists():
         return TeamResult([], ["No team manifest found. Run `coding-scaffold team init` or `team connect`."])
-    payload = _read_manifest(manifest)
+    try:
+        payload = _read_manifest(manifest)
+        return _sync_team_payload(root, payload, dry_run=dry_run)
+    except (OSError, RuntimeError, ValueError) as exc:
+        return TeamResult([], [str(exc)])
+
+
+def _sync_team_payload(root: Path, payload: dict[str, object], *, dry_run: bool) -> TeamResult:
     actions: list[str] = []
     warnings: list[str] = []
 
@@ -79,42 +106,49 @@ def sync_team(target: Path) -> TeamResult:
     knowledge_remote = str(knowledge.get("remote") or "")
     if knowledge_remote:
         destination = root / str(knowledge.get("path") or ".coding-scaffold/knowledge")
-        message, warning = _sync_source(knowledge_remote, destination)
+        message, warning = _sync_source(knowledge_remote, destination, dry_run=dry_run)
         actions.append(f"Knowledge: {message}")
         if warning:
             warnings.append(warning)
 
     for remote in _remotes(payload, "skills"):
-        source, message, warning = _sync_shared_source(root, remote, "skills")
+        source, message, warning = _sync_shared_source(root, remote, "skills", dry_run=dry_run)
         actions.append(f"Skills source: {message}")
         if warning:
             warnings.append(warning)
-        _copy_markdown(source, root / ".coding-scaffold" / "skills", actions, "skill")
+        _copy_markdown(source, root / ".coding-scaffold" / "skills", actions, "skill", dry_run=dry_run)
 
     for remote in _remotes(payload, "agents"):
-        source, message, warning = _sync_shared_source(root, remote, "agents")
+        source, message, warning = _sync_shared_source(root, remote, "agents", dry_run=dry_run)
         actions.append(f"Agents source: {message}")
         if warning:
             warnings.append(warning)
-        _copy_markdown(source, root / ".opencode" / "agents", actions, "agent")
+        _copy_markdown(source, root / ".opencode" / "agents", actions, "agent", dry_run=dry_run)
 
     for remote in _remotes(payload, "configs"):
-        source, message, warning = _sync_shared_source(root, remote, "configs")
+        source, message, warning = _sync_shared_source(root, remote, "configs", dry_run=dry_run)
         actions.append(f"Config source: {message}")
         if warning:
             warnings.append(warning)
-        _copy_tree(source, root / ".coding-scaffold" / "configs", actions, "config")
+        _copy_tree(source, root / ".coding-scaffold" / "configs", actions, "config", dry_run=dry_run)
 
     policy = _dict(payload.get("policy"))
     policy_remote = str(policy.get("remote") or "")
     if policy_remote:
-        source, message, warning = _sync_shared_source(root, policy_remote, "policy")
+        source, message, warning = _sync_shared_source(root, policy_remote, "policy", dry_run=dry_run)
         actions.append(f"Policy source: {message}")
         if warning:
             warnings.append(warning)
-        _copy_tree(source, root / ".coding-scaffold" / "policy" / "imported", actions, "policy")
+        _copy_tree(
+            source,
+            root / ".coding-scaffold" / "policy" / "imported",
+            actions,
+            "policy",
+            dry_run=dry_run,
+        )
 
-    _write_provenance(root, payload, actions)
+    if not dry_run:
+        _write_provenance(root, payload, actions)
     return TeamResult(actions, warnings)
 
 
@@ -147,92 +181,22 @@ def _resolve_manifest(root: Path, manifest: str | None) -> Path:
         return candidate.resolve()
     source_dir = root / ".coding-scaffold" / "team" / "manifest-source"
     _clone_or_pull(manifest, source_dir)
-    for name in ["team-onboarding.json", "team-onboarding.yaml", "team-onboarding.yml"]:
-        path = source_dir / name
-        if path.exists():
-            return path
+    path = source_dir / "team-onboarding.json"
+    if path.exists():
+        return path
     raise FileNotFoundError(f"No team-onboarding manifest found in {manifest}")
 
 
 def _read_manifest(path: Path) -> dict[str, object]:
     text = path.read_text(encoding="utf-8")
-    if path.suffix == ".json":
-        payload = json.loads(text)
-    else:
-        payload = _parse_simple_yaml(text)
+    if path.suffix != ".json":
+        raise ValueError("Team onboarding manifests must be JSON. Use team-onboarding.json.")
+    payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ValueError("Team manifest must be an object.")
     if _dict(payload.get("security")).get("secrets_allowed") is True:
         raise ValueError("Team manifest cannot allow secrets.")
     return payload
-
-
-def _parse_simple_yaml(text: str) -> dict[str, object]:
-    lines = [
-        line
-        for raw in text.splitlines()
-        if (line := raw.split("#", 1)[0].rstrip()).strip()
-    ]
-    payload, _ = _parse_yaml_block(lines, 0, 0)
-    return payload if isinstance(payload, dict) else {}
-
-
-def _parse_yaml_block(lines: list[str], index: int, indent: int) -> tuple[object, int]:
-    if index >= len(lines):
-        return {}, index
-    if _indent(lines[index]) == indent and lines[index].strip().startswith("- "):
-        items: list[object] = []
-        while index < len(lines) and _indent(lines[index]) == indent:
-            item = lines[index].strip()
-            if not item.startswith("- "):
-                break
-            items.append(_scalar(item[2:].strip()))
-            index += 1
-        return items, index
-    mapping: dict[str, object] = {}
-    while index < len(lines):
-        current_indent = _indent(lines[index])
-        if current_indent < indent:
-            break
-        if current_indent > indent:
-            index += 1
-            continue
-        item = lines[index].strip()
-        key, _, value = item.partition(":")
-        key = key.strip()
-        value = value.strip()
-        if value:
-            mapping[key] = _scalar(value)
-            index += 1
-            continue
-        child_indent = _next_indent(lines, index + 1, indent)
-        if child_indent is None:
-            mapping[key] = {}
-            index += 1
-            continue
-        child, index = _parse_yaml_block(lines, index + 1, child_indent)
-        mapping[key] = child
-    return mapping, index
-
-
-def _indent(line: str) -> int:
-    return len(line) - len(line.lstrip(" "))
-
-
-def _next_indent(lines: list[str], index: int, current: int) -> int | None:
-    if index >= len(lines):
-        return None
-    value = _indent(lines[index])
-    return value if value > current else None
-
-
-def _scalar(value: str) -> object:
-    cleaned = value.strip().strip('"').strip("'")
-    if cleaned.lower() == "true":
-        return True
-    if cleaned.lower() == "false":
-        return False
-    return cleaned
 
 
 def _remotes(payload: dict[str, object], key: str) -> list[str]:
@@ -246,54 +210,105 @@ def _dict(value: object) -> dict[str, object]:
     return value if isinstance(value, dict) else {}
 
 
-def _sync_shared_source(root: Path, remote: str, kind: str) -> tuple[Path, str, str | None]:
+def _sync_shared_source(
+    root: Path,
+    remote: str,
+    kind: str,
+    *,
+    dry_run: bool,
+) -> tuple[Path, str, str | None]:
     destination = root / ".coding-scaffold" / "team" / "sources" / kind / _slug(remote)
-    message, warning = _sync_source(remote, destination)
-    return destination, message, warning
+    candidate = Path(remote).expanduser()
+    message, warning = _sync_source(remote, destination, dry_run=dry_run)
+    source = candidate if dry_run and candidate.exists() else destination
+    return source, message, warning
 
 
-def _sync_source(remote: str, destination: Path) -> tuple[str, str | None]:
+def _sync_source(remote: str, destination: Path, *, dry_run: bool) -> tuple[str, str | None]:
     source = Path(remote).expanduser()
     if source.exists():
         if source.resolve() == destination.resolve():
             return f"already connected to {remote}", None
+        if dry_run:
+            return f"would copy {remote}", None
         destination.parent.mkdir(parents=True, exist_ok=True)
         if destination.exists():
             shutil.rmtree(destination)
         shutil.copytree(source, destination, ignore=shutil.ignore_patterns(".git"))
         return f"copied {remote}", None
-    return _clone_or_pull(remote, destination), None
+    return _clone_or_pull(remote, destination, dry_run=dry_run), None
 
 
-def _clone_or_pull(remote: str, destination: Path) -> str:
+def _clone_or_pull(remote: str, destination: Path, *, dry_run: bool = False) -> str:
+    if shutil.which("git") is None:
+        raise RuntimeError(
+            "git is required for team manifests pointing to a remote URL. "
+            "Install git or pass a local path."
+        )
+    if dry_run:
+        return f"would clone/update {remote}"
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
-        completed = subprocess.run(["git", "-C", str(destination), "pull", "--ff-only"], check=False)
-        if completed.returncode == 0:
-            return f"updated {remote}"
-        return f"kept existing checkout for {remote}; git pull failed"
-    completed = subprocess.run(["git", "clone", remote, str(destination)], check=False)
-    if completed.returncode != 0:
-        raise RuntimeError(f"Could not clone {remote}")
+        if not (destination / ".git").exists():
+            shutil.rmtree(destination)
+        else:
+            completed = subprocess.run(["git", "-C", str(destination), "pull", "--ff-only"], check=False)
+            if completed.returncode == 0:
+                _remove_nested_git(destination)
+                return f"updated {remote}"
+            return f"kept existing checkout for {remote}; git pull failed"
+    if not destination.exists():
+        completed = subprocess.run(["git", "clone", remote, str(destination)], check=False)
+        if completed.returncode != 0:
+            raise RuntimeError(f"Could not clone {remote}")
+        _remove_nested_git(destination)
     return f"cloned {remote}"
 
 
-def _copy_markdown(source: Path, destination: Path, actions: list[str], label: str) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
+def _remove_nested_git(destination: Path) -> None:
+    git_dir = destination / ".git"
+    if git_dir.exists():
+        shutil.rmtree(git_dir)
+
+
+def _copy_markdown(
+    source: Path,
+    destination: Path,
+    actions: list[str],
+    label: str,
+    *,
+    dry_run: bool,
+) -> None:
+    if not dry_run:
+        destination.mkdir(parents=True, exist_ok=True)
     for path in source.rglob("*.md"):
         relative = path.relative_to(source)
+        if dry_run:
+            actions.append(f"Would import {label}: {relative} -> {destination / relative}")
+            continue
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
         actions.append(f"Imported {label}: {relative}")
 
 
-def _copy_tree(source: Path, destination: Path, actions: list[str], label: str) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
+def _copy_tree(
+    source: Path,
+    destination: Path,
+    actions: list[str],
+    label: str,
+    *,
+    dry_run: bool,
+) -> None:
+    if not dry_run:
+        destination.mkdir(parents=True, exist_ok=True)
     for path in source.rglob("*"):
         if path.is_dir() or ".git" in path.parts:
             continue
         relative = path.relative_to(source)
+        if dry_run:
+            actions.append(f"Would import {label}: {relative} -> {destination / relative}")
+            continue
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
