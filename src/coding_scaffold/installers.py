@@ -222,6 +222,8 @@ def _install_plan(
             f"Could not start installer for {plan.tool}: {exc}",
         )
     if completed.returncode == 0:
+        if plan.tool == "caveman-compression" and cwd:
+            shutil.rmtree(cwd / "caveman-compression" / ".git", ignore_errors=True)
         return ToolInstallResult(plan.tool, "installed", plan.post_install)
     return ToolInstallResult(
         plan.tool,

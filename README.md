@@ -78,7 +78,7 @@ coding-scaffold setup-addon --target . --addon llmfit
 coding-scaffold setup-addon --target . --addon routellm
 coding-scaffold setup-addon --target . --addon open-multi-agent
 coding-scaffold setup-addon --target . --addon obsidian
-coding-scaffold setup-addon --target . --addon caveman-compression
+coding-scaffold setup-addon --target . --addon caveman-compression  # optional external compression engine
 ```
 
 Shared knowledge can also be configured as part of setup:
@@ -304,7 +304,6 @@ compress supporting notes, or start a fresh session before old context starts be
 Create compressed sidecars for Markdown knowledge:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
 coding-scaffold compress-context --target ~/dev/my-project --source knowledge
 ```
 
@@ -312,6 +311,18 @@ This writes `.caveman.md` sidecars next to the original files. Originals stay th
 of truth; sidecars are optional agent input. Use compression for reference notes, session logs, and
 large knowledge articles. Keep policies, security rules, requirements, and active code uncompressed
 unless a human explicitly reviews the compressed version.
+
+The default compressor is built in and works offline. If you want to experiment with the upstream
+Caveman Compression project, install it as an optional engine and call it explicitly:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+```
+
+After compression, `context-budget` still estimates original files by default so budgets do not
+double-count source notes and sidecars. Use `--prefer compressed` to estimate a sidecar-first agent
+session, or `--prefer both` when you intentionally want to measure the full stored corpus.
 
 ## Policy Packs
 
@@ -354,12 +365,14 @@ coding-scaffold workflow --target ~/dev/my-project --backend open-multi-agent
 The intended path is: validate interactively in OpenCode, capture the useful behavior as a skill,
 then graduate it into workflow automation only after the team trusts the process.
 
-Caveman Compression is an experimental optional sidecar for token-constrained contexts:
+Caveman Compression is an experimental optional engine for token-constrained contexts. The built-in
+compressor does not require it; install the add-on only when you want to compare the upstream
+compressor against the scaffold default:
 
 ```bash
 coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
 coding-scaffold context-budget --target ~/dev/my-project --source team
-coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
 Use it when the knowledge base is useful but too wordy for repeated agent sessions. Avoid using it
@@ -409,7 +422,9 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compressio
 coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
 coding-scaffold knowledge-status --target ~/dev/my-project
 coding-scaffold context-budget --target ~/dev/my-project --source knowledge
+coding-scaffold context-budget --target ~/dev/my-project --source knowledge --prefer compressed
 coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
 coding-scaffold team init --target ~/dev/my-project --team platform-api
 coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
 coding-scaffold team sync --target ~/dev/my-project

@@ -22,16 +22,23 @@ Use RouteLLM when endpoint-level model routing matters. For simple explainable r
 
 ## Context Compression
 
-Caveman Compression is an optional token-saving sidecar for large knowledge bases:
+The built-in compressor writes token-saving sidecars for large knowledge bases without extra
+installation:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
 coding-scaffold context-budget --target ~/dev/my-project --source team
 coding-scaffold compress-context --target ~/dev/my-project --source knowledge
 ```
 
-Use this after the team has reviewed the source notes. Compressed sidecars are agent input, not the
-canonical record.
+Caveman Compression is optional when you want to try the upstream engine explicitly:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
+```
+
+Use either path after the team has reviewed the source notes. Compressed sidecars are agent input,
+not the canonical record.
 
 ## Open Multi-Agent
 

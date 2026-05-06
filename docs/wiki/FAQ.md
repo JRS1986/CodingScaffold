@@ -21,8 +21,8 @@ add `--install` to install a missing tool intentionally.
 Yes. Use `coding-scaffold setup-addon --addon llmfit`, `routellm`, `open-multi-agent`,
 `obsidian`, or `caveman-compression`. The wizard can also offer add-ons interactively. RouteLLM
 installs into the active Python environment, Open Multi-Agent installs into the target Node.js
-project, Caveman Compression is cloned under `.coding-scaffold/tools/`, and Obsidian remains manual
-on WSL because it is a desktop app.
+project, Caveman Compression is cloned under `.coding-scaffold/tools/` as an optional external
+engine, and Obsidian remains manual on WSL because it is a desktop app.
 
 ## Can setup configure the shared knowledge remote?
 
@@ -55,8 +55,9 @@ and easy to migrate.
 It can catch the easy cases early. Run `coding-scaffold context-budget --target . --source team`
 to estimate whether shared knowledge, skills, policy, and agents are getting too large for a healthy
 session. Run `coding-scaffold compress-context --target . --source knowledge` to create optional
-compressed sidecars. Still use human judgment: narrow retrieval, keep policy uncompressed, and open
-a fresh session when history has become stale.
+compressed sidecars with the built-in compressor. Use `context-budget --prefer compressed` to
+estimate a sidecar-first session. Still use human judgment: narrow retrieval, keep policy
+uncompressed, and open a fresh session when history has become stale.
 
 ## Should every team use RouteLLM or Open Multi-Agent?
 

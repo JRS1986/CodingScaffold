@@ -225,6 +225,25 @@ def test_init_accepts_canonical_tool_flag(tmp_path) -> None:
     )
 
 
+def test_init_accepts_legacy_agent_alias(tmp_path) -> None:
+    legacy_flag = "--" + "agent"
+    assert (
+        main(
+            [
+                "init",
+                "--target",
+                str(tmp_path),
+                "--language",
+                "python",
+                legacy_flag,
+                "manual",
+                "--non-interactive",
+            ]
+        )
+        == 0
+    )
+
+
 def test_select_model_with_prompt(tmp_path, capsys) -> None:
     assert main(["select-model", "--target", str(tmp_path), "--prompt", "Review this migration"]) == 0
 

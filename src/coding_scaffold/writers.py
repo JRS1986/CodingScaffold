@@ -406,12 +406,13 @@ knowledge, then compress optional reference notes only as sidecars:
 
 ```bash
 coding-scaffold context-budget --target . --source team
-coding-scaffold setup-addon --target . --addon caveman-compression
 coding-scaffold compress-context --target . --source knowledge
 ```
 
-Use `.caveman.md` sidecars for reference-heavy sessions. Keep original Markdown, policies,
-requirements, and active code as the source of truth.
+Use `.caveman.md` sidecars for reference-heavy sessions. The default compressor is built in. Install
+`caveman-compression` only when you want to try the upstream engine with
+`coding-scaffold compress-context --target . --source knowledge --engine caveman`.
+Keep original Markdown, policies, requirements, and active code as the source of truth.
 
 ## Adding The Next Tool
 
@@ -589,7 +590,7 @@ Guidance mode: {intake.mode}
 
 
 def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
-    selected_tool = intake.agent or "opencode"
+    selected_tool = intake.tool or "opencode"
     setup_hint = (
         "Validate or install the selected coding environment with "
         f"`coding-scaffold setup-tool --tool {selected_tool}`."
@@ -623,7 +624,7 @@ On WSL/Linux the flow is the same. On Windows PowerShell outside WSL, activate w
 Project language: `{intake.language}`
 Project target: `{intake.project_target}`
 Privacy mode: `{intake.privacy}`
-Coding environment: `{intake.agent}`
+Coding environment: `{intake.tool}`
 Guidance mode: `{intake.mode}`
 Routine model: `{routing.weak_model}`
 Heavy-lift model: `{routing.strong_model}`
@@ -643,7 +644,7 @@ Heavy-lift model: `{routing.strong_model}`
 11. Create repeatable project skills with `coding-scaffold skill --target . --adapter opencode --name "..."`.
 12. Create shared team memory with `coding-scaffold setup-knowledge --target . --backend markdown`.
 13. Improve skills when they miss context, overreach, or fail to verify correctly.
-14. Compress optional reference notes with `coding-scaffold setup-addon --target . --addon caveman-compression` and `coding-scaffold compress-context --target . --source knowledge`.
+14. Compress optional reference notes with `coding-scaffold compress-context --target . --source knowledge`; use `--engine caveman` only after installing the optional Caveman Compression add-on.
 15. Graduate proven skills into Open Multi-Agent workflows with `coding-scaffold setup-addon --target . --addon open-multi-agent` and `coding-scaffold workflow --target . --backend open-multi-agent`.
 """
 

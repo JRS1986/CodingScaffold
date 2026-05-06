@@ -31,6 +31,7 @@ Defaults:
 
 - warn above 100,000 estimated tokens
 - warn above 40% of the configured context window
+- estimate original files by default and ignore `.caveman.md` sidecars
 - inspect `.coding-scaffold/knowledge` for `--source knowledge`
 - inspect knowledge, skills, policy, and agents for `--source team`
 
@@ -43,18 +44,27 @@ coding-scaffold context-budget --target ~/dev/my-project --source team --json
 Use a warning as a prompt to narrow the task, retrieve fewer files, compress support notes, or open
 a fresh coding session.
 
-## Compression Sidecars
-
-Caveman Compression is available as an optional experimental add-on:
+Estimate a sidecar-first session after compression:
 
 ```bash
-coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold context-budget --target ~/dev/my-project --source knowledge --prefer compressed
 ```
 
-Then generate sidecars:
+Use `--prefer both` only when you intentionally want to measure the full stored corpus.
+
+## Compression Sidecars
+
+The default compressor is built into CodingScaffold and works offline:
 
 ```bash
 coding-scaffold compress-context --target ~/dev/my-project --source knowledge
+```
+
+Caveman Compression is available as an optional experimental engine:
+
+```bash
+coding-scaffold setup-addon --target ~/dev/my-project --addon caveman-compression
+coding-scaffold compress-context --target ~/dev/my-project --source knowledge --engine caveman
 ```
 
 This writes files like:

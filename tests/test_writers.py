@@ -45,3 +45,5 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert "nativeAdapter" in opencode
     project = json.loads((tmp_path / ".coding-scaffold" / "project.json").read_text())
     assert project["language"] == "python"
+    assert "tool" in project
+    assert "agent" not in project

@@ -45,12 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
-    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], default=None, help=argparse.SUPPRESS)
+    init.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"])
+    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], dest="tool", help=argparse.SUPPRESS)
     init.add_argument(
         "--coding-tool",
         choices=["opencode", "openclaude", "both", "manual"],
-        dest="agent",
+        dest="tool",
         help=argparse.SUPPRESS,
     )
     init.add_argument("--preferred-local-model", help="Preferred local model name.")
@@ -76,11 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     wizard = sub.add_parser("wizard", help="Guided setup wizard for a project.")
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"], dest="agent")
+    wizard.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"])
     wizard.add_argument(
         "--coding-tool",
         choices=["opencode", "openclaude", "both", "manual"],
-        dest="agent",
+        dest="tool",
         help=argparse.SUPPRESS,
     )
     wizard.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
@@ -133,6 +133,12 @@ def build_parser() -> argparse.ArgumentParser:
     context_budget.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_CONTEXT_TOKENS)
     context_budget.add_argument("--context-window", type=int, default=DEFAULT_CONTEXT_WINDOW)
     context_budget.add_argument("--max-ratio", type=float, default=DEFAULT_MAX_CONTEXT_RATIO)
+    context_budget.add_argument(
+        "--prefer",
+        choices=["original", "compressed", "both"],
+        default="original",
+        help="Estimate original files, compressed sidecars when present, or both.",
+    )
     context_budget.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     compress = sub.add_parser("compress-context", help="Write compressed sidecars for context files.")
@@ -143,6 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Source to compress: knowledge, team, or a path relative to target.",
     )
     compress.add_argument("--overwrite", action="store_true", help="Rewrite existing .caveman sidecars.")
+    compress.add_argument(
+        "--engine",
+        choices=["builtin", "caveman", "auto"],
+        default="builtin",
+        help="Compression engine. `caveman` uses the optional cloned upstream tool when available.",
+    )
 
     orchestrate = sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -318,6 +330,7 @@ def main(argv: list[str] | None = None) -> int:
         budget = inspect_context_budget(
             args.target,
             source=args.source,
+            prefer=args.prefer,
             max_tokens=args.max_tokens,
             context_window=args.context_window,
             max_ratio=args.max_ratio,
@@ -329,7 +342,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if budget.warnings else 0
 
     if args.command == "compress-context":
-        result = compress_context(args.target, source=args.source, overwrite=args.overwrite)
+        result = compress_context(
+            args.target,
+            source=args.source,
+            overwrite=args.overwrite,
+            engine=args.engine,
+        )
         print(f"Wrote {len(result.files)} compressed context sidecar(s).")
         if result.skipped:
             print(f"Skipped {len(result.skipped)} existing sidecar(s).")
@@ -478,7 +496,7 @@ def main(argv: list[str] | None = None) -> int:
                 project_target=getattr(args, "project_target", None),
                 existing_codebase=getattr(args, "existing_codebase", False) or None,
                 privacy=getattr(args, "privacy", None),
-                agent=getattr(args, "agent", None),
+                tool=getattr(args, "tool", None),
                 preferred_local_model=getattr(args, "preferred_local_model", None),
                 mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
             ),
@@ -488,7 +506,7 @@ def main(argv: list[str] | None = None) -> int:
         providers = detect_providers(load_local_credentials(target))
         routing = build_routing_plan(answers, hardware, providers)
         manifest = write_scaffold(target, answers, hardware, providers, routing)
-        selected_tool = answers.agent or "opencode"
+        selected_tool = answers.tool or "opencode"
         install_results = _maybe_install_tools(selected_tool, args, is_wizard)
         addon_results = _maybe_install_addons(args, is_wizard, target)
         knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
@@ -658,6 +676,7 @@ def _print_model_selection(selection: dict[str, object]) -> None:
 
 def _print_context_budget(budget: dict[str, object]) -> None:
     print(f"Source: {budget['source']}")
+    print(f"Preference: {budget['prefer']}")
     print(f"Files: {budget['file_count']}")
     print(f"Estimated tokens: {budget['tokens_estimate']}")
     print(f"Context window use: {float(budget['window_ratio']):.0%}")

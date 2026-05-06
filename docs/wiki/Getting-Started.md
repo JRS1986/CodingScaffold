@@ -99,8 +99,8 @@ coding-scaffold setup-addon --target . --addon caveman-compression
 `llmfit` is useful early because it improves hardware-aware model choice. RouteLLM and Open
 Multi-Agent are advanced; add them after the first agentic coding loop is working. Obsidian is a
 desktop app, so WSL users should usually install it on Windows and open `.coding-scaffold/knowledge`
-as a vault. Caveman Compression is experimental; use it only for optional context sidecars after
-the source knowledge is already reviewed.
+as a vault. Context sidecars work without the Caveman add-on; install it only when you want to try
+the upstream compression engine with `compress-context --engine caveman`.
 
 Inside OpenCode:
 

@@ -11,12 +11,16 @@ class IntakeAnswers:
     project_target: str | None = None
     existing_codebase: bool | None = None
     privacy: str | None = None
-    agent: str | None = None
+    tool: str | None = None
     preferred_local_model: str | None = None
     mode: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+    @property
+    def agent(self) -> str | None:
+        return self.tool
 
 
 def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> IntakeAnswers:
@@ -35,8 +39,8 @@ def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> 
             else _bool_value("Existing codebase", _has_code(target), interactive)
         ),
         privacy=_value(provided.privacy, "Privacy mode", "local-first", interactive),
-        agent=_value(
-            provided.agent,
+        tool=_value(
+            provided.tool,
             "Coding environment / IDE (opencode/openclaude/both/manual)",
             "opencode",
             interactive,
