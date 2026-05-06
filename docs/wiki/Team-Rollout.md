@@ -27,6 +27,22 @@ Agree on:
 - when to use heavy-lift models
 - where shared knowledge lives
 
+Publish those defaults as a team onboarding manifest:
+
+```bash
+coding-scaffold team init --target . --team platform-api
+```
+
+New joiners should be able to run:
+
+```bash
+coding-scaffold team connect --target . --manifest <team-onboarding-repo>
+coding-scaffold team doctor --target .
+```
+
+That should expose the shared knowledge base, approved skills, approved agents, policy, config, and
+required add-ons before the first agentic coding session.
+
 ## Governance
 
 Review these changes like code:
@@ -47,4 +63,3 @@ The rollout is working when:
 - review findings are caught earlier
 - good prompts become skills
 - decisions move from chat history into shared knowledge
-

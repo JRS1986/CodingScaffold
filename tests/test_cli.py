@@ -15,6 +15,7 @@ def test_parser_lists_user_facing_commands() -> None:
     assert "setup-addon" in help_text
     assert "setup-knowledge" in help_text
     assert "setup-tool" in help_text
+    assert "team" in help_text
     assert "workflow" in help_text
 
 
@@ -152,6 +153,15 @@ def test_setup_addon_command(tmp_path, monkeypatch, capsys) -> None:
     assert main(["setup-addon", "--target", str(tmp_path), "--addon", "llmfit"]) == 0
 
     assert "llmfit: present" in capsys.readouterr().out
+
+
+def test_team_init_and_doctor_commands(tmp_path, capsys) -> None:
+    assert main(["team", "init", "--target", str(tmp_path), "--team", "platform-api"]) == 0
+
+    output = capsys.readouterr().out
+    assert "team-onboarding.json" in output
+    assert main(["team", "doctor", "--target", str(tmp_path)]) == 0
+    assert "Team: platform-api" in capsys.readouterr().out
 
 
 def test_select_model_with_prompt(tmp_path, capsys) -> None:

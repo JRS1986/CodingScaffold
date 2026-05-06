@@ -17,6 +17,7 @@ from .policy import write_policy_pack
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
+from .team import connect_team, doctor_team, sync_team, write_team_manifest
 from .writers import write_scaffold
 
 
@@ -135,6 +136,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     setup_knowledge.add_argument("--shared-remote", help="GitHub/GitLab repo URL for shared knowledge.")
     setup_knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+
+    team = sub.add_parser("team", help="Manage experienced-team onboarding assets.")
+    team.add_argument("action", choices=["init", "connect", "sync", "doctor"])
+    team.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team.add_argument("--manifest", help="Local manifest file or Git repo containing team-onboarding.json.")
+    team.add_argument("--team", default="team", help="Team name for `team init`.")
+    team.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
+    team.add_argument(
+        "--knowledge-backend",
+        choices=["markdown", "obsidian", "mempalace"],
+        default="markdown",
+        help="Knowledge backend for `team init`.",
+    )
+    team.add_argument(
+        "--tool",
+        choices=["opencode", "openclaude", "both", "manual"],
+        default="opencode",
+        help="Default coding tool for `team init`.",
+    )
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -277,6 +297,29 @@ def main(argv: list[str] | None = None) -> int:
         if result.skipped:
             print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
         return 0
+
+    if args.command == "team":
+        if args.action == "init":
+            path = write_team_manifest(
+                args.target,
+                team=args.team,
+                knowledge_remote=args.knowledge_remote,
+                knowledge_backend=args.knowledge_backend,
+                default_tool=args.tool,
+            )
+            print(f"Wrote team onboarding manifest to {path}")
+            return 0
+        if args.action == "connect":
+            result = connect_team(args.target, args.manifest)
+        elif args.action == "sync":
+            result = sync_team(args.target)
+        else:
+            result = doctor_team(args.target)
+        for action in result.actions:
+            print(action)
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return 1 if result.warnings and not result.actions else 0
 
     if args.command == "policy":
         adapter = None if args.adapter == "none" else args.adapter

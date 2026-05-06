@@ -88,6 +88,16 @@ coding-scaffold setup-knowledge --target . \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
+If you join an experienced team, connect to its onboarding manifest instead. This pulls the common
+knowledge base and exposes approved skills, agents, policy, and config locally:
+
+```bash
+coding-scaffold team connect --target . \
+  --manifest https://github.com/acme/platform-ai-onboarding.git
+coding-scaffold team sync --target .
+coding-scaffold team doctor --target .
+```
+
 Then start the first session:
 
 ```bash
@@ -154,7 +164,14 @@ small engineering workflow that you can inspect, verify, and improve.
      --shared-remote https://github.com/acme/team-ai-knowledge.git
    ```
 
-7. Apply local policy defaults when your team has provider, sharing, or MCP rules:
+7. Connect to team onboarding when a shared manifest exists:
+
+   ```bash
+   coding-scaffold team connect --target ~/dev/my-project \
+     --manifest https://github.com/acme/platform-ai-onboarding.git
+   ```
+
+8. Apply local policy defaults when your team has provider, sharing, or MCP rules:
 
    ```bash
    coding-scaffold policy --target ~/dev/my-project \
@@ -164,7 +181,7 @@ small engineering workflow that you can inspect, verify, and improve.
      --disable-mcp-server jira
    ```
 
-8. Add advanced routing or workflow automation only when the team has a real need:
+9. Add advanced routing or workflow automation only when the team has a real need:
 
    ```bash
    coding-scaffold route --target ~/dev/my-project --backend routellm
@@ -193,6 +210,11 @@ generates OpenCode-native agents and commands instead of inventing a parallel ru
 skills belong in reviewed Markdown, not in one person’s chat history. Knowledge can be organized by
 scope (`team`, `department`, `unit`, `company`) and maturity (`draft`, `validated`, `recommended`,
 `standard`) so useful patterns can move upward through review.
+
+**Team onboarding:** Experienced teams can publish a non-secret onboarding manifest that points to
+shared knowledge, approved skills, approved agents, policy, config, default tool choices, and
+required add-ons. New joiners run `coding-scaffold team connect` and get the team setup copied into
+the project with provenance.
 
 **Policy packs:** Company, unit, department, or team defaults can be generated as reviewable local
 policy. For OpenCode this can disable conversation sharing, keep project MCP empty by default,
@@ -316,6 +338,7 @@ then graduate it into workflow automation only after the team trusts the process
 - `skills/README.md` and `SKILLS.md`: project skill guidance.
 - `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.
 - `.coding-scaffold/policy/`: optional company/unit/department/team policy packs.
+- `.coding-scaffold/team-onboarding.json` and `team-provenance.json`: optional experienced-team onboarding.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
 - `AGENTS.md`: project-specific operating notes for coding agents.
 - `THEME.md` and `theme.json`: onboarding voice and style hints.
@@ -340,6 +363,10 @@ coding-scaffold setup-addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup-addon --target ~/dev/my-project --addon open-multi-agent
 coding-scaffold setup-addon --target ~/dev/my-project --addon obsidian
 coding-scaffold setup-knowledge --target ~/dev/my-project --backend obsidian
+coding-scaffold team init --target ~/dev/my-project --team platform-api
+coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
+coding-scaffold team sync --target ~/dev/my-project
+coding-scaffold team doctor --target ~/dev/my-project
 coding-scaffold select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold adapt --target ~/dev/my-project --tool opencode
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"

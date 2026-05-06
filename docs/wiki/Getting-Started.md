@@ -63,6 +63,14 @@ coding-scaffold setup-knowledge --target . \
   --shared-remote https://github.com/acme/team-ai-knowledge.git
 ```
 
+If you are joining an experienced team, prefer the team manifest:
+
+```bash
+coding-scaffold team connect --target . \
+  --manifest https://github.com/acme/platform-ai-onboarding.git
+coding-scaffold team doctor --target .
+```
+
 ## Install OpenCode
 
 OpenCode is the recommended default adapter for the first team rollout.
