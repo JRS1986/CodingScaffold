@@ -32,9 +32,9 @@ Make sure it is installed and on your path.
 ```bash
 git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold
-uv env
+uv venv
 uv sync --group dev
-uv pip install -e ".[dev]"
+uv pip install -e .
 source .venv/bin/activate
 ```
 
