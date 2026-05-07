@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=70", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "coding-scaffold"
@@ -17,15 +17,12 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
 ]
 
-[project.optional-dependencies]
-routellm = ["routellm[serve]>=0.2.0"]
-dev = ["pytest>=8.0", "ruff>=0.8"]
-
 [project.scripts]
 coding-scaffold = "coding_scaffold.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+routellm = ["routellm[serve]>=0.2.0"]
 
 [tool.ruff]
 line-length = 100
