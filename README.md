@@ -24,14 +24,18 @@ An LLM is needed only when a coding agent actually starts working, for example w
 path to a model through Ollama, LM Studio, llama-server, GitHub Copilot, OpenAI, Anthropic, Azure,
 OpenRouter, GitHub Models, or another compatible provider.
 
-## Install
+## Installation
+
+We recommend [uv](https://docs.astral.sh/uv/) to handle the dependencies and run the project.
+Make sure it is installed and on your path.
 
 ```bash
 git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold
-python3 -m venv .venv
+uv env
+uv sync --group dev
+uv pip install -e ".[dev]"
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
 ```
 
 For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
@@ -39,6 +43,9 @@ For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
+
+The Project has two optional dependency groups `dev` and `routellm`. To use `routellm` use 
+`uv sync --group dev --group routellm`.
 
 ## First Run
 
