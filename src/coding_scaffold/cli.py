@@ -264,6 +264,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="opencode",
         help="Default coding tool for `team init`.",
     )
+    team.add_argument(
+        "--allow-local",
+        action="store_true",
+        help="Permit local-path or file:// remotes for team manifests.",
+    )
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -640,22 +645,26 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.action == "connect":
             if args.dry_run:
-                result = preview_team(args.target, args.manifest)
+                result = preview_team(args.target, args.manifest, allow_local=args.allow_local)
             elif not args.yes and not sys.stdin.isatty():
                 result = TeamResult([], ["Refusing non-interactive team connect without --yes. Run --dry-run first."])
-            elif not args.yes and not _confirm_team_import(preview_team(args.target, args.manifest)):
+            elif not args.yes and not _confirm_team_import(
+                preview_team(args.target, args.manifest, allow_local=args.allow_local)
+            ):
                 result = TeamResult([], ["Skipped team connect."])
             else:
-                result = connect_team(args.target, args.manifest)
+                result = connect_team(args.target, args.manifest, allow_local=args.allow_local)
         elif args.action == "sync":
             if args.dry_run:
-                result = sync_team(args.target, dry_run=True)
+                result = sync_team(args.target, dry_run=True, allow_local=args.allow_local)
             elif not args.yes and not sys.stdin.isatty():
                 result = TeamResult([], ["Refusing non-interactive team sync without --yes. Run --dry-run first."])
-            elif not args.yes and not _confirm_team_import(sync_team(args.target, dry_run=True)):
+            elif not args.yes and not _confirm_team_import(
+                sync_team(args.target, dry_run=True, allow_local=args.allow_local)
+            ):
                 result = TeamResult([], ["Skipped team sync."])
             else:
-                result = sync_team(args.target)
+                result = sync_team(args.target, allow_local=args.allow_local)
         else:
             result = doctor_team(args.target)
         for action in result.actions:
