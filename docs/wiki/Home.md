@@ -35,15 +35,15 @@ call happens later, inside the coding tool, when a developer runs an agent comma
 
 ## Recommended Reading
 
-1. [[Getting Started]]: install, run setup, refresh safely, and complete the first agentic coding session.
-2. [[Core Concepts]]: understand the main ideas before introducing it to a team.
-3. [[Model Selection and Providers]]: local-first routing, Azure/OpenAI/Anthropic abstraction, and auto mode.
-4. [[Skills and Agents]]: how teams turn good workflows into reusable assets.
-5. [[Knowledge Base]]: Markdown, Obsidian, MemPalace, and shared GitHub/GitLab memory.
-6. [[Context Hygiene]]: avoid oversized or stale context and add optional compression.
-7. [[Team Onboarding]]: connect new developers to shared knowledge, skills, agents, and policy.
-8. [[Policy Packs]]: local OpenCode policy defaults for company/unit/team rollout.
-9. [[Team Rollout]]: a practical adoption plan for a team workshop or internal pilot.
+1. [Getting Started](Getting-Started.md): install, run setup, refresh safely, and complete the first agentic coding session.
+2. [Core Concepts](Core-Concepts.md): understand the main ideas before introducing it to a team.
+3. [Model Selection and Providers](Model-Selection-and-Providers.md): local-first routing, Azure/OpenAI/Anthropic abstraction, and auto mode.
+4. [Skills and Agents](Skills-and-Agents.md): how teams turn good workflows into reusable assets.
+5. [Knowledge Base](Knowledge-Base.md): Markdown, Obsidian, MemPalace, and shared GitHub/GitLab memory.
+6. [Context Hygiene](Context-Hygiene.md): avoid oversized or stale context and add optional compression.
+7. [Team Onboarding](Team-Onboarding.md): connect new developers to shared knowledge, skills, agents, and policy.
+8. [Policy Packs](Policy-Packs.md): local OpenCode policy defaults for company/unit/team rollout.
+9. [Team Rollout](Team-Rollout.md): a practical adoption plan for a team workshop or internal pilot.
 
 ## Design Posture
 
