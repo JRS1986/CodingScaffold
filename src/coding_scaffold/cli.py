@@ -251,30 +251,59 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     team = sub.add_parser("team", help="Manage experienced-team onboarding assets.")
-    team.add_argument("action", choices=["init", "connect", "sync", "doctor"])
     team.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    team.add_argument("--manifest", help="Local manifest file or Git repo containing team-onboarding.json.")
-    team.add_argument("--dry-run", action="store_true", help="Preview team imports without writing files.")
-    team.add_argument("--yes", action="store_true", help="Apply team imports without an interactive prompt.")
-    team.add_argument("--team", default="team", help="Team name for `team init`.")
-    team.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
-    team.add_argument(
+    team_sub = team.add_subparsers(dest="team_action", required=True, metavar="action")
+
+    team_init = team_sub.add_parser("init", help="Write a starter team-onboarding.json.")
+    team_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team_init.add_argument("--team", default="team", help="Team name for `team init`.")
+    team_init.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
+    team_init.add_argument(
         "--knowledge-backend",
         choices=["markdown", "obsidian", "mempalace"],
         default="markdown",
         help="Knowledge backend for `team init`.",
     )
-    team.add_argument(
+    team_init.add_argument(
         "--tool",
         choices=CODING_TOOLS,
         default="opencode",
         help="Default coding tool for `team init`.",
     )
-    team.add_argument(
+
+    team_connect = team_sub.add_parser("connect", help="Apply a team manifest into this project.")
+    team_connect.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team_connect.add_argument(
+        "--manifest", help="Local manifest file or Git repo containing team-onboarding.json."
+    )
+    team_connect.add_argument(
+        "--dry-run", action="store_true", help="Preview team imports without writing files."
+    )
+    team_connect.add_argument(
+        "--yes", action="store_true", help="Apply team imports without an interactive prompt."
+    )
+    team_connect.add_argument(
         "--allow-local",
         action="store_true",
         help="Permit local-path or file:// remotes for team manifests.",
     )
+
+    team_sync = team_sub.add_parser("sync", help="Refresh team-imported assets from the manifest.")
+    team_sync.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team_sync.add_argument(
+        "--dry-run", action="store_true", help="Preview team imports without writing files."
+    )
+    team_sync.add_argument(
+        "--yes", action="store_true", help="Apply team imports without an interactive prompt."
+    )
+    team_sync.add_argument(
+        "--allow-local",
+        action="store_true",
+        help="Permit local-path or file:// remotes for team manifests.",
+    )
+
+    team_doctor = team_sub.add_parser("doctor", help="Diagnose the local team manifest.")
+    team_doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -639,7 +668,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "team":
-        if args.action == "init":
+        if args.team_action == "init":
             path = write_team_manifest(
                 args.target,
                 team=args.team,
@@ -649,7 +678,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"Wrote team onboarding manifest to {path}")
             return 0
-        if args.action == "connect":
+        if args.team_action == "connect":
             if args.dry_run:
                 result = preview_team(args.target, args.manifest, allow_local=args.allow_local)
             elif not args.yes and not sys.stdin.isatty():
@@ -660,7 +689,7 @@ def main(argv: list[str] | None = None) -> int:
                 result = TeamResult([], ["Skipped team connect."])
             else:
                 result = connect_team(args.target, args.manifest, allow_local=args.allow_local)
-        elif args.action == "sync":
+        elif args.team_action == "sync":
             if args.dry_run:
                 result = sync_team(args.target, dry_run=True, allow_local=args.allow_local)
             elif not args.yes and not sys.stdin.isatty():
@@ -671,8 +700,10 @@ def main(argv: list[str] | None = None) -> int:
                 result = TeamResult([], ["Skipped team sync."])
             else:
                 result = sync_team(args.target, allow_local=args.allow_local)
-        else:
+        elif args.team_action == "doctor":
             result = doctor_team(args.target)
+        else:
+            raise AssertionError(f"Unknown team action: {args.team_action}")
         for action in result.actions:
             print(action)
         for warning in result.warnings:
