@@ -40,6 +40,8 @@ from .memory import (
     review_memory,
     write_memory_config,
 )
+from .doctor import format_doctor_text, run_doctor
+from .pilot import SUPPORTED_TOOLS as PILOT_SUPPORTED_TOOLS, format_pilot_text, run_pilot
 from .pr_template import write_pr_template
 from .session import (
     SessionStatusResult,
@@ -82,10 +84,38 @@ KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
 
 
+TOP_LEVEL_DESCRIPTION = """\
+Local-first scaffold for AI-assisted coding teams. Generates reviewable
+project-local guidance for hardware, providers, model selection, tool adapters,
+skills, knowledge, policy, and sessions.
+
+START HERE
+  coding-scaffold doctor                         see what's set up + what's next
+  coding-scaffold pilot --target . --tool opencode   print the 10-minute happy path
+  coding-scaffold setup run --mode beginner      guided full setup
+
+10-MINUTE PILOT (printed by `pilot` above; or run by hand)
+  coding-scaffold setup run --target . --tool opencode --mode beginner
+  coding-scaffold pr-template init --target .
+  opencode      # inside the agent: /first-session, then /agentic-change
+
+DAILY WORKFLOW
+  coding-scaffold session init --task "..."      reversible session trace
+  coding-scaffold context lint --target .        check agent-context files
+  coding-scaffold eval run --target .            readiness benchmark
+
+ADVANCED / GOVERNANCE (safe to ignore until your team needs them)
+  policy, mcp, skills, memory, team, permissions, tools, knowledge distill
+
+The full command list is below. Every command supports --help.
+"""
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="coding-scaffold",
-        description="Prepare a local-first AI coding scaffold for a project.",
+        description=TOP_LEVEL_DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
@@ -634,7 +664,25 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
-    sub.add_parser("doctor", help="Print setup recommendations.")
+    doctor = sub.add_parser(
+        "doctor",
+        help="Survey scaffold artifacts and recommend the next 1-3 commands.",
+    )
+    doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    doctor.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    pilot = sub.add_parser(
+        "pilot",
+        help="Print the safe 10-minute happy path tailored to this project.",
+    )
+    pilot.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    pilot.add_argument(
+        "--tool",
+        choices=list(PILOT_SUPPORTED_TOOLS),
+        default="opencode",
+        help="Coding tool to weave into the recipe (default: opencode).",
+    )
+    pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     _hide_suppressed_subcommands(sub)
     return parser
 
@@ -880,7 +928,26 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "doctor":
-        _print_doctor()
+        target = getattr(args, "target", None) or Path.cwd()
+        report = run_doctor(target)
+        if getattr(args, "json", False):
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(format_doctor_text(report))
+            # Keep the original system snapshot at the end for continuity.
+            _print_doctor()
+        return 0
+
+    if args.command == "pilot":
+        try:
+            report = run_pilot(args.target, tool=args.tool)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(format_pilot_text(report))
         return 0
 
     if args.command == "credentials":

@@ -6,6 +6,27 @@
 Local-first onboarding, configuration, and governance scaffolding for AI-assisted software
 development teams.
 
+## 30-Second Start
+
+You need three commands today. The rest can wait.
+
+```bash
+# 1. See what's set up and what's next.
+coding-scaffold doctor --target .
+
+# 2. Print the safe 10-minute happy path for this repo.
+coding-scaffold pilot --target . --tool opencode
+
+# 3. Follow the printed steps. When done, run `doctor` again.
+```
+
+`doctor` is the accessibility hub: it surveys scaffold artifacts, recommends 1-3 commands
+tailored to what's already present, and explicitly names the advanced features you can
+ignore for now. `pilot` is a safe guided wrapper — it runs only read-only local checks
+(Python version, git availability, tool presence on PATH, credentials in env) and prints
+the exact commands to run next. Neither command installs anything or writes files; the
+recipe they print may include `--install` flags, but you make that call.
+
 > Looking for a specific entry point? See the [persona paths](docs/wiki/Team-Rollout.md#persona-paths)
 > (beginner / control-and-reproducibility / security review / team lead). For the threat model
 > and what the scaffold deliberately does not enforce, read [Security](docs/wiki/Security.md#threat-model).
