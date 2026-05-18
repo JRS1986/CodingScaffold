@@ -15,6 +15,18 @@ runtime, an authenticated CLI, or a cloud/API provider.
 
 ## Install
 
+Recommended with uv:
+
+```bash
+git clone https://github.com/JRS1986/CodingScaffold.git
+cd CodingScaffold
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+Classic venv/pip works too:
+
 ```bash
 git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold

@@ -26,6 +26,18 @@ OpenRouter, GitHub Models, or another compatible provider.
 
 ## Install
 
+Recommended with uv:
+
+```bash
+git clone https://github.com/JRS1986/CodingScaffold.git
+cd CodingScaffold
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+Classic venv/pip works too:
+
 ```bash
 git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold
@@ -34,11 +46,14 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```
 
-For WSL/Linux the commands are the same. On Windows PowerShell outside WSL:
+For WSL/Linux the commands are the same. On Windows PowerShell outside WSL, activate with:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
+
+Optional RouteLLM dependencies can be installed with `uv pip install -e ".[dev,routellm]"` or
+`python -m pip install -e ".[dev,routellm]"`.
 
 ## First Run
 
