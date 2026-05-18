@@ -67,7 +67,6 @@ def write_knowledge_base(
     _write(files, scaffold / "KNOWLEDGE.md", _knowledge_guide(backend, shared_remote), overwrite=True)
     _collect(files, skipped, knowledge / "README.md", _knowledge_readme(backend, shared_remote))
     _collect(files, skipped, knowledge / "INDEX.md", _knowledge_index())
-    _collect(files, skipped, knowledge / "index.md", _knowledge_index())
     _collect(files, skipped, knowledge / "raw" / "README.md", _raw_readme())
     _collect(files, skipped, knowledge / "raw" / "meetings" / "README.md", _raw_folder_readme("meetings"))
     _collect(files, skipped, knowledge / "raw" / "decisions" / "README.md", _raw_folder_readme("decisions"))
