@@ -61,6 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
     setup_update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
+    # NOTE: The parsers below (init, wizard, knowledge-status, context-budget,
+    # compress-context, orchestrate, setup-tool, setup-addon, setup-knowledge,
+    # adapt, route, select-model) are hidden flat aliases that mirror the
+    # canonical grouped commands (setup/knowledge/context/tools). When adding
+    # a flag to a grouped command, you must mirror it on the corresponding
+    # flat alias here, or the two trees will drift. Tracked in #48.
     init = sub.add_parser("init", help=argparse.SUPPRESS)
     init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     init.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
