@@ -5,6 +5,30 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Dogfooded baseline on the scaffold's own repo.** Adds an `AGENTS.md` at the repo root
+  documenting the real maintainer workflow (verification commands, no-runtime-dependency
+  rule, no-LLM-calls, no-network constraint, commit-message convention, session-trace
+  usage for larger changes). Generates `.github/PULL_REQUEST_TEMPLATE/agentic-change.md`
+  via the scaffold's own `pr-template init` command. Ships a narrow
+  `.coding-scaffold/eval-config.json` that runs the readiness benchmark as a smoke check
+  while disabling `policy_exists` and `denied_files_configured` — this repo deliberately
+  ships no policy pack and no `agent-permissions.json`. The `mcp_policy` check auto-skips
+  because no MCP servers are detected. Result: `coding-scaffold eval run --target .`
+  reports 9/9 checks passed on the scaffold's own repo.
+
+### Fixed
+
+- **`eval mcp_policy_exists_if_mcp_detected` no longer fires on file presence alone.**
+  The check previously treated any of `opencode.json`, `.claude/settings.json`,
+  `.claude/settings.local.json`, or `.codex/config.toml` existing as "MCP in use", which
+  false-flagged Claude Code installs that ship a `settings.local.json` containing no MCP
+  entries. The check now uses `scan_mcp` and only fires when at least one MCP server is
+  actually parsed from a config. One new regression test in `tests/test_eval_harness.py`.
+
 ## [0.4.1] — 2026-05-18
 
 ### Fixed

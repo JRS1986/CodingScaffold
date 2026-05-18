@@ -1,5 +1,14 @@
 .venv/
-.coding-scaffold/
+
+# The scaffold's own `.coding-scaffold/` is mostly local-runtime state, but we DO commit
+# the dogfooding artifacts so contributors and CI inherit the same configuration.
+# Ignore everything inside `.coding-scaffold/` by default, then re-allow specific files.
+.coding-scaffold/*
+!.coding-scaffold/eval-config.json
+!.coding-scaffold/sessions/
+.coding-scaffold/sessions/*
+!.coding-scaffold/sessions/.gitkeep
+
 .claude/settings.local.json
 .claude/worktrees/
 __pycache__/

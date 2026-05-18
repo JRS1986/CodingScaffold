@@ -26,7 +26,7 @@ from .context_lint import (
     VERIFICATION_TOKENS,
     lint_context,
 )
-from .mcp import MCP_CONFIG_SOURCES, MCP_POLICY_RELATIVE
+from .mcp import MCP_POLICY_RELATIVE, scan_mcp
 from .permissions import PERMISSIONS_RELATIVE
 from .pr_template import PR_TEMPLATE_RELATIVE
 from .session import SESSIONS_DIR
@@ -426,28 +426,39 @@ def _check_pr_template(root: Path) -> EvalCheck:
 
 
 def _check_mcp_policy(root: Path) -> EvalCheck:
-    # Detect MCP configs.
-    mcp_in_use = any((root / rel_path).exists() for rel_path, _key in MCP_CONFIG_SOURCES)
+    # "MCP in use" means the project actually declares at least one MCP server, not just
+    # that a candidate config file is present. `.claude/settings.local.json` exists in many
+    # Claude Code installs without any MCP entries.
+    report = scan_mcp(root)
+    server_count = len(report.servers)
     policy_present = (root / MCP_POLICY_RELATIVE).exists()
-    if not mcp_in_use:
+    if server_count == 0:
         return EvalCheck(
             name="mcp_policy_exists_if_mcp_detected",
             category="governance",
             passed=True,
-            message="No MCP configuration detected; check skipped.",
-            detail={"mcp_detected": False},
+            message=(
+                f"No MCP servers detected (scanned {len(report.scanned_sources)} candidate "
+                f"config file(s)); check skipped."
+            ),
+            detail={"mcp_detected": False, "scanned_sources": list(report.scanned_sources)},
         )
     return EvalCheck(
         name="mcp_policy_exists_if_mcp_detected",
         category="governance",
         passed=policy_present,
         message=(
-            "MCP configuration detected and `.coding-scaffold/mcp-policy.json` exists."
+            f"{server_count} MCP server(s) detected and "
+            "`.coding-scaffold/mcp-policy.json` exists."
             if policy_present
-            else "MCP configuration detected but no `.coding-scaffold/mcp-policy.json`. "
-            "Run `coding-scaffold mcp policy init`."
+            else f"{server_count} MCP server(s) detected but no "
+            "`.coding-scaffold/mcp-policy.json`. Run `coding-scaffold mcp policy init`."
         ),
-        detail={"mcp_detected": True, "policy_present": policy_present},
+        detail={
+            "mcp_detected": True,
+            "server_count": server_count,
+            "policy_present": policy_present,
+        },
     )
 
 
