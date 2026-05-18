@@ -1,3 +1,5 @@
+import subprocess
+
 from coding_scaffold.installers import install_missing_addons, install_missing_tools
 
 
@@ -68,7 +70,7 @@ def test_install_missing_tools_runs_installer_when_confirmed(monkeypatch) -> Non
     monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
     monkeypatch.setattr(
         "coding_scaffold.installers.subprocess.run",
-        lambda command, check, cwd=None: calls.append(command) or Completed(),
+        lambda command, check, cwd=None, **kwargs: calls.append(command) or Completed(),
     )
 
     results = install_missing_tools("opencode", interactive=False, assume_yes=True)
@@ -94,7 +96,7 @@ def test_install_missing_addon_installs_open_multi_agent_in_target(tmp_path, mon
 
     monkeypatch.setattr(
         "coding_scaffold.installers.subprocess.run",
-        lambda command, check, cwd=None: calls.append((command, cwd)) or Completed(),
+        lambda command, check, cwd=None, **kwargs: calls.append((command, cwd)) or Completed(),
     )
 
     results = install_missing_addons(
@@ -117,7 +119,7 @@ def test_install_missing_addon_clones_caveman_compression(tmp_path, monkeypatch)
 
     monkeypatch.setattr(
         "coding_scaffold.installers.subprocess.run",
-        lambda command, check, cwd=None: calls.append((command, cwd)) or Completed(),
+        lambda command, check, cwd=None, **kwargs: calls.append((command, cwd)) or Completed(),
     )
     monkeypatch.setattr(
         "coding_scaffold.installers.shutil.rmtree",
@@ -136,6 +138,43 @@ def test_install_missing_addon_clones_caveman_compression(tmp_path, monkeypatch)
     assert calls[0][0][3] == "caveman-compression"
     assert calls[0][1] == tmp_path / ".coding-scaffold" / "tools"
     assert removed == [(tmp_path / ".coding-scaffold" / "tools" / "caveman-compression" / ".git", True)]
+
+
+def test_install_missing_tools_handles_timeout(monkeypatch) -> None:
+    def fake_run(command, check, cwd=None, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=command, timeout=kwargs.get("timeout", 300))
+
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+    monkeypatch.setattr("coding_scaffold.installers.subprocess.run", fake_run)
+
+    results = install_missing_tools("opencode", interactive=False, assume_yes=True)
+
+    assert results[0].status == "failed"
+    assert "timed out" in results[0].message.lower()
+
+
+def test_install_missing_tools_surfaces_captured_output_on_failure(monkeypatch) -> None:
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_run(command, check, cwd=None, **kwargs):
+        captured_kwargs.update(kwargs)
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=1,
+            stdout="",
+            stderr="error blob",
+        )
+
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+    monkeypatch.setattr("coding_scaffold.installers.subprocess.run", fake_run)
+
+    results = install_missing_tools("opencode", interactive=False, assume_yes=True)
+
+    assert results[0].status == "failed"
+    assert "error blob" in results[0].message
+    assert captured_kwargs.get("capture_output") is True
+    assert captured_kwargs.get("text") is True
+    assert captured_kwargs.get("timeout") == 300
 
 
 def test_obsidian_in_wsl_is_manual(monkeypatch) -> None:
