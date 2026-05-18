@@ -1,8 +1,10 @@
+import random
+
 from coding_scaffold.hardware import HardwareProfile
 from coding_scaffold.intake import IntakeAnswers
-from coding_scaffold.model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
+from coding_scaffold.model_catalog import LOCAL_CODER_MODELS, ROUTELLM_MF_DEFAULT_THRESHOLD
 from coding_scaffold.providers import Provider
-from coding_scaffold.router import build_routing_plan
+from coding_scaffold.router import _select_local_model, build_routing_plan
 
 
 def test_local_only_never_selects_cloud_provider() -> None:
@@ -87,6 +89,26 @@ def test_missing_vram_does_not_exclude_ram_only_candidates() -> None:
     )
 
     assert plan.weak_model == "qwen2.5-coder:7b-instruct"
+
+
+def test_select_local_model_is_independent_of_catalog_order(monkeypatch) -> None:
+    hardware = HardwareProfile("linux", False, 16, 64, "GPU", 48, False, [])
+
+    baseline = _select_local_model(hardware, "strong")
+
+    shuffled = list(LOCAL_CODER_MODELS)
+    rng = random.Random(1234)
+    rng.shuffle(shuffled)
+    monkeypatch.setattr("coding_scaffold.router.LOCAL_CODER_MODELS", shuffled)
+
+    assert _select_local_model(hardware, "strong") == baseline
+
+    monkeypatch.setattr(
+        "coding_scaffold.router.LOCAL_CODER_MODELS",
+        list(reversed(LOCAL_CODER_MODELS)),
+    )
+
+    assert _select_local_model(hardware, "strong") == baseline
 
 
 def test_low_memory_machine_has_no_local_model_candidate() -> None:
