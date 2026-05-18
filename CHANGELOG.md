@@ -9,6 +9,36 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Machine-readable agent permissions (`coding-scaffold permissions write`).** Writes
+  `.coding-scaffold/agent-permissions.json` with the canonical permission shape — filesystem
+  read/write/deny patterns, shell-command allowlist + approval-required list, network defaults,
+  and MCP defaults. Idempotent; pass `--force` to regenerate. The `shell.allowed` list is
+  lightly project-aware (Python projects get `pytest`/`ruff`, Node projects get `npm test`,
+  etc.). See [Security / Machine-Readable Permissions](docs/wiki/Security.md#machine-readable-permissions-artifact).
+- **MCP governance (`coding-scaffold mcp policy init` / `scan` / `snapshot` / `diff`).**
+  Reviewable team policy at `.coding-scaffold/mcp-policy.json`. The scanner inspects known
+  MCP-config locations (`opencode.json`, `.claude/settings.json`) and flags remote servers,
+  unpinned npm packages, risky launchers (curl-pipe-shell, sudo, bash -c), broad filesystem
+  access (root / home), unapproved servers, denied servers, and review-required capabilities.
+  `snapshot` + `diff` together let you commit a known-good state and detect drift in CI.
+  `mcp diff` exits non-zero when anything changed. No commands are executed; no network
+  calls. See [Security / MCP Governance](docs/wiki/Security.md#mcp-governance).
+- **Reviewable skill packs (`coding-scaffold skills new` / `lint` / `approve` / `export`).**
+  Each skill lives at `.coding-scaffold/skills/<name>/` with `SKILL.md`, `manifest.json`,
+  optional `scripts/` and `tests/`, and a `CHECKSUM` file frozen at approval time.
+  `skills lint` flags broad "always use this" language, hidden-instruction phrases,
+  undeclared capabilities (network / shell / credential), missing required sections, invalid
+  manifest fields, placeholder owners, and drift since the recorded checksum.
+  `skills export` bundles a skill into a `tar.gz` for sharing. See
+  [Security / Skill Pack Governance](docs/wiki/Security.md#skill-pack-governance).
+- **Readiness benchmark (`coding-scaffold eval init` / `run` / `report`).** Deterministic
+  checks that score how prepared a repo is for safe agentic coding: detectable build/test/lint
+  signals, agent instructions present, policy pack present, non-empty deny list, PR template
+  present, MCP policy present when MCP is detected, session-trace location available, context
+  lint clean, and context budget under the limit. No model-intelligence benchmark — purely
+  observable artifacts. `eval run` writes `.coding-scaffold/eval-report.json` and exits
+  non-zero when any check fails, so it can gate CI. See
+  [Team Rollout / Readiness Benchmark](docs/wiki/Team-Rollout.md#readiness-benchmark).
 - **Agent-context linter (`coding-scaffold context lint`).** Deterministic, heuristic-only
   checker for `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and the `.coding-scaffold/` guidance
   docs. Flags vague rules without verifiers, dangerous shell recommendations

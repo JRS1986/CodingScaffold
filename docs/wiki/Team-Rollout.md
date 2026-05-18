@@ -195,6 +195,37 @@ coding-scaffold team doctor --target .
 When the manifest changes, every developer runs `team sync` and reviews the diff before merging
 imports into their working knowledge.
 
+## Readiness Benchmark
+
+Once the scaffold is in place, run the readiness benchmark to check whether the repo is
+prepared for safe agentic coding:
+
+```bash
+coding-scaffold eval init    # optional: write .coding-scaffold/eval-config.json
+coding-scaffold eval run     # execute all enabled checks
+coding-scaffold eval report --cached    # re-print the most recent report
+```
+
+The benchmark runs deterministic checks only — no shell execution, no LLM calls. It looks for:
+
+- a detectable build signal (`pyproject.toml`, `package.json`, `Cargo.toml`, …)
+- a test command mentioned in the agent-context files
+- a lint configuration file (or a `[tool.ruff]` / `[tool.black]` / `[tool.mypy]` section)
+- agent instructions (`AGENTS.md`, `CLAUDE.md`, or `llms.txt`)
+- a policy pack under `.coding-scaffold/policy/`
+- a non-empty deny list in `agent-permissions.json`
+- a PR template under `.github/PULL_REQUEST_TEMPLATE/`
+- an MCP policy file *if* MCP config is detected
+- a session-trace location
+- a clean `context lint` result
+- a context budget within the configured token limit
+
+`eval run` writes the report to `.coding-scaffold/eval-report.json` and exits non-zero when
+any check fails, so the benchmark can gate CI before AI-assisted PRs are accepted.
+
+The benchmark scores readiness; it does *not* measure model intelligence. The point is to
+confirm the repo gives the agent enough to work with — not to rank the agent.
+
 ## Pilot Metrics
 
 These are measurement templates, not features. Track them manually during the pilot. If a number

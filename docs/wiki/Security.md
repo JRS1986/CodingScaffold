@@ -118,6 +118,80 @@ Auditors should expect:
 - Sensitive runtime values (API keys, Azure endpoints/deployments) are not present in committed
   config; they live in `.env.local` and are resolved at agent-start time.
 
+## Machine-Readable Permissions Artifact
+
+`coding-scaffold permissions write` generates `.coding-scaffold/agent-permissions.json` — a
+canonical, machine-readable declaration of what the agent may touch:
+
+```json
+{
+  "filesystem": {
+    "read": ["src/**", "tests/**", "docs/**", "..."],
+    "write": ["src/**", "tests/**"],
+    "deny": [".env", ".env.*", "secrets/**", "build/**", "dist/**", "..."]
+  },
+  "shell": {
+    "allowed": ["pytest", "ruff", "..."],
+    "requires_approval": ["rm", "git push", "curl", "wget", "docker", "kubectl"]
+  },
+  "network": "disabled_by_default",
+  "mcp": {
+    "remote_servers": "requires_approval",
+    "unapproved_servers": "deny"
+  }
+}
+```
+
+The file is reviewable guidance, not enforcement. Coding tools (Claude Code, Codex, OpenCode,
+…) read it as authoritative configuration; actual enforcement is the tool's responsibility.
+The file is idempotent — re-running `permissions write` skips it unless `--force` is passed.
+
+## MCP Governance
+
+The scaffold ships a lightweight review helper for MCP servers (not a full security scanner):
+
+```bash
+coding-scaffold mcp policy init    # write .coding-scaffold/mcp-policy.json
+coding-scaffold mcp scan           # report findings against the policy
+coding-scaffold mcp snapshot       # checkpoint the current server set
+coding-scaffold mcp diff           # report changes since the last snapshot
+```
+
+`mcp scan` flags: remote servers, unpinned npm packages, risky launchers (curl-pipe-shell,
+sudo, bash -c), broad filesystem access (root or home), unapproved servers (when the policy
+has a non-empty approved list), denied servers (as errors), and review-required capabilities.
+
+`mcp snapshot` + `mcp diff` together let you commit a known-good state and detect drift
+in CI. `mcp diff` exits non-zero when anything changed since the snapshot, so it can gate
+merges that quietly added a server.
+
+## Skill Pack Governance
+
+Reviewable skills live under `.coding-scaffold/skills/<name>/`:
+
+```
+SKILL.md       human-readable contract
+manifest.json  machine-readable metadata (owner, version, risk_level, capabilities)
+scripts/       optional helpers
+tests/         optional verification scripts
+README.md      usage and examples
+CHECKSUM       sha256(SKILL.md || manifest.json) frozen at approval
+```
+
+`coding-scaffold skills lint` checks every skill for:
+
+- broad "always use this" language in SKILL.md
+- hidden-instruction phrases (`do not tell the user`, `ignore the system prompt`, …)
+- references to network / shell / credential capabilities that aren't declared in the
+  `Capabilities required` section
+- missing `When to use` or `Verification` sections
+- missing required manifest fields (name, version, owner, risk_level, description)
+- invalid `risk_level` (must be one of low / medium / high / critical)
+- placeholder owners (`<your-handle>`)
+- drift since the recorded CHECKSUM (re-run `skills approve <name>` after legitimate edits)
+
+`skills export <name>` produces a sharable `tar.gz` for inter-team reuse.
+
 ## What this scaffold does not promise
 
 - It does not sandbox agent execution.
