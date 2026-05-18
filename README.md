@@ -1,7 +1,15 @@
 # CodingScaffold
 
+[![CI](https://github.com/JRS1986/CodingScaffold/actions/workflows/ci.yml/badge.svg)](https://github.com/JRS1986/CodingScaffold/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/JRS1986/CodingScaffold?sort=semver)](https://github.com/JRS1986/CodingScaffold/releases)
+
 Local-first onboarding, configuration, and governance scaffolding for AI-assisted software
 development teams.
+
+> Looking for a specific entry point? See the [persona paths](docs/wiki/Team-Rollout.md#persona-paths)
+> (beginner / control-and-reproducibility / security review / team lead). For the threat model
+> and what the scaffold deliberately does not enforce, read [Security](docs/wiki/Security.md#threat-model).
+> Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 CodingScaffold prepares an existing project for AI-assisted development without tying the team to
 one model, one provider, or one coding agent. It creates project-local guidance for hardware fit,
