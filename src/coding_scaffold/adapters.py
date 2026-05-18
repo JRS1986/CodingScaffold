@@ -484,6 +484,13 @@ not edit files yet.
 """
 
 
+def _yaml_scalar(value: str | None) -> str:
+    """Quote ``value`` as a YAML scalar via JSON encoding (JSON is a YAML 1.2 subset)."""
+    if value is None:
+        return "null"
+    return json.dumps(value)
+
+
 def _routellm_yaml(routing: dict[str, object]) -> str:
     strong = _model(routing, "strong_model", "replace-me-strong-model")
     weak = _model(routing, "weak_model", "replace-me-weak-model")
@@ -491,8 +498,8 @@ def _routellm_yaml(routing: dict[str, object]) -> str:
         [
             "routers:",
             "  - mf",
-            f"strong_model: {strong}",
-            f"weak_model: {weak}",
+            f"strong_model: {_yaml_scalar(strong)}",
+            f"weak_model: {_yaml_scalar(weak)}",
             f"threshold: {ROUTELLM_MF_DEFAULT_THRESHOLD}",
             "",
         ]
