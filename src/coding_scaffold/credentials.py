@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+
+_ENV_LINE = re.compile(
+    r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*='
+    r'\s*(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|([^#\n]*?))\s*(?:#.*)?$'
+)
 
 
 SECRET_ENV_NAMES = [
@@ -65,11 +72,21 @@ def _read_env_file(path: Path) -> dict[str, str]:
         return {}
     values: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
             continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip("'\"")
+        match = _ENV_LINE.match(raw_line)
+        if not match:
+            continue
+        key = match.group(1)
+        double_quoted, single_quoted, unquoted = match.group(2), match.group(3), match.group(4)
+        if double_quoted is not None:
+            value = double_quoted
+        elif single_quoted is not None:
+            value = single_quoted
+        else:
+            value = (unquoted or "").strip()
+        values[key] = value
     return values
 
 
