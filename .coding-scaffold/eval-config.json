@@ -1,0 +1,18 @@
+{
+  "$schema_version": 1,
+  "checks": {
+    "agent_instructions_exist": true,
+    "build_command_detected": true,
+    "context_budget_acceptable": true,
+    "context_lint_clean": true,
+    "denied_files_configured": false,
+    "lint_command_detected": true,
+    "mcp_policy_exists_if_mcp_detected": true,
+    "policy_exists": false,
+    "pr_template_exists": true,
+    "session_trace_template_exists": true,
+    "test_command_detected": true
+  },
+  "context_budget_max_tokens": 100000,
+  "description": "Narrow dogfooding config for the CodingScaffold repo itself. `policy_exists` and `denied_files_configured` are disabled because this repo deliberately ships no policy pack and no agent-permissions.json (see AGENTS.md). `mcp_policy_exists_if_mcp_detected` auto-skips because no MCP config is detected."
+}

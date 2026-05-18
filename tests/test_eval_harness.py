@@ -138,6 +138,25 @@ def test_run_eval_mcp_check_fails_when_mcp_detected_without_policy(tmp_path: Pat
     assert mcp_check.passed is False
 
 
+def test_run_eval_mcp_check_skipped_when_config_file_exists_but_has_no_servers(
+    tmp_path: Path,
+) -> None:
+    """Regression: `.claude/settings.local.json` is commonly present in Claude Code
+    installs without any MCP entries. File existence alone should not trigger the check."""
+
+    settings_dir = tmp_path / ".claude"
+    settings_dir.mkdir()
+    (settings_dir / "settings.local.json").write_text(
+        '{"theme": "dark"}',  # no mcp section
+        encoding="utf-8",
+    )
+    report = run_eval(tmp_path)
+    mcp_check = next(c for c in report.checks if c.name == "mcp_policy_exists_if_mcp_detected")
+    assert mcp_check.passed is True
+    assert "no MCP servers detected" in mcp_check.message.lower() or \
+           "no mcp servers" in mcp_check.message.lower()
+
+
 def test_run_eval_writes_report_file(tmp_path: Path) -> None:
     run_eval(tmp_path)
     assert (tmp_path / EVAL_REPORT_RELATIVE).exists()
