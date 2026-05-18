@@ -296,15 +296,23 @@ def scan_mcp(target: Path) -> McpReport:
     approved = {s for s in policy.get("approved_servers", [])} if policy else set()
     denied = {s for s in policy.get("denied_servers", [])} if policy else set()
     review_caps = set(policy.get("review_required_capabilities", [])) if policy else set()
-    package_pinning_required = bool(
-        policy.get("defaults", {}).get("package_pinning_required", False)
-    ) if policy else False
+    defaults = policy.get("defaults", {}) if policy else {}
+    if not isinstance(defaults, dict):
+        defaults = {}
+    package_pinning_required = bool(defaults.get("package_pinning_required", False))
+    unapproved_posture = str(defaults.get("unapproved_servers", "")).lower()
 
     for server in servers:
         findings.extend(
-            _check_server(server, approved=approved, denied=denied,
-                          review_caps=review_caps,
-                          package_pinning_required=package_pinning_required)
+            _check_server(
+                server,
+                approved=approved,
+                denied=denied,
+                review_caps=review_caps,
+                package_pinning_required=package_pinning_required,
+                unapproved_posture=unapproved_posture,
+                policy_present=policy is not None,
+            )
         )
 
     findings.sort(key=lambda f: (
@@ -398,6 +406,8 @@ def _check_server(
     denied: set[str],
     review_caps: set[str],
     package_pinning_required: bool,
+    unapproved_posture: str = "",
+    policy_present: bool = False,
 ) -> list[McpFinding]:
     findings: list[McpFinding] = []
 
@@ -412,21 +422,32 @@ def _check_server(
         ))
         return findings  # No further checks on a denied server.
 
-    if approved and server.name not in approved:
-        findings.append(McpFinding(
-            severity="warning",
-            rule="server-not-approved",
-            server=server.name,
-            source=server.source,
-            message=(
-                f"Server {server.name!r} is not in `approved_servers`. Policy default treats "
-                "unapproved servers as deny."
-            ),
-            suggested_fix=(
-                "Review the server, then add its name to `approved_servers` in "
-                ".coding-scaffold/mcp-policy.json via pull request."
-            ),
-        ))
+    if policy_present and server.name not in approved:
+        # If the policy's `defaults.unapproved_servers` is `deny` or `requires_approval`, an
+        # empty approved list does NOT silently allow every server. Severity tracks the policy
+        # posture: `deny` -> error; `requires_approval` -> warning. A permissive default keeps
+        # the existing "informational" silence.
+        severity = (
+            "error" if unapproved_posture == "deny"
+            else "warning" if unapproved_posture in ("requires_approval", "requires-approval")
+            else None
+        )
+        if severity is not None:
+            posture_label = unapproved_posture or "deny"
+            findings.append(McpFinding(
+                severity=severity,
+                rule="server-not-approved",
+                server=server.name,
+                source=server.source,
+                message=(
+                    f"Server {server.name!r} is not in `approved_servers`. Policy default "
+                    f"for unapproved servers is {posture_label!r}."
+                ),
+                suggested_fix=(
+                    "Review the server, then add its name to `approved_servers` in "
+                    ".coding-scaffold/mcp-policy.json via pull request."
+                ),
+            ))
 
     if server.kind == "remote":
         findings.append(McpFinding(

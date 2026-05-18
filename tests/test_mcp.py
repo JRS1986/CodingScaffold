@@ -150,6 +150,56 @@ def test_scan_flags_unapproved_server_when_policy_has_approved_list(tmp_path: Pa
     assert "server-not-approved" in rules
 
 
+def test_scan_flags_unapproved_servers_even_with_empty_approved_list_under_deny(
+    tmp_path: Path,
+) -> None:
+    """Regression: an empty `approved_servers` list with `unapproved_servers: "deny"`
+    must still flag every detected server. Previously the check short-circuited on the
+    empty approved set, silently passing every server under the default policy."""
+
+    write_mcp_policy(tmp_path)  # default policy has empty approved + deny posture
+    _write_opencode_config(tmp_path, {
+        "github": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-github@1.0.0"],
+        },
+    })
+    report = scan_mcp(tmp_path)
+    not_approved = [f for f in report.findings if f.rule == "server-not-approved"]
+    assert not_approved, (
+        "Default policy declares unapproved_servers=deny; empty approved_servers must not "
+        "silently allow every server."
+    )
+    assert not_approved[0].severity == "error", "deny posture should produce error severity"
+
+
+def test_scan_unapproved_severity_tracks_posture(tmp_path: Path) -> None:
+    write_mcp_policy(tmp_path)
+    path = tmp_path / MCP_POLICY_RELATIVE
+    payload = json.loads(path.read_text())
+    payload["defaults"]["unapproved_servers"] = "requires_approval"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    _write_opencode_config(tmp_path, {
+        "github": {"command": "npx", "args": ["-y", "@scope/x@1.0.0"]},
+    })
+    report = scan_mcp(tmp_path)
+    not_approved = [f for f in report.findings if f.rule == "server-not-approved"]
+    assert not_approved
+    assert not_approved[0].severity == "warning", (
+        "requires_approval posture should produce warning severity, not error"
+    )
+
+
+def test_scan_no_policy_does_not_flag_unapproved(tmp_path: Path) -> None:
+    """Without a policy file, the scanner has no opinion on approval status."""
+
+    _write_opencode_config(tmp_path, {
+        "github": {"command": "npx", "args": ["-y", "@scope/x@1.0.0"]},
+    })
+    report = scan_mcp(tmp_path)
+    assert not any(f.rule == "server-not-approved" for f in report.findings)
+
+
 def test_scan_flags_denied_server_as_error(tmp_path: Path) -> None:
     write_mcp_policy(tmp_path)
     path = tmp_path / MCP_POLICY_RELATIVE

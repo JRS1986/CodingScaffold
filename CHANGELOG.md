@@ -5,6 +5,29 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Eval `test_command_detected` no longer falsely passes on a repo with no agent-context
+  files.** The check previously relied on the absence of the linter's
+  `missing-build-test-commands` finding, but that finding only fires when context files
+  exist. An empty repo therefore showed the contradictory pair "no agent-context files"
+  + "recognizable test commands mentioned." The check now scans the agent-context files
+  directly with word-boundary-aware token matching so short tokens like `ci` don't match
+  inside `precise` or `decision`. Three new regression tests in
+  `tests/test_eval_harness.py`.
+- **MCP `server-not-approved` now fires under the default policy.** The scanner previously
+  short-circuited the unapproved-server check when `approved_servers` was empty, which
+  silently allowed every detected server under the generated default policy
+  (`unapproved_servers: "deny"` with an empty allowlist). The check now tracks the policy
+  posture: `deny` produces severity `error`, `requires_approval` produces severity
+  `warning`, and a permissive default stays informational. Three new regression tests in
+  `tests/test_mcp.py`.
+- **Lockfile refreshed.** `uv.lock` was still recording `coding-scaffold v0.1.0` despite
+  the v0.4.0 release tag. Re-locked so `uv sync` no longer produces an accidental local
+  diff on first run.
+
 ## [0.4.0] — 2026-05-18
 
 ### Added

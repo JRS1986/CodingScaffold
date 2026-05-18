@@ -16,11 +16,16 @@ no shell, no network, no LLM.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .context import DEFAULT_MAX_CONTEXT_TOKENS, inspect_context_budget
-from .context_lint import lint_context
+from .context_lint import (
+    DEFAULT_CONTEXT_PATHS,
+    VERIFICATION_TOKENS,
+    lint_context,
+)
 from .mcp import MCP_CONFIG_SOURCES, MCP_POLICY_RELATIVE
 from .permissions import PERMISSIONS_RELATIVE
 from .pr_template import PR_TEMPLATE_RELATIVE
@@ -243,23 +248,60 @@ def _check_build_signal(root: Path) -> EvalCheck:
 
 
 def _check_test_signal(root: Path) -> EvalCheck:
-    # Reuse the context-lint heuristic: if `missing-build-test-commands` would NOT fire,
-    # we consider the test signal detected. This couples the two checks intentionally.
-    report = lint_context(root)
-    missing = [f for f in report.findings if f.rule == "missing-build-test-commands"]
-    passed = not missing
-    if passed:
-        message = (
-            "Project type detected and a recognizable test command is mentioned in the "
-            "agent-context files."
+    """Pass when at least one agent-context file names a recognizable test verifier.
+
+    Independent of the linter's `missing-build-test-commands` finding so a repo with NO
+    context files reports the right failure (rather than falsely passing because the
+    linter had nothing to flag).
+    """
+
+    scanned: list[str] = []
+    # Pre-compile word-boundary-aware patterns so short tokens like "ci" don't match inside
+    # "precise" or "decision". Multi-word tokens (e.g. "npm test") survive intact.
+    token_patterns = [
+        (token, re.compile(rf"(?<!\w){re.escape(token)}(?!\w)", flags=re.IGNORECASE))
+        for token in VERIFICATION_TOKENS
+    ]
+    for rel_path in DEFAULT_CONTEXT_PATHS:
+        full = root / rel_path
+        if not full.exists():
+            continue
+        try:
+            text = full.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+        scanned.append(rel_path)
+        for token, pattern in token_patterns:
+            if pattern.search(text):
+                return EvalCheck(
+                    name="test_command_detected",
+                    category="basics",
+                    passed=True,
+                    message=(
+                        f"Agent-context file {rel_path!r} mentions a recognizable test "
+                        f"verifier ({token!r})."
+                    ),
+                    detail={"file": rel_path, "matched_token": token},
+                )
+    if not scanned:
+        return EvalCheck(
+            name="test_command_detected",
+            category="basics",
+            passed=False,
+            message=(
+                "No agent-context files found, so no test command can be detected. "
+                "Run `coding-scaffold setup run` or create an AGENTS.md / CLAUDE.md."
+            ),
         )
-    else:
-        message = missing[0].message
     return EvalCheck(
         name="test_command_detected",
         category="basics",
-        passed=passed,
-        message=message,
+        passed=False,
+        message=(
+            f"Scanned {len(scanned)} agent-context file(s) but none mentioned a recognizable "
+            "test verifier (pytest, npm test, cargo test, go test, ruff, eslint, ...)."
+        ),
+        detail={"scanned": scanned},
     )
 
 
