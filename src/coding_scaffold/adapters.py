@@ -346,8 +346,8 @@ team guidance for choosing routine versus heavy-lift work.
 
 ## Knowledge
 
-Start with `.coding-scaffold/knowledge/index.md` or `.coding-scaffold/knowledge/INDEX.md` when it
-exists. Curated wiki pages are preferred over raw notes.
+Start with `.coding-scaffold/knowledge/INDEX.md` when it exists. Curated wiki pages are preferred
+over raw notes.
 """
 
 
