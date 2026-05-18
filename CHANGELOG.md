@@ -5,6 +5,40 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Agent-context linter (`coding-scaffold context lint`).** Deterministic, heuristic-only
+  checker for `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and the `.coding-scaffold/` guidance
+  docs. Flags vague rules without verifiers, dangerous shell recommendations
+  (`chmod 777`, force-push without lease, `--no-verify`, piping `curl` to a shell), duplicate
+  rules across files, contradictory rules, missing build/test commands for the detected
+  project type, beginner-hostile MCP/orchestration leads, tooling conflicts (e.g. instructions
+  say `use yarn` but the repo commits `package-lock.json`), and excessive context length.
+  Output is JSON-friendly via `--json` and exits non-zero on `error` severity so it can gate
+  CI. No LLM calls.
+- **`coding-scaffold context explain`** — read-only summary of the agent-context surface
+  (rule counts, detected verifiers, mentioned advanced concepts, project-type signal).
+  Useful for spot-checking before adding more guidance.
+- **Per-session traces (`coding-scaffold session init` / `session summarize`).** `init`
+  writes `.coding-scaffold/sessions/YYYY-MM-DD-<slug>.md` from a structured template; same-day
+  collisions get numeric suffixes; files are never overwritten. `summarize` reads back
+  structured fields (bullet counts, test pass/fail) deterministically — no agent-transcript
+  parsing in v1.
+- **Agentic PR template (`coding-scaffold pr-template init`).** Writes
+  `.github/PULL_REQUEST_TEMPLATE/agentic-change.md`, which GitHub picks up automatically. The
+  template asks the operator to disclose agent/tool used, model/provider, files changed,
+  commands run, tests run, external tools or MCP servers, data exposure risk, and review
+  focus. Idempotent — re-running skips an existing file rather than overwriting.
+
+### Documentation
+
+- New section in [Context Hygiene](docs/wiki/Context-Hygiene.md#lint-agent-context-files)
+  explaining what the linter catches.
+- New section in [Team Rollout](docs/wiki/Team-Rollout.md#reviewable-agentic-changes) showing
+  the PR-template + session-trace flow end to end.
+
 ## [0.2.0] — 2026-05-18
 
 ### Added

@@ -13,6 +13,9 @@ from .context import (
     compress_context,
     inspect_context_budget,
 )
+from .context_lint import LintReport, explain_context, lint_context
+from .pr_template import write_pr_template
+from .session import SessionSummary, init_session, summarize_session
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
@@ -179,6 +182,36 @@ def build_parser() -> argparse.ArgumentParser:
     _add_context_budget_args(context_budget_canonical)
     context_compress_canonical = context_sub.add_parser("compress", help="Write compressed context sidecars.")
     _add_context_compress_args(context_compress_canonical)
+    context_lint_canonical = context_sub.add_parser(
+        "lint",
+        help="Lint agent-context files for vague, contradictory, or beginner-hostile rules.",
+    )
+    _add_context_lint_args(context_lint_canonical)
+    context_explain_canonical = context_sub.add_parser(
+        "explain",
+        help="Summarize what's in the agent-context surface (rule counts, verifiers, length).",
+    )
+    _add_context_explain_args(context_explain_canonical)
+
+    session = sub.add_parser("session", help="Create and summarize per-agentic-change session traces.")
+    session_sub = session.add_subparsers(dest="session_action", required=True, metavar="action")
+    session_init = session_sub.add_parser("init", help="Create a new session-trace Markdown file.")
+    session_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    session_init.add_argument("--slug", default=None, help="Slug for the filename (default: agentic-change).")
+    session_init.add_argument("--task", default=None, help="One-line task description to seed the template.")
+    session_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    session_summarize = session_sub.add_parser("summarize", help="Summarize a session-trace file.")
+    session_summarize.add_argument("path", type=Path, help="Path to a session-trace Markdown file.")
+    session_summarize.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    pr_template = sub.add_parser("pr-template", help="Manage generated GitHub PR templates.")
+    pr_template_sub = pr_template.add_subparsers(dest="pr_template_action", required=True, metavar="action")
+    pr_template_init = pr_template_sub.add_parser(
+        "init",
+        help="Write .github/PULL_REQUEST_TEMPLATE/agentic-change.md if it doesn't exist.",
+    )
+    pr_template_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    pr_template_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     context_budget = sub.add_parser("context-budget", help=argparse.SUPPRESS)
     context_budget.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -499,6 +532,31 @@ def _add_context_compress_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_context_lint_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument(
+        "--path",
+        action="append",
+        default=None,
+        help=(
+            "Path (relative to --target) of an extra context file to lint. Repeat for multiple "
+            "files; replaces the default set when supplied."
+        ),
+    )
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+
+def _add_context_explain_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    parser.add_argument(
+        "--path",
+        action="append",
+        default=None,
+        help="Optional path (relative to --target) to include; replaces the default set when supplied.",
+    )
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+
 def _normalize_grouped_command(args: argparse.Namespace) -> None:
     if args.command == "setup":
         mapping = {
@@ -521,7 +579,20 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
         args.command = {
             "budget": "context-budget",
             "compress": "compress-context",
+            "lint": "context-lint",
+            "explain": "context-explain",
         }[args.context_action]
+        return
+    if args.command == "session":
+        args.command = {
+            "init": "session-init",
+            "summarize": "session-summarize",
+        }[args.session_action]
+        return
+    if args.command == "pr-template":
+        args.command = {
+            "init": "pr-template-init",
+        }[args.pr_template_action]
         return
     if args.command == "tools":
         args.command = {
@@ -623,6 +694,60 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Skipped {len(result.skipped)} existing sidecar(s).")
         for warning in result.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "context-lint":
+        report = lint_context(args.target, paths=args.path)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_context_lint(report)
+        for warning in report.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        # Exit non-zero on errors so the lint can gate CI.
+        return 1 if report.error_count else 0
+
+    if args.command == "context-explain":
+        payload = explain_context(args.target, paths=args.path)
+        if args.json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            _print_context_explain(payload)
+        return 0
+
+    if args.command == "session-init":
+        result = init_session(args.target, slug=args.slug, task=args.task)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Wrote session trace: {result.path}")
+            print("Fill in the structured sections as you work; run `coding-scaffold session "
+                  "summarize` to read them back.")
+        return 0
+
+    if args.command == "session-summarize":
+        summary = summarize_session(args.path)
+        if args.json:
+            print(json.dumps(summary.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_session_summary(summary)
+        for warning in summary.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return 1 if summary.warnings else 0
+
+    if args.command == "pr-template-init":
+        result = write_pr_template(args.target)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            if result.files:
+                print(f"Wrote {len(result.files)} PR template file(s).")
+                for path in result.files:
+                    print(f"  {path}")
+            if result.skipped:
+                print(f"Skipped {len(result.skipped)} existing file(s).")
+                for path in result.skipped:
+                    print(f"  {path}")
         return 0
 
     if args.command == "orchestrate":
@@ -1011,6 +1136,72 @@ def _print_context_budget(budget: dict[str, object]) -> None:
     print(f"Recommendation: {budget['recommendation']}")
     for warning in budget["warnings"]:
         print(f"Warning: {warning}", file=sys.stderr)
+
+
+def _print_context_lint(report: LintReport) -> None:
+    if not report.findings:
+        print(f"context lint: 0 findings across {len(report.scanned_files)} file(s).")
+        if report.skipped_files:
+            print(f"Skipped {len(report.skipped_files)} missing file(s).")
+        return
+    print(
+        f"context lint: {report.error_count} error / {report.warning_count} warning / "
+        f"{report.info_count} info across {len(report.scanned_files)} file(s)."
+    )
+    print()
+    for finding in report.findings:
+        location = finding.file if finding.line is None else f"{finding.file}:{finding.line}"
+        print(f"{finding.severity.upper():<8} {finding.rule:<32} {location}")
+        print(f"         {finding.message}")
+        print(f"         Fix: {finding.suggested_fix}")
+        print()
+
+
+def _print_context_explain(payload: dict[str, object]) -> None:
+    files = payload.get("files", [])
+    if not isinstance(files, list) or not files:
+        print("No agent-context files found in the expected locations.")
+        return
+    totals = payload.get("totals", {})
+    project_type = payload.get("project_type") or "unknown"
+    print(f"Project type signal: {project_type}")
+    print(
+        f"Totals: {totals.get('files', 0)} file(s), ~{totals.get('approx_tokens', 0)} tokens, "
+        f"{totals.get('rule_lines', 0)} rule lines."
+    )
+    print()
+    for entry in files:
+        print(f"- {entry['file']}")
+        print(
+            f"    ~{entry['approx_tokens']} tokens, {entry['rule_lines']} rule lines, "
+            f"{entry['chars']} chars"
+        )
+        if entry["verification_tokens"]:
+            print(f"    verifiers: {', '.join(entry['verification_tokens'])}")
+        else:
+            print("    verifiers: (none detected)")
+        if entry["mentions_advanced_concepts"]:
+            print(
+                "    advanced concepts: "
+                f"{', '.join(entry['mentions_advanced_concepts'])}"
+            )
+
+
+def _print_session_summary(summary: SessionSummary) -> None:
+    print(f"Session: {summary.path}")
+    print(f"  Task:               {summary.task or '(not filled in)'}")
+    print(f"  Files inspected:    {summary.files_inspected}")
+    print(f"  Files changed:      {summary.files_changed}")
+    print(f"  Commands run:       {summary.commands_run}")
+    if summary.tests_passed is not None or summary.tests_failed is not None:
+        passed = summary.tests_passed if summary.tests_passed is not None else "?"
+        failed = summary.tests_failed if summary.tests_failed is not None else "?"
+        print(f"  Tests:              passed={passed} failed={failed}")
+    else:
+        print("  Tests:              (not filled in)")
+    print(f"  Risks:              {summary.risks}")
+    print(f"  Follow-ups:         {summary.follow_ups}")
+    print(f"  Knowledge to promote: {summary.knowledge_to_promote}")
 
 
 def _print_doctor() -> None:
