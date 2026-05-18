@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,11 +23,15 @@ MCP_POLICY_RELATIVE = Path(".coding-scaffold") / "mcp-policy.json"
 MCP_SNAPSHOT_RELATIVE = Path(".coding-scaffold") / "mcp-snapshot.json"
 
 # Config locations searched when scanning a project. Each entry is a path relative to the
-# project root and the JSON key under which MCP server definitions live.
+# project root and the table/key under which MCP server definitions live.
+#
+# Codex's `.codex/config.toml` puts servers under `[mcp_servers.<name>]` (snake_case); older
+# Codex layouts and some templates use a plain `[mcp]` table. We accept both.
 MCP_CONFIG_SOURCES: tuple[tuple[str, str], ...] = (
     ("opencode.json", "mcp"),
     (".claude/settings.json", "mcp"),
     (".claude/settings.local.json", "mcp"),
+    (".codex/config.toml", "mcp_servers"),
 )
 
 # Capability hints — heuristic, derived from server name or launch command. Each hint is
@@ -269,14 +274,16 @@ def scan_mcp(target: Path) -> McpReport:
         if not full.exists():
             continue
         scanned.append(rel_path)
-        try:
-            payload = json.loads(full.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError) as exc:
-            warnings.append(f"Could not parse {rel_path}: {exc}")
+        payload = _load_config(full)
+        if payload is None:
+            warnings.append(f"Could not parse {rel_path}.")
             continue
         if not isinstance(payload, dict):
             continue
         mcp_section = payload.get(mcp_key)
+        # `.codex/config.toml` may use the legacy `[mcp]` table instead of `[mcp_servers]`.
+        if mcp_section is None and rel_path.endswith(".toml"):
+            mcp_section = payload.get("mcp")
         if not isinstance(mcp_section, dict):
             continue
         for server_name, server_config in sorted(mcp_section.items()):
@@ -582,5 +589,23 @@ def _load_policy(root: Path) -> dict[str, object] | None:
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _load_config(path: Path) -> dict[str, object] | None:
+    """Read a JSON or TOML config file. Returns the parsed mapping or None on any error.
+
+    Dispatches by extension: ``.toml`` -> stdlib ``tomllib``; everything else -> ``json``.
+    """
+
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".toml":
+            with path.open("rb") as fh:
+                payload = tomllib.load(fh)
+        else:
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError, tomllib.TOMLDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
