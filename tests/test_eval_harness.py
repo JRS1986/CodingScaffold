@@ -48,6 +48,43 @@ def test_run_eval_against_empty_project_fails_everything_except_skipped(tmp_path
     assert any(not c.passed and c.name == "agent_instructions_exist" for c in report.checks)
 
 
+def test_run_eval_test_signal_fails_without_any_context_files(tmp_path: Path) -> None:
+    """Regression: an empty repo previously falsely-passed the test-command check because
+    the linter only fires `missing-build-test-commands` when context files exist. The check
+    now scans directly for verifier tokens and reports the empty case honestly."""
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    report = run_eval(tmp_path)
+    test_check = next(c for c in report.checks if c.name == "test_command_detected")
+    assert test_check.passed is False
+    assert "no agent-context files" in test_check.message.lower()
+
+
+def test_run_eval_test_signal_passes_when_pytest_named_in_agents_md(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "# Agents\n- Run `pytest -q` after every change.\n",
+        encoding="utf-8",
+    )
+    report = run_eval(tmp_path)
+    test_check = next(c for c in report.checks if c.name == "test_command_detected")
+    assert test_check.passed is True
+    assert "pytest" in test_check.message.lower()
+
+
+def test_run_eval_test_signal_fails_when_context_files_omit_verifier(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+    # AGENTS.md exists but doesn't mention any recognizable test command.
+    (tmp_path / "AGENTS.md").write_text(
+        "# Agents\n- Be helpful.\n- Be precise.\n",
+        encoding="utf-8",
+    )
+    report = run_eval(tmp_path)
+    test_check = next(c for c in report.checks if c.name == "test_command_detected")
+    assert test_check.passed is False
+    assert "none mentioned" in test_check.message.lower()
+
+
 def test_run_eval_passes_basics_on_well_configured_project(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("""[project]
 name = "demo"
