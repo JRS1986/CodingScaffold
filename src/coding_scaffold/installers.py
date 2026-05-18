@@ -8,6 +8,24 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+_INSTALL_TIMEOUT_SECONDS = 300
+_CAPTURED_OUTPUT_LIMIT = 4096
+
+
+def _format_captured_output(completed: subprocess.CompletedProcess) -> str:
+    parts: list[str] = []
+    stdout = (completed.stdout or "").strip() if isinstance(completed.stdout, str) else ""
+    stderr = (completed.stderr or "").strip() if isinstance(completed.stderr, str) else ""
+    if stdout:
+        parts.append(f"stdout:\n{stdout}")
+    if stderr:
+        parts.append(f"stderr:\n{stderr}")
+    combined = "\n".join(parts)
+    if len(combined) > _CAPTURED_OUTPUT_LIMIT:
+        combined = combined[-_CAPTURED_OUTPUT_LIMIT:]
+        combined = f"...(truncated)\n{combined}"
+    return combined
+
 
 @dataclass(frozen=True)
 class ToolInstallPlan:
@@ -251,10 +269,27 @@ def _install_plan(
     if not assume_yes and not _confirm_install(plan):
         return ToolInstallResult(plan.tool, "skipped", f"Skipped installing {plan.tool}.")
     cwd = plan.cwd or (target.expanduser().resolve() if target else None)
+    capture = not interactive
     try:
         if cwd:
             cwd.mkdir(parents=True, exist_ok=True)
-        completed = subprocess.run(plan.install_command, check=False, cwd=cwd)
+        completed = subprocess.run(
+            plan.install_command,
+            check=False,
+            cwd=cwd,
+            timeout=_INSTALL_TIMEOUT_SECONDS,
+            capture_output=capture,
+            text=capture,
+        )
+    except subprocess.TimeoutExpired:
+        return ToolInstallResult(
+            plan.tool,
+            "failed",
+            (
+                f"{plan.tool} installer timed out after "
+                f"{_INSTALL_TIMEOUT_SECONDS} seconds."
+            ),
+        )
     except OSError as exc:
         return ToolInstallResult(
             plan.tool,
@@ -265,10 +300,15 @@ def _install_plan(
         if plan.tool == "caveman-compression" and cwd:
             shutil.rmtree(cwd / "caveman-compression" / ".git", ignore_errors=True)
         return ToolInstallResult(plan.tool, "installed", plan.post_install)
+    message = f"{plan.tool} installer exited with code {completed.returncode}."
+    if capture:
+        output = _format_captured_output(completed)
+        if output:
+            message = f"{message}\n{output}"
     return ToolInstallResult(
         plan.tool,
         "failed",
-        f"{plan.tool} installer exited with code {completed.returncode}.",
+        message,
     )
 
 
