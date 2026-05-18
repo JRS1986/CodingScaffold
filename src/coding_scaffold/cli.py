@@ -14,8 +14,30 @@ from .context import (
     inspect_context_budget,
 )
 from .context_lint import LintReport, explain_context, lint_context
+from .eval_harness import (
+    EvalReport,
+    load_eval_report,
+    run_eval,
+    write_eval_config,
+)
+from .mcp import (
+    McpDiff,
+    McpReport,
+    diff_mcp,
+    scan_mcp,
+    snapshot_mcp,
+    write_mcp_policy,
+)
+from .permissions import write_agent_permissions
 from .pr_template import write_pr_template
 from .session import SessionSummary, init_session, summarize_session
+from .skills import (
+    SkillLintReport,
+    approve_skill,
+    export_skill,
+    lint_skills,
+    new_skill,
+)
 from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
@@ -212,6 +234,86 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pr_template_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     pr_template_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    permissions = sub.add_parser(
+        "permissions",
+        help="Write machine-readable agent permission artifacts.",
+    )
+    permissions_sub = permissions.add_subparsers(
+        dest="permissions_action", required=True, metavar="action",
+    )
+    permissions_write = permissions_sub.add_parser(
+        "write",
+        help="Write `.coding-scaffold/agent-permissions.json`.",
+    )
+    permissions_write.add_argument("--target", type=Path, default=Path.cwd())
+    permissions_write.add_argument("--force", action="store_true",
+                                   help="Overwrite an existing agent-permissions.json.")
+    permissions_write.add_argument("--json", action="store_true")
+
+    mcp = sub.add_parser("mcp", help="Inspect and govern MCP server configuration.")
+    mcp_sub = mcp.add_subparsers(dest="mcp_action", required=True, metavar="action")
+    mcp_policy = mcp_sub.add_parser(
+        "policy",
+        help="Manage the team MCP policy file.",
+    )
+    mcp_policy_sub = mcp_policy.add_subparsers(dest="mcp_policy_action", required=True, metavar="action")
+    mcp_policy_init = mcp_policy_sub.add_parser(
+        "init",
+        help="Write `.coding-scaffold/mcp-policy.json` with defaults.",
+    )
+    mcp_policy_init.add_argument("--target", type=Path, default=Path.cwd())
+    mcp_policy_init.add_argument("--force", action="store_true",
+                                 help="Overwrite an existing policy file.")
+    mcp_policy_init.add_argument("--json", action="store_true")
+    mcp_scan = mcp_sub.add_parser("scan", help="Scan known MCP config locations and report findings.")
+    mcp_scan.add_argument("--target", type=Path, default=Path.cwd())
+    mcp_scan.add_argument("--json", action="store_true")
+    mcp_snapshot = mcp_sub.add_parser("snapshot", help="Record the current MCP server set.")
+    mcp_snapshot.add_argument("--target", type=Path, default=Path.cwd())
+    mcp_snapshot.add_argument("--json", action="store_true")
+    mcp_diff = mcp_sub.add_parser("diff", help="Compare current MCP state with the saved snapshot.")
+    mcp_diff.add_argument("--target", type=Path, default=Path.cwd())
+    mcp_diff.add_argument("--json", action="store_true")
+
+    skills = sub.add_parser("skills", help="Manage reviewable skill packs.")
+    skills_sub = skills.add_subparsers(dest="skills_action", required=True, metavar="action")
+    skills_new = skills_sub.add_parser("new", help="Scaffold a new skill directory.")
+    skills_new.add_argument("name", help="Skill name (slugified into the directory name).")
+    skills_new.add_argument("--target", type=Path, default=Path.cwd())
+    skills_new.add_argument("--owner", default=None, help="Skill owner handle for manifest.json.")
+    skills_new.add_argument("--json", action="store_true")
+    skills_lint = skills_sub.add_parser("lint", help="Lint every skill under .coding-scaffold/skills/.")
+    skills_lint.add_argument("--target", type=Path, default=Path.cwd())
+    skills_lint.add_argument("--json", action="store_true")
+    skills_approve = skills_sub.add_parser("approve", help="Record the current CHECKSUM for a skill.")
+    skills_approve.add_argument("name", help="Skill directory name.")
+    skills_approve.add_argument("--target", type=Path, default=Path.cwd())
+    skills_approve.add_argument("--json", action="store_true")
+    skills_export = skills_sub.add_parser("export", help="Bundle a skill into a tar.gz archive.")
+    skills_export.add_argument("name", help="Skill directory name.")
+    skills_export.add_argument("--target", type=Path, default=Path.cwd())
+    skills_export.add_argument("--output", type=Path, default=None,
+                               help="Output archive path (default: <skill>.tar.gz in --target).")
+    skills_export.add_argument("--json", action="store_true")
+
+    eval_parser = sub.add_parser("eval", help="Run the lightweight readiness benchmark.")
+    eval_sub = eval_parser.add_subparsers(dest="eval_action", required=True, metavar="action")
+    eval_init = eval_sub.add_parser("init", help="Write `.coding-scaffold/eval-config.json`.")
+    eval_init.add_argument("--target", type=Path, default=Path.cwd())
+    eval_init.add_argument("--force", action="store_true")
+    eval_init.add_argument("--json", action="store_true")
+    eval_run = eval_sub.add_parser("run", help="Run the enabled readiness checks.")
+    eval_run.add_argument("--target", type=Path, default=Path.cwd())
+    eval_run.add_argument("--json", action="store_true")
+    eval_report = eval_sub.add_parser(
+        "report",
+        help="Print the most recent eval report (re-runs by default).",
+    )
+    eval_report.add_argument("--target", type=Path, default=Path.cwd())
+    eval_report.add_argument("--cached", action="store_true",
+                             help="Use the saved report instead of re-running.")
+    eval_report.add_argument("--json", action="store_true")
 
     context_budget = sub.add_parser("context-budget", help=argparse.SUPPRESS)
     context_budget.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -594,6 +696,38 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
             "init": "pr-template-init",
         }[args.pr_template_action]
         return
+    if args.command == "permissions":
+        args.command = {
+            "write": "permissions-write",
+        }[args.permissions_action]
+        return
+    if args.command == "mcp":
+        if args.mcp_action == "policy":
+            args.command = {
+                "init": "mcp-policy-init",
+            }[args.mcp_policy_action]
+        else:
+            args.command = {
+                "scan": "mcp-scan",
+                "snapshot": "mcp-snapshot",
+                "diff": "mcp-diff",
+            }[args.mcp_action]
+        return
+    if args.command == "skills":
+        args.command = {
+            "new": "skills-new",
+            "lint": "skills-lint",
+            "approve": "skills-approve",
+            "export": "skills-export",
+        }[args.skills_action]
+        return
+    if args.command == "eval":
+        args.command = {
+            "init": "eval-init",
+            "run": "eval-run",
+            "report": "eval-report",
+        }[args.eval_action]
+        return
     if args.command == "tools":
         args.command = {
             "adapt": "adapt",
@@ -749,6 +883,133 @@ def main(argv: list[str] | None = None) -> int:
                 for path in result.skipped:
                     print(f"  {path}")
         return 0
+
+    if args.command == "permissions-write":
+        result = write_agent_permissions(args.target, force=args.force)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            for path in result.files:
+                print(f"Wrote {path}")
+            for path in result.skipped:
+                print(f"Skipped {path} (use --force to regenerate).")
+        return 0
+
+    if args.command == "mcp-policy-init":
+        outcome = write_mcp_policy(args.target, force=args.force)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            if outcome.get("created"):
+                print(f"Wrote MCP policy: {outcome['path']}")
+            elif outcome.get("skipped"):
+                print(f"Skipped existing MCP policy: {outcome['path']} (use --force to overwrite)")
+        return 0
+
+    if args.command == "mcp-scan":
+        report = scan_mcp(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_mcp_scan(report)
+        return 1 if report.error_count else 0
+
+    if args.command == "mcp-snapshot":
+        outcome = snapshot_mcp(args.target)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            print(f"Wrote MCP snapshot: {outcome['path']}")
+            print(f"Recorded {outcome['servers']} server(s) from {len(outcome['scanned_sources'])} config(s).")
+        return 0
+
+    if args.command == "mcp-diff":
+        diff = diff_mcp(args.target)
+        if args.json:
+            print(json.dumps(diff.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_mcp_diff(diff)
+        for warning in diff.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        # Non-zero when there's drift so this can gate CI.
+        return 1 if (diff.added or diff.removed or diff.changed) else 0
+
+    if args.command == "skills-new":
+        result = new_skill(args.target, args.name, owner=args.owner)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Skill scaffolded at: {result.path}")
+            for path in result.files:
+                print(f"  +{path.relative_to(args.target.expanduser().resolve())}")
+            for path in result.skipped:
+                print(f"  ={path.relative_to(args.target.expanduser().resolve())} (skipped)")
+        return 0
+
+    if args.command == "skills-lint":
+        report = lint_skills(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_skills_lint(report)
+        return 1 if report.error_count else 0
+
+    if args.command == "skills-approve":
+        outcome = approve_skill(args.target, args.name)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            if outcome.get("approved"):
+                print(f"Approved skill {outcome['skill']}: checksum {outcome['checksum'][:16]}…")
+            else:
+                print(f"Warning: {outcome.get('warning', 'approval failed')}", file=sys.stderr)
+        return 0 if outcome.get("approved") else 1
+
+    if args.command == "skills-export":
+        outcome = export_skill(args.target, args.name, output=args.output)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            if outcome.get("exported"):
+                print(f"Exported {outcome['skill']} -> {outcome['archive']}")
+            else:
+                print(f"Warning: {outcome.get('warning', 'export failed')}", file=sys.stderr)
+        return 0 if outcome.get("exported") else 1
+
+    if args.command == "eval-init":
+        outcome = write_eval_config(args.target, force=args.force)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            if outcome.get("created"):
+                print(f"Wrote eval config: {outcome['path']}")
+            elif outcome.get("skipped"):
+                print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
+        return 0
+
+    if args.command == "eval-run":
+        report = run_eval(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_eval_report(report)
+        return 0 if report.passed_count == report.total_count else 1
+
+    if args.command == "eval-report":
+        if args.cached:
+            cached = load_eval_report(args.target)
+            if cached is None:
+                print("No cached eval report found. Run `coding-scaffold eval run` first.",
+                      file=sys.stderr)
+                return 1
+            report = cached
+        else:
+            report = run_eval(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_eval_report(report)
+        return 0 if report.passed_count == report.total_count else 1
 
     if args.command == "orchestrate":
         adapter = None if args.adapter == "none" else args.adapter
@@ -1185,6 +1446,94 @@ def _print_context_explain(payload: dict[str, object]) -> None:
                 "    advanced concepts: "
                 f"{', '.join(entry['mentions_advanced_concepts'])}"
             )
+
+
+def _print_mcp_scan(report: McpReport) -> None:
+    print(
+        f"mcp scan: {len(report.servers)} server(s) across "
+        f"{len(report.scanned_sources)} config(s); "
+        f"{report.error_count} error / {report.warning_count} warning."
+    )
+    if report.servers:
+        print()
+        print("Servers:")
+        for server in report.servers:
+            location = server.url or f"{server.command or '?'} {' '.join(server.args)}".strip()
+            pin = f"@{server.package_version}" if server.package_version else " (unpinned)"
+            pkg = f" [{server.package}{pin}]" if server.package else ""
+            caps = f" capabilities: {', '.join(server.capabilities)}" if server.capabilities else ""
+            print(f"  - {server.name} ({server.kind}, from {server.source}){pkg}{caps}")
+            print(f"      {location}")
+    if report.findings:
+        print()
+        print("Findings:")
+        for f in report.findings:
+            head = f"  {f.severity.upper():<8} {f.rule:<32}"
+            location = f"{f.source or '?'}:{f.server or '?'}"
+            print(f"{head} {location}")
+            print(f"         {f.message}")
+            print(f"         Fix: {f.suggested_fix}")
+
+
+def _print_mcp_diff(diff: McpDiff) -> None:
+    if not (diff.added or diff.removed or diff.changed):
+        print("mcp diff: no changes since the last snapshot.")
+        return
+    print(
+        f"mcp diff: +{len(diff.added)} added, -{len(diff.removed)} removed, "
+        f"~{len(diff.changed)} changed."
+    )
+    for server in diff.added:
+        print(f"  + {server.name} ({server.kind}, from {server.source})")
+    for previous in diff.removed:
+        print(f"  - {previous.get('name', '?')} (was in {previous.get('source', '?')})")
+    for current, previous in diff.changed:
+        prev_fp = str(previous.get("fingerprint", ""))
+        cur_fp = current.fingerprint
+        print(
+            f"  ~ {current.name}: fingerprint {prev_fp[:12]}… -> {cur_fp[:12]}… "
+            f"({current.source})"
+        )
+
+
+def _print_skills_lint(report: SkillLintReport) -> None:
+    if not report.skills_scanned:
+        print("skills lint: no skills found under `.coding-scaffold/skills/`.")
+        return
+    print(
+        f"skills lint: scanned {len(report.skills_scanned)} skill(s); "
+        f"{report.error_count} error / {report.warning_count} warning."
+    )
+    for f in report.findings:
+        head = f"  {f.severity.upper():<8} {f.rule:<32}"
+        loc_parts = [f.skill or "?"]
+        if f.file:
+            loc_parts.append(f.file + (f":{f.line}" if f.line else ""))
+        print(f"{head} {'/'.join(loc_parts)}")
+        print(f"         {f.message}")
+        print(f"         Fix: {f.suggested_fix}")
+
+
+def _print_eval_report(report: EvalReport) -> None:
+    score_pct = int(round(report.score * 100))
+    print(
+        f"eval report: {report.passed_count}/{report.total_count} checks passed "
+        f"({score_pct}%)"
+    )
+    print()
+    by_category: dict[str, list] = {}
+    for check in report.checks:
+        by_category.setdefault(check.category, []).append(check)
+    for category in sorted(by_category):
+        print(f"  {category}:")
+        for check in by_category[category]:
+            mark = "PASS" if check.passed else "FAIL"
+            print(f"    [{mark}] {check.name}")
+            print(f"           {check.message}")
+    if report.warnings:
+        print()
+        for warning in report.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
 
 
 def _print_session_summary(summary: SessionSummary) -> None:
