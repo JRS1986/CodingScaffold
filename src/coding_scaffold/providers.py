@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
@@ -53,13 +54,59 @@ def detect_providers(env: dict[str, str] | None = None, *, include_copilot: bool
     return providers
 
 
+def _probe_endpoint(url: str, timeout: float = 1.0) -> bool:
+    """Return True if ``url`` responds with a 2xx or 3xx status within ``timeout``.
+
+    Any exception (URLError, socket.timeout, HTTPError, OSError, etc.) is
+    swallowed and returns False so callers can use this as a simple
+    reachability check.
+    """
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310
+            status = getattr(response, "status", None)
+            if status is None:
+                status = response.getcode()
+            return 200 <= int(status) < 400
+    except Exception:
+        return False
+
+
+def _local_probe_url(name: str, endpoint: str) -> str:
+    base = endpoint.rstrip("/")
+    if name == "ollama":
+        # Ollama's tag listing lives at the server root, not under /v1.
+        if base.endswith("/v1"):
+            base = base[:-3].rstrip("/")
+        return base + "/api/tags"
+    # LM Studio and llama-server expose the OpenAI-compatible /v1/models path.
+    if not base.endswith("/v1"):
+        base = base + "/v1"
+    return base + "/models"
+
+
 def _local_provider(name: str, endpoint: str) -> Provider:
-    available = shutil.which(name) is not None
+    cli_present = shutil.which(name) is not None
+    if not cli_present:
+        return Provider(
+            name=name,
+            kind="local",
+            available=False,
+            status="CLI not found",
+            endpoint=endpoint,
+            model_family="local",
+        )
+    probe_url = _local_probe_url(name, endpoint)
+    endpoint_reachable = _probe_endpoint(probe_url)
+    available = cli_present and endpoint_reachable
+    if available:
+        status = "CLI found; endpoint reachable"
+    else:
+        status = f"CLI found; endpoint unreachable at {probe_url}"
     return Provider(
         name=name,
         kind="local",
         available=available,
-        status="CLI found" if available else "CLI not found",
+        status=status,
         endpoint=endpoint,
         model_family="local",
     )

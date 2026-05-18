@@ -1,4 +1,6 @@
-from coding_scaffold.providers import detect_providers
+from urllib.error import URLError
+
+from coding_scaffold.providers import _local_provider, detect_providers
 
 
 def test_detects_azure_openai_without_exposing_key() -> None:
@@ -58,6 +60,52 @@ def test_detect_providers_skips_copilot_subprocess_by_default(monkeypatch) -> No
     providers = detect_providers({})
 
     assert all(provider.name != "github-copilot-cli" for provider in providers)
+
+
+def test_local_provider_unreachable_when_endpoint_refuses_connection(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.providers.shutil.which",
+        lambda name: f"/usr/bin/{name}",
+    )
+
+    def refuse(*args, **kwargs):
+        raise URLError("connection refused")
+
+    monkeypatch.setattr("coding_scaffold.providers.urllib.request.urlopen", refuse)
+
+    provider = _local_provider("ollama", "http://127.0.0.1:11434/v1")
+
+    assert provider.available is False
+    assert "unreachable" in provider.status
+
+
+def test_local_provider_available_when_endpoint_responds_ok(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "coding_scaffold.providers.shutil.which",
+        lambda name: f"/usr/bin/{name}",
+    )
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def getcode(self):
+            return 200
+
+    monkeypatch.setattr(
+        "coding_scaffold.providers.urllib.request.urlopen",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    provider = _local_provider("ollama", "http://127.0.0.1:11434/v1")
+
+    assert provider.available is True
+    assert "reachable" in provider.status
 
 
 def test_detect_providers_can_include_copilot_status(monkeypatch) -> None:
