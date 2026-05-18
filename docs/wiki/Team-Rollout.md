@@ -100,11 +100,15 @@ scaffold files alone. They can disable any provider, any MCP server, and audit w
 
 ```bash
 coding-scaffold setup run --target . --privacy local-only --tool claude-code
-coding-scaffold policy --target . --scope team --strict
+coding-scaffold policy --target . --scope team
 coding-scaffold credentials --target . --format env
 # Review .claude/settings.json (permission.edit: ask, permission.bash: ask).
 # Review .coding-scaffold/policy/*.md for the disabled-providers list.
 ```
+
+The default policy is strict: `share: disabled`, `permission.edit: ask`,
+`permission.bash: ask`. Pass `--relaxed-permissions` only if you deliberately want to
+disable the ask-before-edit/bash gate.
 
 Pair with the [Threat Model](Security.md#threat-model) so they see the boundaries explicitly.
 

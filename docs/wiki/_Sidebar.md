@@ -1,17 +1,17 @@
 # CodingScaffold
 
-- [[Home]]
-- [[Getting Started]]
-- [[Core Concepts]]
-- [[Model Selection and Providers]]
-- [[Skills and Agents]]
-- [[Knowledge Base]]
-- [[Context Hygiene]]
-- [[Team Onboarding]]
-- [[Policy Packs]]
-- [[Security]]
-- [[Tool Adapters]]
-- [[Advanced Workflows]]
-- [[Team Rollout]]
-- [[Review Backlog]]
-- [[FAQ]]
+- [Home](Home.md)
+- [Getting Started](Getting-Started.md)
+- [Core Concepts](Core-Concepts.md)
+- [Model Selection and Providers](Model-Selection-and-Providers.md)
+- [Skills and Agents](Skills-and-Agents.md)
+- [Knowledge Base](Knowledge-Base.md)
+- [Context Hygiene](Context-Hygiene.md)
+- [Team Onboarding](Team-Onboarding.md)
+- [Policy Packs](Policy-Packs.md)
+- [Security](Security.md)
+- [Tool Adapters](Tool-Adapters.md)
+- [Advanced Workflows](Advanced-Workflows.md)
+- [Team Rollout](Team-Rollout.md)
+- [Review Backlog](Review-Backlog.md)
+- [FAQ](FAQ.md)

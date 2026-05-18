@@ -94,8 +94,8 @@ cd ~/dev/my-project
 
 Setup can run before any model is configured. It validates the selected coding tool and, when
 stdin is interactive, asks before installing a missing tool. OpenCode and Hermes use their official
-install scripts; OpenClaude and Pi use npm packages. It can also configure the knowledge backend
-and optional shared Git remote during setup. Nothing is installed silently.
+install scripts; Claude Code, Codex, OpenClaude, and Pi use npm packages. It can also configure
+the knowledge backend and optional shared Git remote during setup. Nothing is installed silently.
 
 If you already have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a
 local runtime installed, the scaffold will detect that. To keep credentials project-local, create an
@@ -353,7 +353,9 @@ Plain Markdown:
 coding-scaffold knowledge create --target ~/dev/my-project
 ```
 
-New knowledge bases include raw inputs and a curated wiki:
+New knowledge bases include raw inputs, a curated wiki, decision records, session notes, and
+optional hierarchical-sharing layers (`team` / `department` / `unit` / `company`). See
+[Knowledge Base](docs/wiki/Knowledge-Base.md) for the full tree. The shorthand:
 
 ```text
 .coding-scaffold/knowledge/
@@ -361,7 +363,7 @@ New knowledge bases include raw inputs and a curated wiki:
   wiki/
   skills/
   agents/
-  index.md
+  INDEX.md
 ```
 
 Create reviewable curated proposals from raw notes:
@@ -512,7 +514,14 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 - `ORCHESTRATION.md` and `orchestration.json`: agent-role guidance.
 - `skills/README.md` and `SKILLS.md`: project skill guidance.
 - `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.
-- `knowledge/raw/`, `knowledge/wiki/`, `knowledge/index.md`: raw inputs and curated wiki pages.
+- `knowledge/INDEX.md`, `knowledge/README.md`, `knowledge/glossary.md`, `knowledge/links.md`,
+  `knowledge/sync.md`: top-level navigation and starter notes.
+- `knowledge/raw/{meetings,decisions,code-notes,incidents}/`: raw input notes by category.
+- `knowledge/wiki/{architecture,setup,testing,deployment,domain-language,decisions}.md`:
+  curated wiki pages with `owner` / `last_reviewed` / `source_refs` frontmatter.
+- `knowledge/{decisions,sessions,skills,agents,sharing}/`: decision records, session notes,
+  reusable skills, agent patterns, and hierarchical-sharing scaffolding.
+- `knowledge/{team,department,unit,company}/`: layered scopes for hierarchical sharing.
 - `.coding-scaffold/policy/`: optional company/unit/department/team policy packs.
 - `.coding-scaffold/team-onboarding.json` and `team-provenance.json`: optional experienced-team onboarding.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
@@ -524,6 +533,8 @@ Optional commands can also generate:
 - `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`.
 - `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/`, and `.claude/agents/`.
 - `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
+- `.coding-scaffold/team/sources/<kind>/<slug>/`: third-party manifest content imported by
+  `team sync` (cloned repos keep `.git` inside an `_repo/` subdirectory for fast-forward pulls).
 - `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
 - `.coding-scaffold/OPEN_MULTI_AGENT.md`, `open-multi-agent.team.json`, and a TypeScript example.
 - Obsidian vault files under `.coding-scaffold/knowledge/.obsidian/`.

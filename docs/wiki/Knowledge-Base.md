@@ -17,28 +17,45 @@ This creates:
 - `.coding-scaffold/knowledge.json`
 - `.coding-scaffold/knowledge/`
 
-The generated knowledge base now separates raw inputs from curated wiki pages:
+The generated knowledge base separates raw inputs from curated wiki pages, and includes
+scaffolding for decision records, session notes, reusable skills and agents, and the optional
+hierarchical-sharing layers:
 
 ```text
 .coding-scaffold/knowledge/
+  INDEX.md                         # entry point — start reading here
+  README.md
+  glossary.md
+  links.md
+  sync.md
   raw/
     meetings/
     decisions/
     code-notes/
     incidents/
-  wiki/
+  wiki/                            # curated, reviewed source of truth
     architecture.md
     setup.md
     testing.md
     deployment.md
     domain-language.md
     decisions.md
-  skills/
-  agents/
-  index.md
+  decisions/                       # ADR-style decision records
+    0001-decision-template.md
+  sessions/                        # captured agent-session notes
+    session-template.md
+  skills/                          # reusable team skills
+  agents/                          # reusable agent patterns
+  sharing/                         # hierarchical-sharing entry point
+  team/                            # hierarchical layer: project facts, local prompts
+  department/                      # hierarchical layer: runbooks, system patterns
+  unit/                            # hierarchical layer: domain vocabulary, reference arch
+  company/                         # hierarchical layer: approved standards
 ```
 
 Raw notes are source material. Curated wiki pages are the reviewable source of truth for agents.
+The layered folders (`team` / `department` / `unit` / `company`) are optional — see
+[Hierarchical Sharing](#hierarchical-sharing) for when to use them.
 
 ## Shared GitHub Or GitLab Memory
 
@@ -108,7 +125,7 @@ The status command counts notes by scope and maturity, and flags missing frontma
 notes. It also distinguishes raw notes from curated wiki pages, flags missing `owner`,
 `last_reviewed`, and `source_refs`, and warns when curated pages have not been reviewed recently.
 The budget command estimates whether the knowledge base is still a healthy size for an agent
-session. See [[Context Hygiene]] before compressing or loading large shared notes.
+session. See [Context Hygiene](Context-Hygiene.md) before compressing or loading large shared notes.
 
 Create reviewable curated proposals from raw notes:
 
