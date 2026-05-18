@@ -181,21 +181,60 @@ connected to a working model. Then run a small agentic loop:
 This is the difference from autocomplete: the tool is not just suggesting code, it is running a
 small engineering workflow that you can inspect, verify, and improve.
 
-## 10-Minute Pilot
+## 10-Minute Happy Path
 
-Use this as the first demo for colleagues:
+Use this first when you want to show the value to a curious developer or a small team without
+introducing enterprise process. Pick one existing repo and one safe task, for example "find the test
+command and propose a tiny cleanup." Do not start with model routing, multi-agent orchestration, or a
+team manifest.
 
-1. Run `coding-scaffold setup run --target <repo>` in an existing project.
-2. Review `.coding-scaffold/hardware.json` and `.coding-scaffold/providers.json`.
-3. Generate or confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
-4. Start OpenCode and run `/first-session`.
-5. Ask the agent to identify test commands, propose one safe improvement, and capture one knowledge
-   entry.
-6. Have a second developer run `coding-scaffold team connect --target <repo> --manifest <manifest>`
-   and confirm they receive the same knowledge and policy defaults.
+```bash
+# 1. Scaffold the project with beginner-friendly defaults.
+coding-scaffold setup run --target ~/dev/my-project --mode beginner --tool opencode
+cd ~/dev/my-project
 
-Before committing, review generated files, credential templates, provider policy, MCP settings,
-knowledge provenance, and test output.
+# 2. Check what the scaffold learned locally. No LLM call has happened yet.
+coding-scaffold probe --target .
+coding-scaffold context budget --target . --source knowledge
+
+# 3. If OpenCode is not installed yet, install or validate it explicitly.
+coding-scaffold setup tool --tool opencode
+
+# 4. Open the coding agent.
+opencode
+```
+
+Inside OpenCode:
+
+```text
+/first-session
+```
+
+Ask for only this first outcome:
+
+```text
+Inspect the repo, identify the build/test commands, name the key files, and propose one small safe
+improvement. Do not edit yet.
+```
+
+If the plan looks reasonable, run one bounded change:
+
+```text
+/agentic-change
+```
+
+Done means:
+
+- the agent inspected before editing
+- the test or verification command is named
+- the diff is small enough to review in one sitting
+- generated credentials contain no real secrets
+- the developer can explain what changed and why
+
+For a sub-20-person team pilot, repeat this with one teammate before creating shared manifests.
+Once two people can produce the same first-session shape, add `coding-scaffold pr-template init`,
+`coding-scaffold permissions write`, and a small team knowledge base. Add routing, MCP policy, and
+workflow automation only when the team has a concrete need.
 
 ## Everyday Flow
 

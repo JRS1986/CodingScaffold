@@ -4,17 +4,26 @@ This page is a practical plan for introducing CodingScaffold to a team.
 
 ## Pilot Session
 
-Use one real project and one safe issue.
+For a sub-20-person team, start with a two-person pilot instead of a full rollout. Use one real
+project and one safe issue. The first milestone is repeatability, not enterprise coverage.
 
-1. Run `coding-scaffold setup run --target <repo>`.
-2. Review provider and hardware detection.
-3. Generate or confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
-4. Run OpenCode `/first-session`.
-5. Pick one small improvement.
-6. Run `/agentic-change`.
-7. Review generated files, credentials, provider policy, MCP settings, knowledge provenance, and tests.
-8. Capture the workflow as a skill and one knowledge entry.
-9. Have a second developer run `team connect` against the shared manifest.
+1. Developer A runs `coding-scaffold setup run --target <repo> --mode beginner --tool opencode`.
+2. Developer A runs OpenCode `/first-session` and asks the agent to inspect, identify build/test
+   commands, name key files, and propose one small safe improvement without editing.
+3. Developer A runs `/agentic-change` only after the plan is understandable.
+4. Review the diff, generated credential templates, provider hints, and test output.
+5. Developer B repeats the same first-session flow in the same repo and compares whether the
+   agent identifies the same verifier and main code paths.
+6. If both sessions are reviewable, add the lightweight team layer:
+   `coding-scaffold pr-template init`, `coding-scaffold permissions write`, and
+   `coding-scaffold knowledge create --backend markdown`.
+7. Capture one decision or useful prompt in the knowledge base. Create a skill only after the team
+   repeats the workflow enough that the playbook is stable.
+8. Add team manifests, MCP policy, routing, or multi-agent automation only when the team has a real
+   sharing or control problem to solve.
+
+The pilot is succeeding when developers can explain the change without trusting the agent blindly,
+the verification command is explicit, and review stays smaller than the original manual task.
 
 ## Team Defaults
 

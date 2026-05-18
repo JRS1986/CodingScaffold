@@ -111,19 +111,61 @@ opencode
 Use `coding-scaffold setup tool --tool opencode --install` when you want the CLI to install a
 missing tool without a second prompt, for example in a prepared dev container.
 
-## 10-Minute Pilot
+## 10-Minute Happy Path
 
-Use one existing repo and one safe issue:
+This is the first useful path for Lena, the curious coding newbie, and for a small team pilot. The
+goal is not to enable every governance feature. The goal is one inspected repo, one named verifier,
+and one tiny change the developer understands.
 
-1. Run `coding-scaffold setup run --target <repo>`.
-2. Review generated hardware and provider detection files.
-3. Confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
-4. Run OpenCode `/first-session`.
-5. Ask for one safe improvement and one captured knowledge entry.
-6. Have a second developer run `coding-scaffold team connect --target <repo> --manifest <manifest>`.
+Use an existing repo and start with OpenCode:
 
-Review generated files, credential templates, provider policy, MCP settings, knowledge provenance,
-and test output before committing the result.
+```bash
+coding-scaffold setup run --target ~/dev/my-project --mode beginner --tool opencode
+cd ~/dev/my-project
+coding-scaffold probe --target .
+coding-scaffold context budget --target . --source knowledge
+coding-scaffold setup tool --tool opencode
+opencode
+```
+
+Inside OpenCode:
+
+```text
+/first-session
+```
+
+Then ask:
+
+```text
+Inspect the repo, identify the build/test commands, name the key files, and propose one small safe
+improvement. Do not edit yet.
+```
+
+Continue only if the plan is understandable. For the first edit, keep the scope narrow:
+
+```text
+/agentic-change
+```
+
+Stop after the first bounded change and review:
+
+- what files were inspected
+- what files changed
+- which command verifies the change
+- whether any generated credential or provider file needs local-only handling
+- whether the developer could explain the diff without trusting the agent blindly
+
+For a team under 20 people, run this once with a second developer before adding a shared manifest.
+When both sessions produce a repeatable shape, add the lightweight team layer:
+
+```bash
+coding-scaffold pr-template init --target .
+coding-scaffold permissions write --target .
+coding-scaffold knowledge create --target . --backend markdown
+```
+
+Leave RouteLLM, multi-agent workflows, large MCP setups, and enterprise policy layering for later.
+They are useful once the team has a repeated workflow worth standardizing.
 
 ## Optional Add-Ons
 
