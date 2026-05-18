@@ -118,3 +118,75 @@ def test_distill_knowledge_reports_missing_source(tmp_path) -> None:
 
     assert result.warnings
     assert not result.created
+
+
+def test_frontmatter_preserves_colons_in_list_values(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "tagged.md"
+    note.write_text(
+        '---\nscope: team\nmaturity: draft\ntags: ["a:b", c]\n---\n# Tagged\n',
+        encoding="utf-8",
+    )
+
+    from coding_scaffold.knowledge import _frontmatter
+
+    parsed, warning = _frontmatter(note)
+    assert warning is None
+    assert parsed["scope"] == "team"
+    assert "a:b" in parsed["tags"]
+    assert "c" in parsed["tags"]
+
+
+def test_frontmatter_preserves_quoted_colon_in_scalar_value(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "owned.md"
+    note.write_text(
+        '---\nscope: team\nmaturity: draft\nowner: "team:platform"\n---\n# Owned\n',
+        encoding="utf-8",
+    )
+
+    from coding_scaffold.knowledge import _frontmatter
+
+    parsed, warning = _frontmatter(note)
+    assert warning is None
+    assert parsed["owner"] == "team:platform"
+
+
+def test_frontmatter_handles_utf8_bom(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "bom.md"
+    note.write_bytes(b"\xef\xbb\xbf---\nscope: team\nmaturity: validated\n---\nbody\n")
+
+    from coding_scaffold.knowledge import _frontmatter
+
+    parsed, warning = _frontmatter(note)
+    assert warning is None
+    assert parsed["scope"] == "team"
+    assert parsed["maturity"] == "validated"
+
+
+def test_frontmatter_handles_bom_via_status_inspection(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "bom-status.md"
+    note.write_bytes(b"\xef\xbb\xbf---\nscope: team\nmaturity: validated\n---\nbody\n")
+
+    status = inspect_knowledge_status(tmp_path)
+
+    assert status.counts["team"]["validated"] >= 1
+
+
+def test_frontmatter_skips_non_utf8_file_gracefully(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "latin1.md"
+    note.write_bytes(b"---\nscope: caf\xe9\n---\nbody\n")
+
+    from coding_scaffold.knowledge import _frontmatter
+
+    parsed, warning = _frontmatter(note)
+    assert parsed == {}
+    assert warning is not None
+    assert "latin1.md" in warning
+
+    # And it must not bubble up through the status check.
+    status = inspect_knowledge_status(tmp_path)
+    assert any("latin1.md" in w for w in status.warnings)
