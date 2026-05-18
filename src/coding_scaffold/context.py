@@ -104,13 +104,15 @@ def inspect_context_budget(
 ) -> ContextBudget:
     root = target.expanduser().resolve()
     _validate_choice(prefer, {"original", "compressed", "both"}, "prefer")
-    files = [
-        ContextFile(_display_path(path, root), _estimate_tokens(path.read_text(encoding="utf-8")))
-        for path in _iter_source_files(root, source, TEXT_SUFFIXES, prefer=prefer)
-    ]
+    files: list[ContextFile] = []
+    warnings: list[str] = []
+    for path in _iter_source_files(root, source, TEXT_SUFFIXES, prefer=prefer):
+        text = _read_text_safely(path, root, warnings)
+        if text is None:
+            continue
+        files.append(ContextFile(_display_path(path, root), _estimate_tokens(text)))
     total = sum(file.tokens_estimate for file in files)
     window_ratio = total / context_window if context_window > 0 else 1.0
-    warnings: list[str] = []
     if total > max_tokens:
         warnings.append(
             f"Estimated context is {total} tokens, above the {max_tokens} token budget."
@@ -161,7 +163,9 @@ def compress_context(
         if output.exists() and not overwrite:
             skipped.append(output)
             continue
-        original = path.read_text(encoding="utf-8")
+        original = _read_text_safely(path, root, warnings)
+        if original is None:
+            continue
         compressed, warning = _compress_document(root, path, original, engine)
         if warning:
             warnings.append(warning)
@@ -213,6 +217,21 @@ def _source_paths(root: Path, source: str, include_policy: bool = True) -> list[
     return [candidate if candidate.is_absolute() else root / candidate]
 
 
+def _read_text_safely(path: Path, root: Path, warnings: list[str]) -> str | None:
+    """Read a text file as UTF-8 (BOM-tolerant), appending a warning on failure."""
+    display = _display_path(path, root)
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        warnings.append(
+            f"Skipped {display}: could not decode as UTF-8 ({exc.reason})."
+        )
+        return None
+    except OSError as exc:
+        warnings.append(f"Skipped {display}: could not read file ({exc}).")
+        return None
+
+
 def _estimate_tokens(text: str) -> int:
     if not text:
         return 0
@@ -220,6 +239,7 @@ def _estimate_tokens(text: str) -> int:
 
 
 def _compress_text(text: str) -> str:
+    text = _strip_html_comments(text)
     compressed_lines: list[str] = []
     in_fence = False
     in_frontmatter = False
@@ -246,7 +266,7 @@ def _compress_text(text: str) -> str:
             compressed_lines.append(line)
             previous_blank = False
             continue
-        line = _strip_html_comments(line).strip()
+        line = line.strip()
         if not line:
             if not previous_blank:
                 compressed_lines.append("")
@@ -309,7 +329,10 @@ def _compress_with_caveman(root: Path, text: str, suffix: str) -> str | None:
         )
         if completed.returncode != 0 or not output_path.exists():
             return None
-        compressed = output_path.read_text(encoding="utf-8").strip()
+        try:
+            compressed = output_path.read_text(encoding="utf-8-sig").strip()
+        except (UnicodeDecodeError, OSError):
+            return None
     return f"{frontmatter}{compressed}\n" if compressed else None
 
 
@@ -323,8 +346,8 @@ def _split_frontmatter(text: str) -> tuple[str, str]:
     return "", text
 
 
-def _strip_html_comments(line: str) -> str:
-    return re.sub(r"<!--.*?-->", "", line)
+def _strip_html_comments(text: str) -> str:
+    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
 
 
 def _compressed_path(path: Path) -> Path:
