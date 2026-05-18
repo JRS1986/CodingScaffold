@@ -9,6 +9,11 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Codex `.codex/config.toml` parsing for `mcp scan`.** The MCP scanner now reads
+  Codex's TOML configuration in addition to `opencode.json` and `.claude/settings.json`.
+  Supports the canonical `[mcp_servers.<name>]` form and the legacy `[mcp.<name>]` form
+  as a fallback. Malformed TOML is reported as a warning, not a crash. Uses stdlib
+  `tomllib` — no new dependencies.
 - **Reversible agentic work (`coding-scaffold session start` / `checkpoint` / `diff` / `rollback` / `summary`).**
   `start` creates a Git branch (or a worktree with `--worktree`) and records the start commit;
   `checkpoint` does `git add -A && git commit` and updates the session state; `diff` shows

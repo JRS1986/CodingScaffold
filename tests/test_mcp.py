@@ -167,6 +167,72 @@ def test_scan_flags_denied_server_as_error(tmp_path: Path) -> None:
     assert any(f.rule == "server-denied-by-policy" for f in errors)
 
 
+def _write_codex_config_toml(target: Path, body: str) -> Path:
+    """Write `.codex/config.toml` with the given body."""
+
+    path = target / ".codex" / "config.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_scan_detects_codex_mcp_servers_table(tmp_path: Path) -> None:
+    _write_codex_config_toml(tmp_path, """
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem@1.0.0", "./docs"]
+""")
+    report = scan_mcp(tmp_path)
+    names = {s.name for s in report.servers}
+    assert "filesystem" in names
+    fs = next(s for s in report.servers if s.name == "filesystem")
+    assert fs.package == "@modelcontextprotocol/server-filesystem"
+    assert fs.package_version == "1.0.0"
+    assert ".codex/config.toml" in report.scanned_sources
+
+
+def test_scan_accepts_codex_legacy_mcp_table_as_fallback(tmp_path: Path) -> None:
+    _write_codex_config_toml(tmp_path, """
+[mcp.legacy-thing]
+command = "npx"
+args = ["-y", "@scope/legacy@2.0.0"]
+""")
+    report = scan_mcp(tmp_path)
+    names = {s.name for s in report.servers}
+    assert "legacy-thing" in names
+
+
+def test_scan_codex_remote_server_flagged(tmp_path: Path) -> None:
+    _write_codex_config_toml(tmp_path, """
+[mcp_servers.remote]
+url = "https://example.com/mcp"
+""")
+    report = scan_mcp(tmp_path)
+    rules = [f.rule for f in report.findings if f.server == "remote"]
+    assert "remote-server" in rules
+
+
+def test_scan_skips_malformed_toml_with_warning(tmp_path: Path) -> None:
+    _write_codex_config_toml(tmp_path, "this is = not valid toml [[[")
+    report = scan_mcp(tmp_path)
+    assert report.warnings
+    assert any(".codex/config.toml" in w for w in report.warnings)
+
+
+def test_scan_combines_toml_and_json_sources(tmp_path: Path) -> None:
+    _write_opencode_config(tmp_path, {
+        "json-server": {"command": "npx", "args": ["-y", "@scope/json-server@1.0.0"]},
+    })
+    _write_codex_config_toml(tmp_path, """
+[mcp_servers.toml-server]
+command = "npx"
+args = ["-y", "@scope/toml-server@1.0.0"]
+""")
+    report = scan_mcp(tmp_path)
+    names = {s.name for s in report.servers}
+    assert names == {"json-server", "toml-server"}
+
+
 def test_scan_reads_both_opencode_and_claude_configs(tmp_path: Path) -> None:
     _write_opencode_config(tmp_path, {
         "a": {"command": "npx", "args": ["-y", "@scope/a@1.0.0"]},
