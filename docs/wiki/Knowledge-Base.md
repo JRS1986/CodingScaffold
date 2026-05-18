@@ -149,6 +149,38 @@ coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
 Use this when humans want a better reading and navigation layer. In WSL, install the desktop app on
 Windows and open `.coding-scaffold/knowledge` as a vault.
 
+Obsidian is free for personal use. Organizations of more than two people using Obsidian for
+business work need an Obsidian Commercial license (paid per user). If that's a blocker for your
+team, see the [Foam](#foam) section below — Foam is MIT-licensed and offers a similar workflow
+on top of VS Code.
+
+## Foam
+
+Foam mode is a free, MIT-licensed alternative to Obsidian. It runs as a VS Code extension and
+reads plain Markdown with `[[wikilink]]` syntax. The scaffold writes a self-contained VS Code
+workspace under `.coding-scaffold/knowledge/`:
+
+```bash
+coding-scaffold knowledge create --target ~/dev/my-project --backend foam
+```
+
+This generates:
+
+- `.vscode/extensions.json` — recommends `foam.foam-vscode` on first open.
+- `.vscode/settings.json` — Foam workspace defaults (graph view, daily-note directory, ignore
+  patterns for `.git/` and `_repo/`).
+- `.foam/templates/{decision,skill,agent}.md` — Foam note templates.
+- `FOAM.md` — entry note explaining the workflow.
+
+Open `.coding-scaffold/knowledge/` as a VS Code workspace and accept the extension recommendation
+to enable backlinks, the graph view, and template-based note creation. The scaffold's curated
+`wiki/` pages keep standard relative-link Markdown so they render on GitHub; use `[[wikilinks]]`
+in your own notes under `raw/`, `sessions/`, `decisions/`, and the layered scopes if you want
+Foam's graph view to connect them.
+
+Pick Foam over Obsidian when your organization needs commercial-friendly licensing or already
+standardizes on VS Code. Pick Obsidian when you want the dedicated desktop reading surface.
+
 ## MemPalace
 
 MemPalace mode adds notes for optional local semantic retrieval and MCP-compatible memory workflows:
