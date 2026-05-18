@@ -7,6 +7,9 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 
+REDACTED_PLACEHOLDER = "<configured locally; see .env.local>"
+
+
 @dataclass(frozen=True)
 class Provider:
     name: str
@@ -16,9 +19,15 @@ class Provider:
     endpoint: str | None = None
     model_family: str | None = None
     deployment: str | None = None
+    redact_fields: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        data = asdict(self)
+        for field in self.redact_fields:
+            if data.get(field):
+                data[field] = REDACTED_PLACEHOLDER
+        data.pop("redact_fields", None)
+        return data
 
 
 def detect_providers(env: dict[str, str] | None = None, *, include_copilot: bool = False) -> list[Provider]:
@@ -101,6 +110,7 @@ def _azure_openai_provider(env_values: Mapping[str, str]) -> Provider:
         endpoint=endpoint,
         model_family="openai",
         deployment=deployment,
+        redact_fields=("endpoint", "deployment"),
     )
 
 
@@ -133,6 +143,7 @@ def _azure_ai_provider(env_values: Mapping[str, str]) -> Provider:
         endpoint=endpoint,
         model_family=family,
         deployment=deployment,
+        redact_fields=("endpoint", "deployment", "model_family"),
     )
 
 

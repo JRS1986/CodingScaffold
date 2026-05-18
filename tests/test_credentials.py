@@ -17,3 +17,18 @@ def test_write_and_load_local_json_credentials(tmp_path) -> None:
     values = load_local_credentials(tmp_path)
 
     assert values == {"OPENROUTER_API_KEY": "router-value"}
+
+
+def test_secret_env_names_separates_keys_from_azure_config():
+    from coding_scaffold.credentials import (
+        AZURE_NONKEY_ENV_NAMES,
+        SECRET_ENV_NAMES,
+        SECRET_KEY_ENV_NAMES,
+    )
+
+    assert "OPENAI_API_KEY" in SECRET_KEY_ENV_NAMES
+    assert "AZURE_OPENAI_ENDPOINT" in AZURE_NONKEY_ENV_NAMES
+    assert "AZURE_OPENAI_ENDPOINT" not in SECRET_KEY_ENV_NAMES
+    # Backwards-compat: the union is still importable under the old name.
+    assert set(SECRET_KEY_ENV_NAMES) <= set(SECRET_ENV_NAMES)
+    assert set(AZURE_NONKEY_ENV_NAMES) <= set(SECRET_ENV_NAMES)

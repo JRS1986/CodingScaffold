@@ -60,6 +60,31 @@ def test_detect_providers_skips_copilot_subprocess_by_default(monkeypatch) -> No
     assert all(provider.name != "github-copilot-cli" for provider in providers)
 
 
+def test_azure_openai_provider_redacts_endpoint_and_deployment():
+    from coding_scaffold.providers import REDACTED_PLACEHOLDER, detect_providers
+
+    env = {
+        "AZURE_OPENAI_API_KEY": "key-xyz",
+        "AZURE_OPENAI_ENDPOINT": "https://contoso-prod.openai.azure.com/",
+        "AZURE_OPENAI_DEPLOYMENT": "gpt-4-internal",
+    }
+    providers = detect_providers(env=env)
+    azure = next(p for p in providers if p.name == "azure-openai")
+
+    # In-memory values stay intact for routing.
+    assert azure.endpoint == "https://contoso-prod.openai.azure.com/"
+    assert azure.deployment == "gpt-4-internal"
+
+    # Serialized form redacts.
+    serialized = azure.to_dict()
+    assert serialized["endpoint"] == REDACTED_PLACEHOLDER
+    assert serialized["deployment"] == REDACTED_PLACEHOLDER
+    assert "redact_fields" not in serialized
+    # Non-redacted providers serialize unchanged.
+    openai = next(p for p in providers if p.name == "openai")
+    assert "redact_fields" not in openai.to_dict()
+
+
 def test_detect_providers_can_include_copilot_status(monkeypatch) -> None:
     class Result:
         returncode = 0

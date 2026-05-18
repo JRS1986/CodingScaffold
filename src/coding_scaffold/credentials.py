@@ -4,27 +4,35 @@ import json
 from pathlib import Path
 
 
-SECRET_ENV_NAMES = [
+SECRET_KEY_ENV_NAMES = (
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "AZURE_OPENAI_API_KEY",
-    "AZURE_OPENAI_ENDPOINT",
-    "AZURE_OPENAI_DEPLOYMENT",
     "AZURE_AI_API_KEY",
-    "AZURE_AI_ENDPOINT",
-    "AZURE_AI_MODEL",
-    "AZURE_AI_MODEL_FAMILY",
     "AZURE_AI_SERVICES_KEY",
-    "AZURE_AI_SERVICES_ENDPOINT",
     "AZURE_COGNITIVE_SERVICES_KEY",
-    "AZURE_COGNITIVE_SERVICES_ENDPOINT",
     "OPENROUTER_API_KEY",
     "GROQ_API_KEY",
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
-]
+)
+
+AZURE_NONKEY_ENV_NAMES = (
+    "AZURE_OPENAI_ENDPOINT",
+    "AZURE_OPENAI_DEPLOYMENT",
+    "AZURE_AI_ENDPOINT",
+    "AZURE_AI_MODEL",
+    "AZURE_AI_MODEL_FAMILY",
+    "AZURE_AI_SERVICES_ENDPOINT",
+    "AZURE_COGNITIVE_SERVICES_ENDPOINT",
+)
+
+# Union: everything that belongs in .env.local rather than committed config.
+# Azure endpoints/deployments are treated as sensitive because the subdomain
+# typically encodes tenant identity.
+SECRET_ENV_NAMES = SECRET_KEY_ENV_NAMES + AZURE_NONKEY_ENV_NAMES
 
 
 def scaffold_dir(target: Path) -> Path:
