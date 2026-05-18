@@ -122,14 +122,38 @@ Pi loads `AGENTS.md` project instructions; restart Pi or run `/reload` after cha
 
 ## Compatibility Matrix
 
-| Tool | Generated files | Native surface | CodingScaffold stance |
-| --- | --- | --- | --- |
-| OpenCode | config, agents, commands | providers, local models, permissions, agents | deep/default integration |
-| Claude Code | `CLAUDE.md`, settings, commands, reviewer | settings, permissions, MCP, subagents | native config, no runtime control |
-| Codex | `AGENTS.md`, config, skills | layered instructions, approvals, local CLI | native guidance, no runtime control |
-| OpenClaude | adapter guide | profiles, MCP, slash commands | lightweight guidance |
-| Hermes | adapter guide | memory, skills, MCP, backend choices | lightweight guidance |
-| Pi | adapter guide | instructions, sessions, extensions | lightweight guidance |
+A capability row marked ✓ means CodingScaffold actively generates configuration for that
+capability. A row that names a file or flag means the tool's native surface supports it but the
+scaffold leaves the configuration to the tool. A dash means the tool either doesn't support the
+capability or CodingScaffold has no opinion about it.
+
+| Capability | OpenCode | Claude Code | Codex | OpenClaude | Hermes | Pi |
+| --- | --- | --- | --- | --- | --- | --- |
+| Install support | ✓ official script | ✓ npm package | ✓ npm package | ✓ npm package | ✓ official script | ✓ npm package |
+| Project instructions | ✓ `AGENTS.md` + scaffold guide | ✓ `CLAUDE.md` | ✓ `AGENTS.md` + `.codex/` | ✓ `OPENCLAUDE.md` | ✓ `HERMES.md` | ✓ `PI.md` + `AGENTS.md` |
+| Slash commands / skills | ✓ 4 generated | ✓ 2 generated | skills only | doc-only | doc-only | doc-only |
+| Agents / subagents | ✓ explorer / implementer / reviewer | ✓ reviewer | — | — | — | — |
+| Permissions / approval | ✓ via policy pack | ✓ via `.claude/settings.json` | tool's own approval mode | — | — | — |
+| MCP servers | ✓ disable list in policy | settings + docs | — | tool's own | tool's own | — |
+| Local model endpoint | ✓ provider detection | tool's own | tool's own | tool's own | tool's own | tool's own |
+| Cloud provider allow/deny | ✓ explicit lists in policy | tool's own | tool's own | tool's own | tool's own | tool's own |
+| Static per-command profiles | ✓ in commands | partial (settings) | — | — | — | — |
+| Runtime routing (RouteLLM) | ✓ via `tools route` | — | — | — | — | — |
+| **CodingScaffold support depth** | **deep** | **native config** | **native config** | guidance | guidance | guidance |
+
+Support-depth definitions:
+
+- **deep**: scaffold generates a full set of config + commands + agents and the tool runtime
+  reads them directly. OpenCode is the only deep target today.
+- **native config**: scaffold generates files in the tool's official locations (`CLAUDE.md`,
+  `AGENTS.md`, `.claude/settings.json`, `.codex/config.toml`) and the tool reads them. Runtime
+  control stays with the tool.
+- **guidance**: scaffold writes a `<TOOL>.md` brief but the tool's own configuration is required
+  to actually run. Use these when the tool is unfamiliar to the team or moves quickly upstream.
+
+Known gaps: runtime model routing is only available where the tool exposes an OpenAI-compatible
+backend swap (today: OpenCode via RouteLLM). For other tools the scaffold relies on the tool's own
+provider configuration plus `tools select-model` recommendations.
 
 ## Optional Tooling
 
