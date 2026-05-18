@@ -18,8 +18,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from coding_scaffold.hardware import HardwareProfile
 from coding_scaffold.intake import IntakeAnswers
 from coding_scaffold.providers import Provider
@@ -159,11 +157,6 @@ def test_drift_with_user_edited_file_stages_new_keeps_user_copy(tmp_path: Path) 
     assert new_path in result.staged
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#34: scaffold-version.json currently advances even for files whose "
-    "new content was only staged as .new (user-edited copy remained on disk).",
-)
 def test_drift_with_user_edited_file_does_not_advance_version_for_staged(tmp_path: Path) -> None:
     intake_v1, hardware, providers, routing = _fixture(language="python")
     refresh_scaffold(tmp_path, intake_v1, hardware, providers, routing)
