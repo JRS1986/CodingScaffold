@@ -195,6 +195,81 @@ coding-scaffold team doctor --target .
 When the manifest changes, every developer runs `team sync` and reviews the diff before merging
 imports into their working knowledge.
 
+## Reversible Agentic Work
+
+`session start` creates a Git branch (and optionally a worktree) plus a session-trace file in
+one step, recording the start commit so the work is fully reversible:
+
+```bash
+# Branch-only (cheap, works in any clean repo):
+coding-scaffold session start --target . --slug refactor-foo --task "Refactor the foo helper"
+
+# Worktree mode (full isolation; the agent works in a sibling directory):
+coding-scaffold session start --target . --slug refactor-foo --worktree
+
+# During the session:
+coding-scaffold session checkpoint -m "extract helper"     # git add -A + commit + record
+coding-scaffold session diff                                # what's changed since start
+coding-scaffold session summary                             # branch, baseline, checkpoint count
+
+# When you want to bail out:
+coding-scaffold session rollback                            # preview only (safe default)
+coding-scaffold session rollback --confirm                  # soft reset (keeps changes staged)
+coding-scaffold session rollback --confirm --hard           # hard reset (discards changes)
+```
+
+The session never auto-pushes, never deletes work without explicit confirmation, and never
+operates outside the chosen branch or worktree. The per-session state file
+(`*.state.json`) is `.gitignore`d so it doesn't pollute checkpoint commits.
+
+Use **branch-only mode** when the project is in a clean state and you trust the agent to
+stay on a single branch. Use **worktree mode** when you want to keep working in the main
+checkout while the agent works in a parallel directory — useful for pairing or when the
+agent's environment differs from your local one.
+
+`session rollback` is preview-by-default. Without `--confirm` it lists the files that would
+be touched and exits. With `--confirm` alone it does a soft reset (your changes stay in the
+working tree as staged). With `--confirm --hard` it discards everything since the start
+commit. Both flags are required for the destructive path.
+
+## Memory Governance
+
+Memory entries live as reviewable Markdown files under `.coding-scaffold/memory/<class>/`.
+Each entry has minimal frontmatter (`class`, `owner`, `created`, `expires`, `source`,
+`status`) and free-form body.
+
+Memory classes:
+
+- **`project_fact`** — Stable, source-linked. Things that are unlikely to change.
+- **`team_preference`** — Reviewable convention. "We use uv, not poetry."
+- **`decision`** — Ideally linked to an ADR or issue.
+- **`session_lesson`** — Captured from one agent session. Default 30-day expiry; promote to a
+  more durable class before it expires.
+- **`failed_attempt`** — Useful but potentially misleading; flag explicitly.
+- **`personal_data`** — Restricted. Requires `--allow-personal` to store.
+- **`secret`** — Never stored. `memory capture --class secret` is refused outright.
+
+Commands:
+
+```bash
+coding-scaffold memory capture --class session_lesson --content "Yarn doesn't work; use npm." \
+  --owner @me [--source path/to/note] [--expires 2026-06-01]
+
+coding-scaffold memory review                # list active entries; flag unowned / expiring / expired
+coding-scaffold memory promote <id> --to team_preference --owner @platform
+coding-scaffold memory expire                # move past-expiry entries to memory/_expired/
+coding-scaffold memory audit                 # heuristic scan for secrets / PII; exits 1 on error severity
+coding-scaffold memory init                  # optional: write memory config.json
+```
+
+`memory capture` refuses content that looks like a secret (AWS/GitHub/OpenAI key patterns,
+PEM blocks). `memory audit` runs the same patterns over every existing entry and reports
+findings as severity `error`; e-mail and phone-number-shaped strings are reported as
+`warning`. The audit is heuristic, not a full scanner — review the findings.
+
+Backend: Markdown only in v1. SQLite, MemPalace, and vector backends are reserved for
+future versions; the default stays simple so memory is Git-reviewable.
+
 ## Readiness Benchmark
 
 Once the scaffold is in place, run the readiness benchmark to check whether the repo is

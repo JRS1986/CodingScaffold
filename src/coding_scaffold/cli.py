@@ -29,8 +29,29 @@ from .mcp import (
     write_mcp_policy,
 )
 from .permissions import write_agent_permissions
+from .memory import (
+    MEMORY_CLASSES,
+    MemoryAuditReport,
+    MemoryReviewReport,
+    audit_memory,
+    capture_memory,
+    expire_memory,
+    promote_memory,
+    review_memory,
+    write_memory_config,
+)
 from .pr_template import write_pr_template
-from .session import SessionSummary, init_session, summarize_session
+from .session import (
+    SessionStatusResult,
+    SessionSummary,
+    checkpoint_session,
+    diff_session,
+    init_session,
+    rollback_session,
+    start_session,
+    status_session,
+    summarize_session,
+)
 from .skills import (
     SkillLintReport,
     approve_skill,
@@ -225,6 +246,96 @@ def build_parser() -> argparse.ArgumentParser:
     session_summarize = session_sub.add_parser("summarize", help="Summarize a session-trace file.")
     session_summarize.add_argument("path", type=Path, help="Path to a session-trace Markdown file.")
     session_summarize.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    session_start = session_sub.add_parser(
+        "start",
+        help="Begin a reversible agentic session (branch + optional worktree).",
+    )
+    session_start.add_argument("--target", type=Path, default=Path.cwd())
+    session_start.add_argument("--slug", default=None)
+    session_start.add_argument("--task", default=None)
+    session_start.add_argument(
+        "--worktree",
+        action="store_true",
+        help="Create a Git worktree at a sibling directory for full isolation.",
+    )
+    session_start.add_argument("--json", action="store_true")
+    session_checkpoint = session_sub.add_parser(
+        "checkpoint",
+        help="Stage + commit current changes and record the commit in the session state.",
+    )
+    session_checkpoint.add_argument("--target", type=Path, default=Path.cwd())
+    session_checkpoint.add_argument("--message", "-m", default=None,
+                                    help="Commit message. Defaults to `checkpoint: <timestamp>`.")
+    session_checkpoint.add_argument("--json", action="store_true")
+    session_diff = session_sub.add_parser(
+        "diff",
+        help="Show the diff between the session's start commit and HEAD.",
+    )
+    session_diff.add_argument("--target", type=Path, default=Path.cwd())
+    session_diff.add_argument("--json", action="store_true")
+    session_rollback = session_sub.add_parser(
+        "rollback",
+        help="Restore the session's working tree to its start commit.",
+    )
+    session_rollback.add_argument("--target", type=Path, default=Path.cwd())
+    session_rollback.add_argument("--confirm", action="store_true",
+                                  help="Required to actually roll back; without it, preview only.")
+    session_rollback.add_argument("--hard", action="store_true",
+                                  help="Hard reset. Discards uncommitted changes. Requires --confirm.")
+    session_rollback.add_argument("--json", action="store_true")
+    session_summary = session_sub.add_parser(
+        "summary",
+        help="Overall picture of the active session: branch, baseline, checkpoints, diff size.",
+    )
+    session_summary.add_argument("--target", type=Path, default=Path.cwd())
+    session_summary.add_argument("--json", action="store_true")
+
+    memory = sub.add_parser("memory", help="Reviewable team memory (capture/review/promote/expire/audit).")
+    memory_sub = memory.add_subparsers(dest="memory_action", required=True, metavar="action")
+    memory_capture = memory_sub.add_parser("capture", help="Record a new memory entry.")
+    memory_capture.add_argument("--target", type=Path, default=Path.cwd())
+    memory_capture.add_argument("--class", dest="memory_class", required=True,
+                                choices=list(MEMORY_CLASSES) + ["secret", "personal_data"],
+                                help=(
+                                    "Memory class. `secret` is always refused; `personal_data` "
+                                    "requires --allow-personal."
+                                ))
+    memory_capture.add_argument("--content", required=True, help="Body of the memory entry.")
+    memory_capture.add_argument("--owner", default=None, help="Owner handle (recommended).")
+    memory_capture.add_argument("--source", default=None,
+                                help="Path, URL, or other provenance reference.")
+    memory_capture.add_argument("--expires", default=None,
+                                help="ISO date (YYYY-MM-DD) when the entry should expire.")
+    memory_capture.add_argument("--allow-personal", action="store_true",
+                                help="Required to capture class=personal_data.")
+    memory_capture.add_argument("--json", action="store_true")
+    memory_review = memory_sub.add_parser("review",
+                                          help="List active entries; flag unowned/expiring/expired.")
+    memory_review.add_argument("--target", type=Path, default=Path.cwd())
+    memory_review.add_argument("--json", action="store_true")
+    memory_promote = memory_sub.add_parser("promote",
+                                           help="Move an entry to a more durable class.")
+    memory_promote.add_argument("entry_id", help="Entry id (e.g. 2026-05-18-my-note).")
+    memory_promote.add_argument("--target", type=Path, default=Path.cwd())
+    memory_promote.add_argument("--to", dest="new_class", required=True,
+                                choices=list(MEMORY_CLASSES) + ["personal_data"],
+                                help="Target class for the promoted entry.")
+    memory_promote.add_argument("--owner", default=None,
+                                help="Optional new owner for the promoted entry.")
+    memory_promote.add_argument("--json", action="store_true")
+    memory_expire = memory_sub.add_parser("expire",
+                                          help="Move expired entries to _expired/.")
+    memory_expire.add_argument("--target", type=Path, default=Path.cwd())
+    memory_expire.add_argument("--json", action="store_true")
+    memory_audit = memory_sub.add_parser("audit",
+                                         help="Scan memory for content that looks like a secret or PII.")
+    memory_audit.add_argument("--target", type=Path, default=Path.cwd())
+    memory_audit.add_argument("--json", action="store_true")
+    memory_init = memory_sub.add_parser("init",
+                                        help="Write `.coding-scaffold/memory/config.json` (optional).")
+    memory_init.add_argument("--target", type=Path, default=Path.cwd())
+    memory_init.add_argument("--force", action="store_true")
+    memory_init.add_argument("--json", action="store_true")
 
     pr_template = sub.add_parser("pr-template", help="Manage generated GitHub PR templates.")
     pr_template_sub = pr_template.add_subparsers(dest="pr_template_action", required=True, metavar="action")
@@ -689,7 +800,22 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
         args.command = {
             "init": "session-init",
             "summarize": "session-summarize",
+            "start": "session-start",
+            "checkpoint": "session-checkpoint",
+            "diff": "session-diff",
+            "rollback": "session-rollback",
+            "summary": "session-summary",
         }[args.session_action]
+        return
+    if args.command == "memory":
+        args.command = {
+            "capture": "memory-capture",
+            "review": "memory-review",
+            "promote": "memory-promote",
+            "expire": "memory-expire",
+            "audit": "memory-audit",
+            "init": "memory-init",
+        }[args.memory_action]
         return
     if args.command == "pr-template":
         args.command = {
@@ -868,6 +994,181 @@ def main(argv: list[str] | None = None) -> int:
         for warning in summary.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
         return 1 if summary.warnings else 0
+
+    if args.command == "session-start":
+        try:
+            result = start_session(
+                args.target,
+                slug=args.slug,
+                task=args.task,
+                worktree=args.worktree,
+            )
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Branch:        {result.branch}")
+            print(f"Start commit:  {result.start_commit[:12]}")
+            if result.worktree_path:
+                print(f"Worktree:      {result.worktree_path}")
+            print(f"Trace:         {result.trace_path}")
+            print(f"State:         {result.state_path}")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "session-checkpoint":
+        try:
+            result = checkpoint_session(args.target, message=args.message)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            if result.commit:
+                print(f"Checkpoint: {result.commit[:12]} ({result.files_changed} file(s))")
+                print(f"Message:    {result.message}")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 0 if result.commit or not result.warnings else 1
+
+    if args.command == "session-diff":
+        try:
+            result = diff_session(args.target)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            head = result.head_commit[:12] if result.head_commit else "?"
+            start = result.start_commit[:12] if result.start_commit else "?"
+            print(f"Diff {start} .. {head}")
+            if result.diff_summary:
+                print(result.diff_summary)
+            else:
+                print("(no changes)")
+        return 0
+
+    if args.command == "session-rollback":
+        try:
+            result = rollback_session(args.target, confirm=args.confirm, hard=args.hard)
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            if result.mode == "preview":
+                print(f"Preview: {len(result.files_at_risk)} file(s) would be touched.")
+                for path in result.files_at_risk[:20]:
+                    print(f"  {path}")
+                if len(result.files_at_risk) > 20:
+                    print(f"  ... and {len(result.files_at_risk) - 20} more")
+                for warning in result.warnings:
+                    print(warning)
+            else:
+                print(f"Rolled back ({result.mode}). Start commit: {result.start_commit[:12] if result.start_commit else '?'}")
+        return 0
+
+    if args.command == "session-summary":
+        result = status_session(args.target)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_session_status(result)
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return 0 if result.status != "unknown" else 1
+
+    if args.command == "memory-init":
+        outcome = write_memory_config(args.target, force=args.force)
+        if args.json:
+            print(json.dumps(outcome, indent=2, sort_keys=True))
+        else:
+            if outcome.get("created"):
+                print(f"Wrote memory config: {outcome['path']}")
+            elif outcome.get("skipped"):
+                print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
+        return 0
+
+    if args.command == "memory-capture":
+        try:
+            result = capture_memory(
+                args.target,
+                class_=args.memory_class,
+                content=args.content,
+                owner=args.owner,
+                source=args.source,
+                expires=args.expires,
+                allow_personal=args.allow_personal,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Captured memory: {result.entry.id}")
+            print(f"  class:   {result.entry.class_}")
+            print(f"  path:    {result.entry.path}")
+            print(f"  expires: {result.entry.expires or '(no expiry)'}")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "memory-review":
+        report = review_memory(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_memory_review(report)
+        return 0
+
+    if args.command == "memory-promote":
+        try:
+            result = promote_memory(
+                args.target,
+                entry_id=args.entry_id,
+                new_class=args.new_class,
+                new_owner=args.owner,
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            if result.new_entry:
+                print(f"Promoted {result.source_entry.id if result.source_entry else '?'} "
+                      f"-> {result.new_entry.id} (class={result.new_entry.class_})")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "memory-expire":
+        result = expire_memory(args.target)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Expired {len(result.expired_entries)} entry/entries.")
+            for entry_id in result.expired_entries:
+                print(f"  -> {result.moved_to.get(entry_id, '(moved)')}")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 0
+
+    if args.command == "memory-audit":
+        report = audit_memory(args.target)
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        else:
+            _print_memory_audit(report)
+        # Audit findings of `error` severity gate CI.
+        return 1 if report.error_count else 0
 
     if args.command == "pr-template-init":
         result = write_pr_template(args.target)
@@ -1534,6 +1835,63 @@ def _print_eval_report(report: EvalReport) -> None:
         print()
         for warning in report.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
+
+
+def _print_session_status(result: SessionStatusResult) -> None:
+    print("Session status")
+    print(f"  status:        {result.status}")
+    print(f"  branch:        {result.branch or '(none)'}")
+    if result.start_commit:
+        print(f"  start:         {result.start_commit[:12]}")
+    if result.head_commit:
+        print(f"  head:          {result.head_commit[:12]}")
+    if result.worktree_path:
+        print(f"  worktree:      {result.worktree_path}")
+    print(f"  checkpoints:   {result.checkpoint_count}")
+    print(f"  files changed: {result.files_changed}")
+
+
+def _print_memory_review(report: MemoryReviewReport) -> None:
+    print(f"memory review: {len(report.entries)} entry/entries")
+    by_class: dict[str, list] = {}
+    for entry in report.entries:
+        by_class.setdefault(entry.class_, []).append(entry)
+    for class_name in sorted(by_class):
+        print(f"  {class_name}:")
+        for entry in by_class[class_name]:
+            owner = entry.owner if entry.owner.strip() else "(no owner)"
+            extras = []
+            if entry.expires:
+                extras.append(f"expires {entry.expires}")
+            if entry.status != "active":
+                extras.append(entry.status)
+            tail = f" [{', '.join(extras)}]" if extras else ""
+            print(f"    - {entry.id} ({owner}){tail}")
+    if any(report.flagged.values()):
+        print()
+        for key in ("unowned", "expiring_soon", "expired"):
+            ids = report.flagged.get(key, [])
+            if ids:
+                print(f"  {key}: {', '.join(ids)}")
+
+
+def _print_memory_audit(report: MemoryAuditReport) -> None:
+    if not report.findings:
+        print(f"memory audit: 0 findings across {report.entries_scanned} entry/entries.")
+        return
+    counts = report.to_dict()["counts"]
+    if not isinstance(counts, dict):
+        counts = {}
+    print(
+        f"memory audit: {counts.get('errors', 0)} error / "
+        f"{counts.get('warnings', 0)} warning / {counts.get('info', 0)} info across "
+        f"{report.entries_scanned} entry/entries."
+    )
+    print()
+    for finding in report.findings:
+        print(f"  {finding.severity.upper():<8} {finding.rule:<24} {finding.file}:{finding.line}")
+        print(f"           {finding.pattern_label}")
+        print(f"           Fix: {finding.suggested_fix}")
 
 
 def _print_session_summary(summary: SessionSummary) -> None:

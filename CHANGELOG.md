@@ -5,6 +5,32 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Reversible agentic work (`coding-scaffold session start` / `checkpoint` / `diff` / `rollback` / `summary`).**
+  `start` creates a Git branch (or a worktree with `--worktree`) and records the start commit;
+  `checkpoint` does `git add -A && git commit` and updates the session state; `diff` shows
+  the change set since the start commit (including untracked files); `rollback` is
+  preview-by-default — `--confirm` alone does a soft reset (preserves your changes staged),
+  `--confirm --hard` discards them; `summary` prints branch + baseline + checkpoint count +
+  files-changed. The session never auto-pushes, never deletes work without explicit
+  confirmation, and the per-session `*.state.json` is git-ignored so it doesn't pollute
+  checkpoint commits. See
+  [Team Rollout / Reversible Agentic Work](docs/wiki/Team-Rollout.md#reversible-agentic-work).
+- **Memory governance (`coding-scaffold memory capture` / `review` / `promote` / `expire` /
+  `audit` / `init`).** Memory entries are reviewable Markdown files under
+  `.coding-scaffold/memory/<class>/` with frontmatter (`class`, `owner`, `created`,
+  `expires`, `source`, `status`). Memory classes follow the maintainer brief:
+  `project_fact`, `team_preference`, `decision`, `session_lesson` (default 30-day TTL),
+  `failed_attempt`, `personal_data` (requires `--allow-personal`), `secret` (always refused).
+  `capture` refuses content that looks like a secret (AWS / GitHub / OpenAI key patterns,
+  PEM blocks). `audit` runs the same patterns over every existing entry plus PII heuristics
+  (email, phone-shaped strings) and exits non-zero on `error` severity. Markdown is the v1
+  backend; sqlite / mempalace / vector are reserved for future versions. See
+  [Team Rollout / Memory Governance](docs/wiki/Team-Rollout.md#memory-governance).
+
 ## [0.3.0] — 2026-05-18
 
 ### Added
