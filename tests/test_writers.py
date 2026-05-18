@@ -80,3 +80,33 @@ def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch) -> None:
     providers_json = (tmp_path / ".coding-scaffold" / "providers.json").read_text(encoding="utf-8")
     assert "contoso.openai.azure.com" not in providers_json
     assert "internal-gpt" not in providers_json
+
+
+def test_routellm_yaml_quotes_model_names_with_special_chars() -> None:
+    from coding_scaffold.writers import _routellm_yaml
+
+    plan = RoutingPlan(
+        strategy="local-first-router",
+        weak_model="weird: 'value with # hash'",
+        strong_model="qwen2.5-coder:7b-instruct",
+        route_threshold=0.1,
+        local_endpoint="http://127.0.0.1:11434/v1",
+        cloud_provider=None,
+        cloud_model_family=None,
+        route_rules=["route locally"],
+        model_policy={"selection_mode": "recommend"},
+    )
+
+    output = _routellm_yaml(plan)
+    assert '"weird: \'value with # hash\'"' in output
+    assert '"qwen2.5-coder:7b-instruct"' in output
+    assert '"http://127.0.0.1:11434/v1"' in output
+
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    parsed = yaml.safe_load(output)
+    assert parsed["weak_model"] == "weird: 'value with # hash'"
+    assert parsed["strong_model"] == "qwen2.5-coder:7b-instruct"
+    assert parsed["providers"]["local"]["base_url"] == "http://127.0.0.1:11434/v1"

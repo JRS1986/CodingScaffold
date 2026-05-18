@@ -86,6 +86,28 @@ def test_write_routellm_backend_creates_docs_and_config(tmp_path) -> None:
     assert "routellm.config.yaml" in names
 
 
+def test_routellm_yaml_quotes_model_names_with_special_chars() -> None:
+    from coding_scaffold.adapters import _routellm_yaml
+
+    output = _routellm_yaml(
+        {
+            "weak_model": "weird: 'value with # hash'",
+            "strong_model": "qwen2.5-coder:7b-instruct",
+        }
+    )
+
+    assert '"weird: \'value with # hash\'"' in output
+    assert '"qwen2.5-coder:7b-instruct"' in output
+
+    try:
+        import yaml  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    parsed = yaml.safe_load(output)
+    assert parsed["weak_model"] == "weird: 'value with # hash'"
+    assert parsed["strong_model"] == "qwen2.5-coder:7b-instruct"
+
+
 def test_write_open_multi_agent_backend_creates_docs_config_and_example(tmp_path) -> None:
     result = write_workflow_backend(tmp_path, "open-multi-agent")
 
