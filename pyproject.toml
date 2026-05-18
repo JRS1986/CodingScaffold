@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coding-scaffold"
-version = "0.4.2"
+version = "0.5.0"
 description = "Local-first coding agent scaffold with hardware probing, provider discovery, and routing config generation."
 readme = "README.md"
 requires-python = ">=3.11"

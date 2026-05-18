@@ -5,6 +5,43 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-18
+
+### Added
+
+- **Top-level help groups commands by user journey.** `coding-scaffold --help` now opens
+  with four labelled sections — **Start here**, **10-minute pilot**, **Daily workflow**,
+  and **Advanced / governance** — so a new user can see the smallest useful path before
+  the full alphabetical command list. The full reference is still printed below as usual;
+  no commands were removed or renamed and every hidden compatibility alias (`init`,
+  `wizard`, `setup-tool`, `setup-addon`, `setup-knowledge`, `knowledge-status`,
+  `context-budget`, `compress-context`, `orchestrate`, `adapt`, `route`, `select-model`)
+  still parses.
+- **`coding-scaffold doctor` becomes the accessibility hub.** New module
+  `src/coding_scaffold/doctor.py`. The command now accepts `--target` and `--json`,
+  surveys 14 scaffold-artifact paths (AGENTS.md, CLAUDE.md, PR template,
+  `.coding-scaffold/` and its sub-directories, eval-config, etc.), recommends 1-3
+  context-aware next commands (e.g. an empty repo gets `pilot` + `setup run`; a partially
+  set-up repo gets `pr-template init` or `session init`), and explicitly names the
+  advanced surfaces (`policy`, `mcp`, `skills`, `memory`, `team`, `permissions write`,
+  `tools route` / `workflow` / `orchestrate`) under "Ignore for now (advanced)". The
+  original hardware/provider snapshot still prints below the new structured output for
+  continuity.
+- **`coding-scaffold pilot --target . --tool opencode`.** New module
+  `src/coding_scaffold/pilot.py`. A safe guided wrapper that runs only read-only local
+  checks (Python version, `git` on PATH, the chosen tool's binary on PATH, credentials
+  in env, local-runtime CLIs) and then prints the exact three-step recipe tailored to
+  your environment. Never installs anything. Never writes files. The printed recipe may
+  include `--install` flags, but the user makes that call. Supports all six tools
+  (`opencode`, `claude-code`, `codex`, `openclaude`, `hermes`, `pi`) and `--json` output.
+
+### Documentation
+
+- README adds a "30-Second Start" block at the top with the three commands a new user
+  needs today (`doctor`, `pilot`, then follow the recipe).
+- `docs/wiki/Getting-Started.md` adds a "Smallest Useful Path" section that names the
+  same three commands and explicitly tells readers what to ignore for now.
+
 ## [0.4.2] — 2026-05-18
 
 ### Added
@@ -270,6 +307,7 @@ for the supported entry points.
   supported. Windows native (outside WSL) works for documentation generation but not for tool
   installation — use WSL for the full flow.
 
+[0.5.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.5.0
 [0.4.2]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.2
 [0.4.1]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.1
 [0.4.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.0

@@ -286,7 +286,7 @@ wheels = [
 
 [[package]]
 name = "coding-scaffold"
-version = "0.4.2"
+version = "0.5.0"
 source = { editable = "." }
 
 [package.optional-dependencies]

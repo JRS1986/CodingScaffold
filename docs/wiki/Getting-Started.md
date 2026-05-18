@@ -3,6 +3,40 @@
 This page walks through the first useful session. The goal is not to configure every advanced
 backend immediately; the goal is to make one small, inspected, verified change.
 
+## Smallest Useful Path
+
+After installing CodingScaffold in your environment, your first three commands are:
+
+```bash
+coding-scaffold doctor --target .
+coding-scaffold pilot --target . --tool opencode
+# follow the printed steps
+```
+
+That's it for day one. Everything else on this page is reference material you can come back
+to when you actually need it. The other commands (`policy`, `mcp`, `skills`, `memory`,
+`team`, `permissions`, `tools route`) are deliberately out of the first-run mental model —
+`doctor` lists them under "Ignore for now (advanced)" so you don't have to track them
+yourself.
+
+### What `doctor` does
+
+Surveys the scaffold artifacts already present in your project (AGENTS.md, PR template,
+`.coding-scaffold/`, etc.), prints which ones exist, and recommends 1-3 next commands
+tailored to the state. Read-only — never installs or writes files. Use `--json` for
+machine-readable output.
+
+### What `pilot` does
+
+Safe guided wrapper. Runs only read-only local checks (Python version, `git` on PATH, the
+chosen coding tool's binary on PATH, whether `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` /
+`GITHUB_TOKEN` are set, whether Ollama / LM Studio / llama-server are installed) and then
+prints the exact 10-minute path tailored to your environment. The recipe may include
+`--install` flags, but `pilot` itself never installs anything — you make that call.
+
+Both commands accept `--target` (defaults to `cwd`) and `--json`. Run `coding-scaffold
+doctor --help` or `pilot --help` for the full surface.
+
 ## What Needs A Model?
 
 The scaffold bootstrap does not need one. `coding-scaffold setup run`, `probe`, `credentials`,
