@@ -50,3 +50,33 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert "agent" not in project
     version = json.loads((tmp_path / ".coding-scaffold" / "scaffold-version.json").read_text())
     assert ".coding-scaffold/AGENTS.md" in version["files"]
+
+
+def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch) -> None:
+    from coding_scaffold.providers import detect_providers
+
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "k")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://contoso.openai.azure.com/")
+    monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "internal-gpt")
+
+    write_scaffold(
+        tmp_path,
+        IntakeAnswers(language="python", project_target="CLI", existing_codebase=True, privacy="local-first"),
+        HardwareProfile("linux", False, 8, 32, None, None, True, ["ollama"]),
+        detect_providers(),
+        RoutingPlan(
+            "local-first-router",
+            "qwen2.5-coder:14b-instruct",
+            "qwen2.5-coder:32b-instruct",
+            0.1,
+            "http://127.0.0.1:11434/v1",
+            None,
+            None,
+            ["route locally"],
+            {"selection_mode": "recommend"},
+        ),
+    )
+
+    providers_json = (tmp_path / ".coding-scaffold" / "providers.json").read_text(encoding="utf-8")
+    assert "contoso.openai.azure.com" not in providers_json
+    assert "internal-gpt" not in providers_json
