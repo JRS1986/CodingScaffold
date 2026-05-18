@@ -5,7 +5,7 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.2] — 2026-05-18
 
 ### Added
 
@@ -270,6 +270,7 @@ for the supported entry points.
   supported. Windows native (outside WSL) works for documentation generation but not for tool
   installation — use WSL for the full flow.
 
+[0.4.2]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.2
 [0.4.1]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.1
 [0.4.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.0
 [0.3.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.3.0
