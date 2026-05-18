@@ -55,6 +55,51 @@ Review these changes like code:
 - shared knowledge decisions
 - workflow automation
 
+## Reviewable Agentic Changes
+
+Two artifacts make AI-assisted PRs reviewable in practice. Generate them once per project; commit
+them; ignore them afterwards.
+
+### PR template
+
+```bash
+coding-scaffold pr-template init --target .
+```
+
+Writes `.github/PULL_REQUEST_TEMPLATE/agentic-change.md`. GitHub auto-detects the
+`PULL_REQUEST_TEMPLATE/` directory and offers the template via the "Choose a template" picker
+on every new PR, or by linking
+`https://github.com/<owner>/<repo>/compare/main...feature-branch?template=agentic-change.md`.
+
+The template asks the operator to disclose: agent/tool used, model/provider, files changed,
+commands run, tests run, external tools or MCP servers, data exposure risk, review focus, and
+known limitations. It's the discipline that lets reviewers focus on the change instead of
+re-running the session in their head.
+
+The command is idempotent — re-running it skips the existing file rather than overwriting it.
+
+### Session traces
+
+```bash
+coding-scaffold session init --target . --task "Refactor the foo helper"
+# work happens; fill in the structured sections as you go
+coding-scaffold session summarize .coding-scaffold/sessions/2026-05-18-agentic-change.md
+```
+
+`session init` writes `.coding-scaffold/sessions/YYYY-MM-DD-<slug>.md` (default slug
+`agentic-change`; pass `--slug` for a custom one). Same-day collisions get numeric suffixes
+(`-2`, `-3`, ...) — the file is never overwritten.
+
+The trace template captures task, plan, files inspected, files changed, commands run, test
+results, risks, follow-ups, and reusable knowledge discovered. `session summarize` reads back
+the structured fields (bullet counts, test pass/fail) without parsing free-form prose. This
+keeps the session trace agent-agnostic — any tool can write into the template; the summary
+runs deterministically.
+
+When a session surfaces a reusable skill or a decision worth promoting, link the canonical
+home from the `## Reusable Knowledge Discovered` section. The session file itself stays raw
+and append-only; promotion happens through the knowledge layer.
+
 ## Success Signals
 
 The rollout is working when:

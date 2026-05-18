@@ -114,5 +114,50 @@ coding-scaffold context budget --target . --source team
 coding-scaffold context compress --target . --source knowledge
 ```
 
-Run it before large refactors, onboarding sessions, and workflow demos. It keeps the agent’s memory
+Run it before large refactors, onboarding sessions, and workflow demos. It keeps the agent's memory
 useful without pretending that every old token deserves a seat at the table.
+
+## Lint Agent-Context Files
+
+Agent-context files (`AGENTS.md`, `CLAUDE.md`, `llms.txt`, and the `.coding-scaffold/`
+guidance docs) are the primary way an agent learns the project's rules. Long or vague
+instructions make sessions worse, not better. CodingScaffold ships a deterministic linter
+that flags common problems:
+
+```bash
+coding-scaffold context lint --target .
+coding-scaffold context lint --target . --json    # CI-friendly output
+```
+
+The linter is heuristic and never calls a model. It catches:
+
+- **Vague rules** — phrases like `clean code`, `best practices`, `professional` without
+  naming a verifier on the same line.
+- **Dangerous recommendations** — `chmod 777`, `rm -rf /`, `git push --force` (without
+  `--force-with-lease`), `--no-verify`, piping `curl` to a shell. These get severity
+  `error`.
+- **Duplicate rules across files** — the same instruction in `AGENTS.md` and `CLAUDE.md`
+  is a drift risk; pick one canonical home and link from the other.
+- **Contradictory rules** — `always run tests` paired with `skip tests`, `use yarn` paired
+  with `use npm`, etc.
+- **Missing build/test commands** — if the project looks like Python, Node, Rust, Go,
+  Ruby, PHP, or CMake but none of the context files mention a recognizable test command,
+  agents will guess (badly).
+- **Beginner-hostile guidance** — leading with MCP, multi-agent orchestration, hooks, or
+  RouteLLM before mentioning a single test command.
+- **Tooling conflicts** — instructions say `use yarn` but the repo commits `package-lock.json`,
+  etc.
+- **Excessive length** — over ~2000 tokens per file. Move long sections out to linked docs.
+
+The exit code is `1` when there is at least one `error` finding, so `context lint` can gate
+PRs in CI.
+
+Use the companion command to see what's currently in your context surface:
+
+```bash
+coding-scaffold context explain --target .
+```
+
+This is read-only — it reports rule counts, detected verifiers, mentioned advanced concepts,
+and the project-type signal the linter uses. Useful for spot-checking before adding more
+guidance.
