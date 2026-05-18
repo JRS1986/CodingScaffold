@@ -12,4 +12,5 @@
 - [[Tool Adapters]]
 - [[Advanced Workflows]]
 - [[Team Rollout]]
+- [[Review Backlog]]
 - [[FAQ]]
