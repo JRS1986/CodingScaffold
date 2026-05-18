@@ -65,26 +65,29 @@ def refresh_scaffold(
                 continue
             desired = generated.read_bytes()
             desired_hash = sha256(desired)
-            next_hashes[relative] = desired_hash
             destination = root / relative
             previous_hash = previous.get(relative)
             if not destination.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(desired)
                 updated.append(destination)
+                next_hashes[relative] = desired_hash
                 continue
             current = destination.read_bytes()
             current_hash = sha256(current)
             if current_hash == desired_hash:
                 skipped.append(destination)
+                next_hashes[relative] = desired_hash
                 continue
             if previous_hash and current_hash == previous_hash:
                 destination.write_bytes(desired)
                 updated.append(destination)
+                next_hashes[relative] = desired_hash
                 continue
             staged_path = _new_path(destination)
             staged_path.write_bytes(desired)
             staged.append(staged_path)
+            next_hashes[relative] = previous_hash if previous_hash else desired_hash
     version_path = write_scaffold_hashes(root, next_hashes)
     updated.append(version_path)
     if not previous:

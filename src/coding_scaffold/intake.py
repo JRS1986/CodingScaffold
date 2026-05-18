@@ -4,6 +4,12 @@ import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .context import IGNORED_PARTS
+
+_MAX_WALK_DEPTH = 4
+_MAX_FILES_SCANNED = 5000
+_IGNORED_DIRS = IGNORED_PARTS | {".coding-scaffold"}
+
 
 @dataclass(frozen=True)
 class IntakeAnswers:
@@ -24,7 +30,7 @@ class IntakeAnswers:
 
 
 def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> IntakeAnswers:
-    detected_language = _detect_language(target)
+    detected_language = _detect_language(target) if provided.language is None else None
     return IntakeAnswers(
         language=_value(
             provided.language,
@@ -90,11 +96,20 @@ def _detect_language(target: Path) -> str | None:
 
 
 def _iter_project_files(target: Path):
-    ignored_dirs = {".git", ".hg", ".svn", ".venv", "venv", "node_modules", ".coding-scaffold"}
-    for root, dirnames, filenames in os.walk(target):
-        dirnames[:] = [dirname for dirname in dirnames if dirname not in ignored_dirs]
+    target_path = Path(target)
+    root_depth = len(target_path.parts)
+    scanned = 0
+    for root, dirnames, filenames in os.walk(target_path):
+        root_path = Path(root)
+        depth = len(root_path.parts) - root_depth
+        dirnames[:] = [dirname for dirname in dirnames if dirname not in _IGNORED_DIRS]
+        if depth >= _MAX_WALK_DEPTH:
+            dirnames[:] = []
         for filename in filenames:
-            yield Path(root) / filename
+            if scanned >= _MAX_FILES_SCANNED:
+                return
+            scanned += 1
+            yield root_path / filename
 
 
 _LANGUAGE_BY_SUFFIX = {

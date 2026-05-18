@@ -150,19 +150,27 @@ def _pi_config(routing: RoutingPlan) -> dict[str, object]:
     }
 
 
+def _yaml_scalar(value: str | None) -> str:
+    """Quote ``value`` as a YAML scalar via JSON encoding (JSON is a YAML 1.2 subset)."""
+    if value is None:
+        return "null"
+    return json.dumps(value)
+
+
 def _routellm_yaml(routing: RoutingPlan) -> str:
     strong = routing.strong_model or routing.weak_model or "replace-me-strong-model"
     weak = routing.weak_model or strong
+    endpoint = routing.local_endpoint or "http://127.0.0.1:11434/v1"
     return "\n".join(
         [
             "routers:",
             "  - mf",
-            f"strong_model: {strong}",
-            f"weak_model: {weak}",
+            f"strong_model: {_yaml_scalar(strong)}",
+            f"weak_model: {_yaml_scalar(weak)}",
             f"threshold: {ROUTELLM_MF_DEFAULT_THRESHOLD}",
             "providers:",
             "  local:",
-            f"    base_url: {routing.local_endpoint or 'http://127.0.0.1:11434/v1'}",
+            f"    base_url: {_yaml_scalar(endpoint)}",
             "",
         ]
     )

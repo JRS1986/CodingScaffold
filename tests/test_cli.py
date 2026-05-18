@@ -381,6 +381,14 @@ def test_team_init_and_doctor_commands(tmp_path, capsys) -> None:
     assert "Team: platform-api" in capsys.readouterr().out
 
 
+def test_team_init_rejects_connect_flags(tmp_path) -> None:
+    import pytest
+
+    with pytest.raises(SystemExit) as excinfo:
+        main(["team", "init", "--target", str(tmp_path), "--allow-local"])
+    assert excinfo.value.code != 0
+
+
 def test_team_connect_noninteractive_requires_yes(tmp_path, capsys) -> None:
     manifest = tmp_path / "team-onboarding.json"
     manifest.write_text(json.dumps({"team": "platform-api", "security": {"secrets_allowed": False}}))
