@@ -21,6 +21,47 @@ def test_write_opencode_adapter_creates_native_files(tmp_path) -> None:
     assert (tmp_path / ".opencode" / "agents" / "reviewer.md").exists()
 
 
+def test_write_claude_code_adapter_creates_native_files(tmp_path) -> None:
+    scaffold = tmp_path / ".coding-scaffold"
+    scaffold.mkdir()
+    (scaffold / "routing.json").write_text(
+        json.dumps({"weak_model": "claude-routine", "strong_model": "claude-heavy"})
+    )
+
+    result = write_tool_adapter(tmp_path, "claude-code")
+
+    names = {path.name for path in result.files}
+    assert "CLAUDE.md" in names
+    assert "settings.json" in names
+    assert "first-session.md" in names
+    assert "agentic-change.md" in names
+    assert "reviewer.md" in names
+    assert "claude-heavy" in (tmp_path / ".claude" / "agents" / "reviewer.md").read_text()
+    assert "defaultMode" in (tmp_path / ".claude" / "settings.json").read_text()
+
+
+def test_write_codex_adapter_creates_native_files(tmp_path) -> None:
+    result = write_tool_adapter(tmp_path, "codex")
+
+    names = {path.name for path in result.files}
+    assert "AGENTS.md" in names
+    assert "config.toml" in names
+    assert "README.md" in names
+    assert "first-session.md" in names
+    assert "approval_mode" in (tmp_path / ".codex" / "config.toml").read_text()
+    assert "does not replace Codex" in (tmp_path / "AGENTS.md").read_text()
+
+
+def test_write_new_adapters_preserve_existing_files(tmp_path) -> None:
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# Human Codex Notes\n", encoding="utf-8")
+
+    result = write_tool_adapter(tmp_path, "codex")
+
+    assert agents in result.skipped
+    assert agents.read_text(encoding="utf-8") == "# Human Codex Notes\n"
+
+
 def test_write_hermes_adapter_creates_project_guidance(tmp_path) -> None:
     result = write_tool_adapter(tmp_path, "hermes")
 

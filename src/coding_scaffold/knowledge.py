@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
+
+from .file_ops import collect_text, write_text
+
+STALE_REVIEW_DAYS = 180
 
 
 @dataclass(frozen=True)
@@ -15,9 +21,32 @@ class KnowledgeResult:
 class KnowledgeStatus:
     counts: dict[str, dict[str, int]]
     warnings: list[str]
+    raw_files: int = 0
+    curated_files: int = 0
 
     def to_dict(self) -> dict[str, object]:
-        return {"counts": self.counts, "warnings": self.warnings}
+        return {
+            "counts": self.counts,
+            "warnings": self.warnings,
+            "raw_files": self.raw_files,
+            "curated_files": self.curated_files,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeDistillResult:
+    created: list[Path]
+    updated: list[Path]
+    skipped: list[Path]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "created": [str(path) for path in self.created],
+            "updated": [str(path) for path in self.updated],
+            "skipped": [str(path) for path in self.skipped],
+            "warnings": self.warnings,
+        }
 
 
 def write_knowledge_base(
@@ -38,6 +67,18 @@ def write_knowledge_base(
     _write(files, scaffold / "KNOWLEDGE.md", _knowledge_guide(backend, shared_remote), overwrite=True)
     _collect(files, skipped, knowledge / "README.md", _knowledge_readme(backend, shared_remote))
     _collect(files, skipped, knowledge / "INDEX.md", _knowledge_index())
+    _collect(files, skipped, knowledge / "index.md", _knowledge_index())
+    _collect(files, skipped, knowledge / "raw" / "README.md", _raw_readme())
+    _collect(files, skipped, knowledge / "raw" / "meetings" / "README.md", _raw_folder_readme("meetings"))
+    _collect(files, skipped, knowledge / "raw" / "decisions" / "README.md", _raw_folder_readme("decisions"))
+    _collect(files, skipped, knowledge / "raw" / "code-notes" / "README.md", _raw_folder_readme("code notes"))
+    _collect(files, skipped, knowledge / "raw" / "incidents" / "README.md", _raw_folder_readme("incidents"))
+    _collect(files, skipped, knowledge / "wiki" / "architecture.md", _curated_wiki_page("architecture"))
+    _collect(files, skipped, knowledge / "wiki" / "setup.md", _curated_wiki_page("setup"))
+    _collect(files, skipped, knowledge / "wiki" / "testing.md", _curated_wiki_page("testing"))
+    _collect(files, skipped, knowledge / "wiki" / "deployment.md", _curated_wiki_page("deployment"))
+    _collect(files, skipped, knowledge / "wiki" / "domain-language.md", _curated_wiki_page("domain language"))
+    _collect(files, skipped, knowledge / "wiki" / "decisions.md", _curated_wiki_page("decisions"))
     _collect(files, skipped, knowledge / "decisions" / "README.md", _decisions_readme())
     _collect(files, skipped, knowledge / "decisions" / "0001-decision-template.md", _decision_template())
     _collect(files, skipped, knowledge / "sessions" / "session-template.md", _session_template())
@@ -105,19 +146,62 @@ def inspect_knowledge_status(target: Path) -> KnowledgeStatus:
     knowledge = root / ".coding-scaffold" / "knowledge"
     counts: dict[str, dict[str, int]] = {}
     warnings: list[str] = []
+    raw_files = 0
+    curated_files = 0
     if not knowledge.exists():
         return KnowledgeStatus({}, ["No knowledge base found. Run `coding-scaffold setup-knowledge`."])
     for path in knowledge.rglob("*.md"):
+        if path.name.endswith(".new"):
+            continue
         frontmatter = _frontmatter(path)
         scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
         maturity = frontmatter.get("maturity") or "unspecified"
         counts.setdefault(scope, {})
         counts[scope][maturity] = counts[scope].get(maturity, 0) + 1
+        if _is_raw_note(path, knowledge):
+            raw_files += 1
+            continue
+        if _is_curated_wiki_page(path, knowledge):
+            curated_files += 1
+            warnings.extend(_curated_metadata_warnings(path, knowledge, frontmatter))
         if "scope" not in frontmatter and _is_layered_note(path, knowledge):
             warnings.append(f"{path.relative_to(knowledge)} is missing frontmatter field: scope")
         if "maturity" not in frontmatter and _is_layered_note(path, knowledge):
             warnings.append(f"{path.relative_to(knowledge)} is missing frontmatter field: maturity")
-    return KnowledgeStatus(counts, warnings)
+    return KnowledgeStatus(counts, warnings, raw_files=raw_files, curated_files=curated_files)
+
+
+def distill_knowledge(target: Path, source: str = "raw", review: bool = True) -> KnowledgeDistillResult:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    source_path = _resolve_knowledge_source(root, knowledge, source)
+    wiki = knowledge / "wiki"
+    created: list[Path] = []
+    updated: list[Path] = []
+    skipped: list[Path] = []
+    warnings: list[str] = []
+    if not source_path.exists():
+        return KnowledgeDistillResult([], [], [], [f"Source not found: {source_path}"])
+    raw_notes = [
+        path
+        for path in sorted(source_path.rglob("*.md"))
+        if path.name != "README.md" and not path.name.endswith(".new")
+    ]
+    if not raw_notes:
+        return KnowledgeDistillResult([], [], [], [f"No raw Markdown notes found in {source_path}"])
+    for raw in raw_notes:
+        relative = raw.relative_to(source_path)
+        slug = _slugify(raw.stem)
+        destination = wiki / f"{slug}.md"
+        proposal = destination.with_name(destination.name + ".new") if review else destination
+        content = _distilled_wiki_proposal(raw, relative)
+        existed = proposal.exists()
+        write_text(proposal, content, overwrite=True)
+        if existed:
+            updated.append(proposal)
+        else:
+            created.append(proposal)
+    return KnowledgeDistillResult(created, updated, skipped, warnings)
 
 
 def _frontmatter(path: Path) -> dict[str, str]:
@@ -130,7 +214,11 @@ def _frontmatter(path: Path) -> dict[str, str]:
             break
         key, separator, value = line.partition(":")
         if separator:
-            values[key.strip()] = value.strip().strip('"').strip("'")
+            field = key.strip()
+            cleaned = value.strip().strip('"').strip("'")
+            if field == "source_refs" and not cleaned:
+                cleaned = "[]"
+            values[field] = cleaned
     return values
 
 
@@ -139,27 +227,58 @@ def _scope_from_path(path: Path, knowledge: Path) -> str:
         first = path.relative_to(knowledge).parts[0]
     except (IndexError, ValueError):
         return "unspecified"
-    return first if first in {"team", "department", "unit", "company"} else "unspecified"
+    if first in {"team", "department", "unit", "company"}:
+        return first
+    if first == "wiki":
+        return "team"
+    return "unspecified"
 
 
 def _is_layered_note(path: Path, knowledge: Path) -> bool:
     return _scope_from_path(path, knowledge) != "unspecified" and path.name != "README.md"
 
 
+def _is_raw_note(path: Path, knowledge: Path) -> bool:
+    try:
+        return path.relative_to(knowledge).parts[0] == "raw"
+    except (IndexError, ValueError):
+        return False
+
+
+def _is_curated_wiki_page(path: Path, knowledge: Path) -> bool:
+    try:
+        relative = path.relative_to(knowledge)
+    except ValueError:
+        return False
+    return len(relative.parts) >= 2 and relative.parts[0] == "wiki" and path.name != "README.md"
+
+
+def _curated_metadata_warnings(path: Path, knowledge: Path, frontmatter: dict[str, str]) -> list[str]:
+    warnings: list[str] = []
+    relative = path.relative_to(knowledge)
+    for field in ("scope", "maturity", "owner", "last_reviewed", "source_refs"):
+        if not frontmatter.get(field):
+            warnings.append(f"{relative} is missing frontmatter field: {field}")
+    reviewed = frontmatter.get("last_reviewed")
+    if reviewed:
+        try:
+            reviewed_date = datetime.strptime(reviewed, "%Y-%m-%d").date()
+        except ValueError:
+            warnings.append(f"{relative} has invalid last_reviewed date: {reviewed}")
+        else:
+            if (date.today() - reviewed_date).days > STALE_REVIEW_DAYS:
+                warnings.append(
+                    f"{relative} has not been reviewed in more than {STALE_REVIEW_DAYS} days"
+                )
+    return warnings
+
+
 def _write(files: list[Path], path: Path, payload: str, overwrite: bool) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if overwrite or not path.exists():
-        path.write_text(payload, encoding="utf-8")
-    files.append(path)
+    files.append(write_text(path, payload, overwrite=overwrite))
 
 
 def _collect(files: list[Path], skipped: list[Path], path: Path, payload: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        skipped.append(path)
-        return
-    path.write_text(payload, encoding="utf-8")
-    files.append(path)
+    collect_text(files, skipped, path, payload)
 
 
 def _knowledge_json(backend: str, shared_remote: str | None) -> str:
@@ -299,6 +418,8 @@ def _knowledge_index() -> str:
 
 ## Start Here
 
+- [Curated wiki](wiki/)
+- [Raw inputs](raw/README.md)
 - [Decision records](decisions/README.md)
 - [Session notes](sessions/session-template.md)
 - [Shared skills](skills/README.md)
@@ -311,6 +432,41 @@ def _knowledge_index() -> str:
 ## High-Signal Notes
 
 Add links to the notes that every agent should read before working in this project.
+"""
+
+
+def _raw_readme() -> str:
+    return """# Raw Knowledge Inputs
+
+Drop rough source material here before distilling it into the curated wiki. Raw notes can be messy,
+but they should still avoid secrets and customer-private data.
+
+Use `coding-scaffold knowledge distill --target . --source raw --review` to create reviewable
+`.new` proposals under `wiki/`.
+"""
+
+
+def _raw_folder_readme(label: str) -> str:
+    return f"""# Raw {label.title()}
+
+Store uncurated {label} here. Link or copy only what the team is allowed to review in Git.
+"""
+
+
+def _curated_wiki_page(topic: str) -> str:
+    title = topic.title()
+    today = date.today().isoformat()
+    return f"""---
+scope: team
+maturity: draft
+owner: platform-ai
+last_reviewed: {today}
+source_refs: []
+---
+# {title}
+
+Curated project knowledge for {topic}. Add only reviewed, durable information here. Link raw notes
+through `source_refs` when promoting material from `../raw/`.
 """
 
 
@@ -721,6 +877,63 @@ Read `.coding-scaffold/KNOWLEDGE.md` and `.coding-scaffold/knowledge/INDEX.md`. 
 Markdown note or decision record that preserves durable knowledge from this session. Do not write
 secrets. Prefer links to source files and commands over vague summaries.
 """
+
+
+def _resolve_knowledge_source(root: Path, knowledge: Path, source: str) -> Path:
+    candidate = Path(source)
+    if candidate.is_absolute():
+        return candidate
+    knowledge_relative = knowledge / source
+    if knowledge_relative.exists() or source == "raw":
+        return knowledge_relative
+    return root / source
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "note"
+
+
+def _distilled_wiki_proposal(raw: Path, relative_source: Path) -> str:
+    source_text = raw.read_text(encoding="utf-8").strip()
+    title = _title_from_markdown(source_text) or raw.stem.replace("-", " ").replace("_", " ").title()
+    today = date.today().isoformat()
+    excerpt = _first_content_lines(source_text)
+    return f"""---
+scope: team
+maturity: draft
+owner: platform-ai
+last_reviewed: {today}
+source_refs:
+  - raw/{relative_source.as_posix()}
+---
+# {title}
+
+## Distilled Summary
+
+Review this proposal and replace rough notes with durable team knowledge.
+
+## Source Notes
+
+{excerpt}
+"""
+
+
+def _title_from_markdown(content: str) -> str | None:
+    for line in content.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip() or None
+    return None
+
+
+def _first_content_lines(content: str, limit: int = 12) -> str:
+    lines = [line for line in content.splitlines() if line.strip()]
+    if not lines:
+        return "- No source text found."
+    excerpt = lines[:limit]
+    if len(lines) > limit:
+        excerpt.append("...")
+    return "\n".join(f"> {line}" for line in excerpt)
 
 
 def _opencode_share_agent_pattern() -> str:

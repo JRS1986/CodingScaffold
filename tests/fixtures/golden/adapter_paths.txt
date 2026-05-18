@@ -1,0 +1,17 @@
+.claude/agents/reviewer.md
+.claude/commands/agentic-change.md
+.claude/commands/first-session.md
+.claude/settings.json
+.codex/config.toml
+.codex/skills/README.md
+.codex/skills/first-session.md
+.opencode/agents/explorer.md
+.opencode/agents/implementer.md
+.opencode/agents/reviewer.md
+.opencode/commands/agentic-change.md
+.opencode/commands/first-session.md
+.opencode/commands/recheck-route.md
+.opencode/commands/review.md
+AGENTS.md
+CLAUDE.md
+opencode.json

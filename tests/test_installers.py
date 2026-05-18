@@ -29,6 +29,26 @@ def test_install_missing_tools_supports_hermes(monkeypatch) -> None:
     assert "NousResearch/hermes-agent" in results[0].message
 
 
+def test_install_missing_tools_supports_claude_code(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+
+    results = install_missing_tools("claude-code", interactive=False)
+
+    assert results[0].tool == "claude-code"
+    assert results[0].status == "missing"
+    assert "@anthropic-ai/claude-code" in results[0].message
+
+
+def test_install_missing_tools_supports_codex(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+
+    results = install_missing_tools("codex", interactive=False)
+
+    assert results[0].tool == "codex"
+    assert results[0].status == "missing"
+    assert "@openai/codex" in results[0].message
+
+
 def test_install_missing_tools_supports_pi(monkeypatch) -> None:
     monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
 

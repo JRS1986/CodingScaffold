@@ -9,6 +9,7 @@
 - [[Context Hygiene]]
 - [[Team Onboarding]]
 - [[Policy Packs]]
+- [[Security]]
 - [[Tool Adapters]]
 - [[Advanced Workflows]]
 - [[Team Rollout]]

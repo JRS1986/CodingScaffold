@@ -1,5 +1,11 @@
 # Core Concepts
 
+## Scaffold, Not Agent
+
+CodingScaffold is the bootstrap and governance layer around existing coding agents. It prepares
+project-local guidance, credentials, adapters, model recommendations, policy, and knowledge. It
+does not replace Claude Code, Codex, OpenCode, Cursor, Copilot, Hermes, or Pi.
+
 ## Local-First, Not Local-Only
 
 CodingScaffold prefers local inference for routine work, but it can use cloud providers when the
@@ -40,3 +46,5 @@ changes.
 Team memory should be durable, reviewable, and searchable. CodingScaffold uses Markdown as the
 source of truth and can shape that Markdown for plain Git, Obsidian, or MemPalace indexing.
 
+Raw notes belong under `knowledge/raw/`. Curated, reviewed pages belong under `knowledge/wiki/`
+with ownership, maturity, freshness, and source references.

@@ -17,6 +17,29 @@ This creates:
 - `.coding-scaffold/knowledge.json`
 - `.coding-scaffold/knowledge/`
 
+The generated knowledge base now separates raw inputs from curated wiki pages:
+
+```text
+.coding-scaffold/knowledge/
+  raw/
+    meetings/
+    decisions/
+    code-notes/
+    incidents/
+  wiki/
+    architecture.md
+    setup.md
+    testing.md
+    deployment.md
+    domain-language.md
+    decisions.md
+  skills/
+  agents/
+  index.md
+```
+
+Raw notes are source material. Curated wiki pages are the reviewable source of truth for agents.
+
 ## Shared GitHub Or GitLab Memory
 
 Use a shared remote when multiple people should contribute:
@@ -82,8 +105,19 @@ coding-scaffold context budget --target ~/dev/my-project --source knowledge
 ```
 
 The status command counts notes by scope and maturity, and flags missing frontmatter on layered
-notes. The budget command estimates whether the knowledge base is still a healthy size for an
-agent session. See [[Context Hygiene]] before compressing or loading large shared notes.
+notes. It also distinguishes raw notes from curated wiki pages, flags missing `owner`,
+`last_reviewed`, and `source_refs`, and warns when curated pages have not been reviewed recently.
+The budget command estimates whether the knowledge base is still a healthy size for an agent
+session. See [[Context Hygiene]] before compressing or loading large shared notes.
+
+Create reviewable curated proposals from raw notes:
+
+```bash
+coding-scaffold knowledge distill --target ~/dev/my-project --source raw --review
+```
+
+The first version is deterministic and review-first. It writes `.new` proposal files under
+`knowledge/wiki/` and never silently rewrites curated pages.
 
 ## Obsidian
 

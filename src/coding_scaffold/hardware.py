@@ -45,11 +45,11 @@ def _is_wsl() -> bool:
     if "microsoft" in release or "wsl" in release:
         return True
     version = Path("/proc/version")
-    if version.exists():
-        try:
+    try:
+        if version.exists():
             return "microsoft" in version.read_text(encoding="utf-8", errors="ignore").lower()
-        except OSError:
-            return False
+    except OSError:
+        return False
     return False
 
 
@@ -58,8 +58,10 @@ def _detect_ram_gb() -> float:
         try:
             pages = os.sysconf("SC_PHYS_PAGES")
             page_size = os.sysconf("SC_PAGE_SIZE")
+            if pages <= 0 or page_size <= 0:
+                raise ValueError
             return round((pages * page_size) / (1024**3), 2)
-        except (OSError, ValueError):
+        except (OSError, TypeError, ValueError):
             pass
     if shutil.which("wmic"):
         output = _run(["wmic", "computersystem", "get", "TotalPhysicalMemory", "/value"])

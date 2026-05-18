@@ -22,7 +22,7 @@ git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold
 uv venv
 source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 Classic venv/pip works too:
@@ -41,6 +41,8 @@ On Windows PowerShell outside WSL:
 .venv\Scripts\Activate.ps1
 ```
 
+`uv.lock` is committed. Use `uv sync --extra dev` for reproducible development and CI parity.
+
 ## Prepare A Project
 
 ```bash
@@ -52,6 +54,8 @@ Setup writes `.coding-scaffold/` with project facts, provider hints, routing gui
 first-session documentation. It also asks which coding environment to use:
 
 - `opencode`: default, recommended for the first rollout.
+- `claude-code`: native Claude Code project guidance and settings.
+- `codex`: native Codex project guidance and skills.
 - `openclaude`: experimental option for teams tracking that workflow.
 - `hermes`: broader autonomous agent harness with memory, skills, MCP, and backend choices.
 - `pi`: minimal terminal coding harness with project instructions, sessions, and extensions.
@@ -106,6 +110,20 @@ opencode
 
 Use `coding-scaffold setup tool --tool opencode --install` when you want the CLI to install a
 missing tool without a second prompt, for example in a prepared dev container.
+
+## 10-Minute Pilot
+
+Use one existing repo and one safe issue:
+
+1. Run `coding-scaffold setup run --target <repo>`.
+2. Review generated hardware and provider detection files.
+3. Confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
+4. Run OpenCode `/first-session`.
+5. Ask for one safe improvement and one captured knowledge entry.
+6. Have a second developer run `coding-scaffold team connect --target <repo> --manifest <manifest>`.
+
+Review generated files, credential templates, provider policy, MCP settings, knowledge provenance,
+and test output before committing the result.
 
 ## Optional Add-Ons
 

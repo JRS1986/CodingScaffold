@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .file_ops import collect_json, collect_text, write_json, write_text
 from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
 from .routing_io import load_routing_payload
 
@@ -23,6 +24,10 @@ def write_tool_adapter(target: Path, tool: str) -> AdapterResult:
     for selected in tools:
         if selected == "opencode":
             result = _write_opencode(root, routing)
+        elif selected == "claude-code":
+            result = _write_claude_code(root, routing)
+        elif selected == "codex":
+            result = _write_codex(root, routing)
         elif selected == "openclaude":
             result = _write_openclaude(root, routing)
         elif selected == "hermes":
@@ -44,8 +49,8 @@ def write_route_backend(target: Path, backend: str) -> AdapterResult:
     scaffold.mkdir(parents=True, exist_ok=True)
     routing = load_routing_payload(root)
     files = [
-        _write(scaffold / "ROUTELLM.md", _routellm_md(routing), overwrite=True),
-        _write(scaffold / "routellm.config.yaml", _routellm_yaml(routing), overwrite=True),
+        write_text(scaffold / "ROUTELLM.md", _routellm_md(routing), overwrite=True),
+        write_text(scaffold / "routellm.config.yaml", _routellm_yaml(routing), overwrite=True),
     ]
     return AdapterResult(files, [])
 
@@ -60,9 +65,9 @@ def write_workflow_backend(target: Path, backend: str) -> AdapterResult:
     examples.mkdir(parents=True, exist_ok=True)
     routing = load_routing_payload(root)
     files = [
-        _write(scaffold / "OPEN_MULTI_AGENT.md", _open_multi_agent_md(routing), overwrite=True),
-        _write_json(scaffold / "open-multi-agent.team.json", _open_multi_agent_team(routing)),
-        _write(examples / "team-coding-workflow.ts", _open_multi_agent_example(), overwrite=True),
+        write_text(scaffold / "OPEN_MULTI_AGENT.md", _open_multi_agent_md(routing), overwrite=True),
+        write_json(scaffold / "open-multi-agent.team.json", _open_multi_agent_team(routing)),
+        write_text(examples / "team-coding-workflow.ts", _open_multi_agent_example(), overwrite=True),
     ]
     return AdapterResult(files, [])
 
@@ -76,17 +81,48 @@ def _write_opencode(root: Path, routing: dict[str, object]) -> AdapterResult:
         "default_agent": "plan",
         "share": "disabled",
     }
-    _collect_write(files, skipped, opencode_json, json.dumps(config, indent=2) + "\n")
+    collect_text(files, skipped, opencode_json, json.dumps(config, indent=2) + "\n")
 
     agents = root / ".opencode" / "agents"
     commands = root / ".opencode" / "commands"
-    _collect_write(files, skipped, agents / "reviewer.md", _opencode_reviewer(routing))
-    _collect_write(files, skipped, agents / "explorer.md", _opencode_explorer())
-    _collect_write(files, skipped, agents / "implementer.md", _opencode_implementer(routing))
-    _collect_write(files, skipped, commands / "first-session.md", _opencode_first_session())
-    _collect_write(files, skipped, commands / "agentic-change.md", _opencode_agentic_change())
-    _collect_write(files, skipped, commands / "review.md", _opencode_review_command())
-    _collect_write(files, skipped, commands / "recheck-route.md", _opencode_recheck_route())
+    collect_text(files, skipped, agents / "reviewer.md", _opencode_reviewer(routing))
+    collect_text(files, skipped, agents / "explorer.md", _opencode_explorer())
+    collect_text(files, skipped, agents / "implementer.md", _opencode_implementer(routing))
+    collect_text(files, skipped, commands / "first-session.md", _opencode_first_session())
+    collect_text(files, skipped, commands / "agentic-change.md", _opencode_agentic_change())
+    collect_text(files, skipped, commands / "review.md", _opencode_review_command())
+    collect_text(files, skipped, commands / "recheck-route.md", _opencode_recheck_route())
+    return AdapterResult(files, skipped)
+
+
+def _write_claude_code(root: Path, routing: dict[str, object]) -> AdapterResult:
+    files: list[Path] = []
+    skipped: list[Path] = []
+    collect_text(files, skipped, root / "CLAUDE.md", _claude_md(routing))
+    collect_json(files, skipped, root / ".claude" / "settings.json", _claude_settings())
+    collect_text(
+        files,
+        skipped,
+        root / ".claude" / "commands" / "first-session.md",
+        _claude_first_session(),
+    )
+    collect_text(
+        files,
+        skipped,
+        root / ".claude" / "commands" / "agentic-change.md",
+        _claude_agentic_change(),
+    )
+    collect_text(files, skipped, root / ".claude" / "agents" / "reviewer.md", _claude_reviewer(routing))
+    return AdapterResult(files, skipped)
+
+
+def _write_codex(root: Path, routing: dict[str, object]) -> AdapterResult:
+    files: list[Path] = []
+    skipped: list[Path] = []
+    collect_text(files, skipped, root / "AGENTS.md", _codex_agents_md(routing))
+    collect_text(files, skipped, root / ".codex" / "skills" / "README.md", _codex_skills_readme())
+    collect_text(files, skipped, root / ".codex" / "skills" / "first-session.md", _codex_first_session_skill())
+    collect_text(files, skipped, root / ".codex" / "config.toml", _codex_config_toml())
     return AdapterResult(files, skipped)
 
 
@@ -94,41 +130,21 @@ def _write_openclaude(root: Path, routing: dict[str, object]) -> AdapterResult:
     scaffold = root / ".coding-scaffold"
     scaffold.mkdir(parents=True, exist_ok=True)
     path = scaffold / "OPENCLAUDE.md"
-    return AdapterResult([_write(path, _openclaude_md(routing), overwrite=True)], [])
+    return AdapterResult([write_text(path, _openclaude_md(routing), overwrite=True)], [])
 
 
 def _write_hermes(root: Path, routing: dict[str, object]) -> AdapterResult:
     scaffold = root / ".coding-scaffold"
     scaffold.mkdir(parents=True, exist_ok=True)
     path = scaffold / "HERMES.md"
-    return AdapterResult([_write(path, _hermes_md(routing), overwrite=True)], [])
+    return AdapterResult([write_text(path, _hermes_md(routing), overwrite=True)], [])
 
 
 def _write_pi(root: Path, routing: dict[str, object]) -> AdapterResult:
     scaffold = root / ".coding-scaffold"
     scaffold.mkdir(parents=True, exist_ok=True)
     path = scaffold / "PI.md"
-    return AdapterResult([_write(path, _pi_md(routing), overwrite=True)], [])
-
-
-def _collect_write(files: list[Path], skipped: list[Path], path: Path, content: str) -> None:
-    if path.exists():
-        skipped.append(path)
-        return
-    files.append(_write(path, content, overwrite=False))
-
-
-def _write(path: Path, content: str, overwrite: bool) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if overwrite or not path.exists():
-        path.write_text(content, encoding="utf-8")
-    return path
-
-
-def _write_json(path: Path, payload: object) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
+    return AdapterResult([write_text(path, _pi_md(routing), overwrite=True)], [])
 
 
 def _model(routing: dict[str, object], key: str, fallback: str) -> str:
@@ -215,6 +231,156 @@ Findings first. Do not edit files unless explicitly asked after the review.
 def _opencode_recheck_route() -> str:
     return """The current answer or plan feels off. Re-inspect the relevant files, state assumptions,
 choose whether this should use the routine or heavy-lift model, and propose the smallest next step.
+"""
+
+
+def _claude_md(routing: dict[str, object]) -> str:
+    weak = _model(routing, "weak_model", "choose-a-routine-model")
+    strong = _model(routing, "strong_model", "choose-a-heavy-lift-model")
+    return f"""# Claude Code Project Guide
+
+This project uses CodingScaffold as a local-first onboarding, configuration, and governance layer
+for AI-assisted development. Claude Code should use this file as project memory, not as a runtime
+router.
+
+## Team Contract
+
+- Inspect before editing.
+- Keep changes bounded to the requested task.
+- Prefer reviewed Markdown knowledge in `.coding-scaffold/knowledge/`.
+- Keep credentials in local ignored files or Claude Code's secure auth flow.
+- Ask before broad rewrites, dependency changes, destructive commands, or cloud/provider changes.
+
+## Model Guidance
+
+- Routine/profile model: `{weak}`
+- Heavy-lift/review model: `{strong}`
+
+Use Claude Code's native `/model`, settings, and account configuration for actual model selection.
+CodingScaffold only provides guidance and shared project context here.
+
+## First Session
+
+Run `/first-session` and wait for the repository map, test commands, risk areas, and one safe
+proposed improvement before making edits.
+"""
+
+
+def _claude_settings() -> dict[str, object]:
+    return {
+        "permissions": {
+            "defaultMode": "ask",
+            "deny": [
+                ".coding-scaffold/.env.local",
+                ".coding-scaffold/credentials.local.json",
+                "**/.env",
+                "**/.env.*",
+            ],
+        },
+        "includeCoAuthoredBy": False,
+    }
+
+
+def _claude_first_session() -> str:
+    return """Inspect this repository without editing.
+
+1. Read README, package/config files, test configuration, AGENTS.md or CLAUDE.md, and the main source directories.
+2. Identify the language, package manager, run command, and test command.
+3. Summarize the main code paths and risk areas.
+4. Find the relevant CodingScaffold knowledge index, if present.
+5. Propose one safe improvement that can be implemented and verified quickly.
+
+End with the exact next prompt to run.
+"""
+
+
+def _claude_agentic_change() -> str:
+    return """Run a small, reviewable coding loop.
+
+1. Confirm the smallest safe scope and files.
+2. Make only the requested change.
+3. Run the narrowest meaningful verification.
+4. Review the diff for regressions, missing tests, secrets, and unclear behavior.
+5. Summarize changed files, checks, findings, and follow-up.
+"""
+
+
+def _claude_reviewer(routing: dict[str, object]) -> str:
+    model = _model(routing, "strong_model", "use-current-claude-code-model")
+    return f"""---
+name: reviewer
+description: Reviews code for regressions, missing tests, security issues, and maintainability.
+model: {model}
+tools: Read, Grep, Glob, Bash
+---
+
+You are the review agent for this project. Do not modify files. Lead with findings ordered by
+severity, reference files and lines when possible, and focus on behavior, test coverage, secrets,
+data handling, permissions, and maintainer clarity.
+"""
+
+
+def _codex_agents_md(routing: dict[str, object]) -> str:
+    weak = _model(routing, "weak_model", "choose-a-routine-model")
+    strong = _model(routing, "strong_model", "choose-a-heavy-lift-model")
+    return f"""# Codex Project Guide
+
+CodingScaffold configures shared project guidance for Codex. It does not replace Codex, control
+Codex runtime behavior, or store credentials.
+
+## Operating Rules
+
+- Inspect before editing and keep changes bounded.
+- Use suggest/read-only behavior for unfamiliar areas and reviews.
+- Prefer local-first workflows unless the task explicitly needs cloud quality and credentials are available.
+- Keep secrets in ignored local files or provider auth flows, never in generated scaffold files.
+- Review generated knowledge, adapters, and policy changes like code.
+
+## Model Guidance
+
+- Routine/profile model: `{weak}`
+- Heavy-lift/review model: `{strong}`
+
+Use Codex's native model and approval-mode controls for actual execution. Treat these values as
+team guidance for choosing routine versus heavy-lift work.
+
+## Knowledge
+
+Start with `.coding-scaffold/knowledge/index.md` or `.coding-scaffold/knowledge/INDEX.md` when it
+exists. Curated wiki pages are preferred over raw notes.
+"""
+
+
+def _codex_skills_readme() -> str:
+    return """# Codex Skills
+
+Project-local skills capture repeatable workflows that Codex should follow. Keep them short,
+reviewable, and tied to real project checks.
+
+Suggested starter:
+
+- `first-session.md`: inspect before editing and propose one safe improvement.
+"""
+
+
+def _codex_first_session_skill() -> str:
+    return """# First Session
+
+Use when Codex is starting work in this repository for the first time.
+
+1. Inspect README, package/config files, tests, and main source directories.
+2. Identify run and test commands.
+3. Summarize main code paths and risk areas.
+4. Read the CodingScaffold knowledge index if present.
+5. Propose one safe improvement before editing.
+"""
+
+
+def _codex_config_toml() -> str:
+    return """# Project-local CodingScaffold guidance for Codex.
+# Do not store secrets here. Use Codex, OpenAI, or provider auth flows for credentials.
+
+approval_mode = "suggest"
 """
 
 

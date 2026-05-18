@@ -1,6 +1,7 @@
 # CodingScaffold
 
-Local-first scaffolding for agentic coding teams.
+Local-first onboarding, configuration, and governance scaffolding for AI-assisted software
+development teams.
 
 CodingScaffold prepares an existing project for AI-assisted development without tying the team to
 one model, one provider, or one coding agent. It creates project-local guidance for hardware fit,
@@ -11,6 +12,20 @@ GitHub Copilot is great at helping you type the next lines. Agentic coding can d
 repo, build context, plan a change, edit bounded files, run verification, review the result, and
 turn the best team workflows into reusable skills. This scaffold helps a team make that jump in a
 controlled, reviewable way.
+
+## What This Is
+
+CodingScaffold is the bootstrap and governance layer that makes existing coding agents usable,
+safe, and team-aware in real software teams. It creates reviewable local files for provider
+discovery, credential templates, tool adapters, model-selection guidance, team knowledge, policy,
+and onboarding.
+
+## What This Is Not
+
+CodingScaffold is not a new coding agent, not a replacement for Claude Code, Codex, OpenCode,
+Cursor, Copilot, Hermes, or Pi, not an autonomous development platform yet, not a security boundary
+by itself, and not a universal model router. Runtime routing is optional; the core product is the
+scaffold around existing tools.
 
 ## Bootstrap Contract
 
@@ -33,7 +48,7 @@ git clone https://github.com/JRS1986/CodingScaffold.git
 cd CodingScaffold
 uv venv
 source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 Classic venv/pip works too:
@@ -52,14 +67,17 @@ For WSL/Linux the commands are the same. On Windows PowerShell outside WSL, acti
 .venv\Scripts\Activate.ps1
 ```
 
-Optional RouteLLM dependencies can be installed with `uv pip install -e ".[dev,routellm]"` or
+Optional RouteLLM dependencies can be installed with `uv sync --extra dev --extra routellm` or
 `python -m pip install -e ".[dev,routellm]"`.
+
+The repository commits `uv.lock`; use `uv sync --extra dev` for reproducible local development and
+CI parity.
 
 ## First Run
 
 Run guided setup inside a real project. It asks which coding environment you want to use, with
-OpenCode as the default, OpenClaude, Hermes, and Pi as options, and `manual` when you want to wire
-the tool yourself.
+OpenCode as the default, Claude Code, Codex, OpenClaude, Hermes, and Pi as options, and `manual`
+when you want to wire the tool yourself.
 
 ```bash
 coding-scaffold setup run --target ~/dev/my-project
@@ -148,6 +166,22 @@ connected to a working model. Then run a small agentic loop:
 This is the difference from autocomplete: the tool is not just suggesting code, it is running a
 small engineering workflow that you can inspect, verify, and improve.
 
+## 10-Minute Pilot
+
+Use this as the first demo for colleagues:
+
+1. Run `coding-scaffold setup run --target <repo>` in an existing project.
+2. Review `.coding-scaffold/hardware.json` and `.coding-scaffold/providers.json`.
+3. Generate or confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
+4. Start OpenCode and run `/first-session`.
+5. Ask the agent to identify test commands, propose one safe improvement, and capture one knowledge
+   entry.
+6. Have a second developer run `coding-scaffold team connect --target <repo> --manifest <manifest>`
+   and confirm they receive the same knowledge and policy defaults.
+
+Before committing, review generated files, credential templates, provider policy, MCP settings,
+knowledge provenance, and test output.
+
 ## Everyday Flow
 
 1. Probe the machine and provider setup:
@@ -217,14 +251,15 @@ small engineering workflow that you can inspect, verify, and improve.
 
 ## Core Concepts
 
-**Local-first routing:** The scaffold prefers local models when possible and only uses cloud
+**Local-first model guidance:** The scaffold prefers local models when possible and only uses cloud
 providers when credentials or authenticated CLIs are available. Provider and model family are kept
 separate, so Azure can be the endpoint while the deployed model family is OpenAI, Anthropic, or
 something else.
 
-**Model selection:** `tools select-model` reads a prompt and recommends `routine` or `heavy-lift`. It
-does not call a model; it explains the route, provider, model family, model or deployment,
-confidence, and reasons.
+**Model selection and routing levels:** `tools select-model` reads a prompt and recommends
+`routine` or `heavy-lift`. It does not call a model. CodingScaffold supports three levels:
+recommendation for all tools, static profiles where a tool supports them, and runtime routing only
+through RouteLLM or compatible gateways.
 
 **Skills:** Skills are reusable playbooks for work the team repeats: release reviews, dependency
 upgrades, frontend QA, API contract changes, incident analysis, migration checks, and project
@@ -258,6 +293,16 @@ coding-scaffold setup tool --tool opencode
 coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
 ```
 
+Claude Code and Codex are guidance-first integrations. CodingScaffold generates their native
+project files and team contract, but leaves runtime behavior to those tools:
+
+```bash
+coding-scaffold setup tool --tool claude-code
+coding-scaffold tools adapt --target ~/dev/my-project --tool claude-code
+coding-scaffold setup tool --tool codex
+coding-scaffold tools adapt --target ~/dev/my-project --tool codex
+```
+
 OpenClaude is worth tracking if your team wants a fast-moving, Claude-Code-like community workflow
 across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and provider profiles.
 Treat it as experimental and review provenance, licensing, and security before standardizing on it.
@@ -278,6 +323,17 @@ coding-scaffold setup tool --tool pi
 coding-scaffold tools adapt --target ~/dev/my-project --tool pi
 ```
 
+### Compatibility Matrix
+
+| Tool | Generated by CodingScaffold | Native strengths | Routing stance | Support level |
+| --- | --- | --- | --- | --- |
+| OpenCode | `opencode.json`, `.opencode/agents/`, `.opencode/commands/` | providers, local models, agents, commands, permissions | recommendation, static profiles, optional gateway routing | deep/default |
+| Claude Code | `CLAUDE.md`, `.claude/settings.json`, commands, reviewer agent | project settings, permissions, slash commands, MCP, subagents | guidance and native profile choice | native config |
+| Codex | `AGENTS.md`, `.codex/config.toml`, `.codex/skills/` | layered instructions, approval modes, local CLI workflow | guidance and native model choice | native config |
+| OpenClaude | `.coding-scaffold/OPENCLAUDE.md` | OpenAI-compatible profiles, MCP, slash commands | guidance and manual profile choice | lightweight |
+| Hermes | `.coding-scaffold/HERMES.md` | memory, skills, MCP, messaging, backend choices | guidance and tool-native setup | lightweight |
+| Pi | `.coding-scaffold/PI.md` | project instructions, sessions, slash commands, extensions | guidance and tool-native setup | lightweight |
+
 ## Knowledge Base
 
 The knowledge base is Markdown-first so it works in GitHub, GitLab, local editors, OpenCode,
@@ -287,6 +343,23 @@ Plain Markdown:
 
 ```bash
 coding-scaffold knowledge create --target ~/dev/my-project
+```
+
+New knowledge bases include raw inputs and a curated wiki:
+
+```text
+.coding-scaffold/knowledge/
+  raw/
+  wiki/
+  skills/
+  agents/
+  index.md
+```
+
+Create reviewable curated proposals from raw notes:
+
+```bash
+coding-scaffold knowledge distill --target ~/dev/my-project --source raw --review
 ```
 
 Shared GitHub or GitLab memory:
@@ -431,6 +504,7 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 - `ORCHESTRATION.md` and `orchestration.json`: agent-role guidance.
 - `skills/README.md` and `SKILLS.md`: project skill guidance.
 - `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.
+- `knowledge/raw/`, `knowledge/wiki/`, `knowledge/index.md`: raw inputs and curated wiki pages.
 - `.coding-scaffold/policy/`: optional company/unit/department/team policy packs.
 - `.coding-scaffold/team-onboarding.json` and `team-provenance.json`: optional experienced-team onboarding.
 - `GETTING_STARTED.md` and `FIRST_SESSION.md`: first-use walkthroughs.
@@ -440,6 +514,8 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 Optional commands can also generate:
 
 - `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`.
+- `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/`, and `.claude/agents/`.
+- `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
 - `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
 - `.coding-scaffold/OPEN_MULTI_AGENT.md`, `open-multi-agent.team.json`, and a TypeScript example.
 - Obsidian vault files under `.coding-scaffold/knowledge/.obsidian/`.
@@ -452,6 +528,8 @@ coding-scaffold probe --json
 coding-scaffold setup run --target ~/dev/my-project
 coding-scaffold credentials --target ~/dev/my-project --format env
 coding-scaffold setup tool --tool opencode
+coding-scaffold setup tool --tool claude-code
+coding-scaffold setup tool --tool codex
 coding-scaffold setup addon --target ~/dev/my-project --addon llmfit
 coding-scaffold setup addon --target ~/dev/my-project --addon routellm
 coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
@@ -470,8 +548,11 @@ coding-scaffold team sync --target ~/dev/my-project
 coding-scaffold team doctor --target ~/dev/my-project
 coding-scaffold tools select-model --target ~/dev/my-project --prompt "Review this migration"
 coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
+coding-scaffold tools adapt --target ~/dev/my-project --tool claude-code
+coding-scaffold tools adapt --target ~/dev/my-project --tool codex
 coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
 coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
+coding-scaffold knowledge distill --target ~/dev/my-project --source raw --review
 coding-scaffold tools orchestrate --target ~/dev/my-project --profile pair
 coding-scaffold policy --target ~/dev/my-project --scope company
 coding-scaffold tools route --target ~/dev/my-project --backend routellm
@@ -482,6 +563,8 @@ coding-scaffold doctor
 ## Design Goals
 
 - Cross-platform Linux and WSL behavior.
+- Tested Python 3.11 through 3.13, with WSL detection guarded against missing or restricted
+  `/proc/version`.
 - No secret collection; the scaffold only records whether credentials appear available.
 - Local-first routing with explicit cloud escalation.
 - Open-source toolchain with no vendor lock-in.

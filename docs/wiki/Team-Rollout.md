@@ -6,14 +6,15 @@ This page is a practical plan for introducing CodingScaffold to a team.
 
 Use one real project and one safe issue.
 
-1. Run `coding-scaffold setup run`.
-2. Install OpenCode.
-3. Run `/first-session`.
-4. Pick one small improvement.
-5. Run `/agentic-change`.
-6. Review the result as a team.
-7. Capture the workflow as a skill.
-8. Capture decisions in the knowledge base.
+1. Run `coding-scaffold setup run --target <repo>`.
+2. Review provider and hardware detection.
+3. Generate or confirm `AGENTS.md`, OpenCode config, policy defaults, and starter knowledge.
+4. Run OpenCode `/first-session`.
+5. Pick one small improvement.
+6. Run `/agentic-change`.
+7. Review generated files, credentials, provider policy, MCP settings, knowledge provenance, and tests.
+8. Capture the workflow as a skill and one knowledge entry.
+9. Have a second developer run `team connect` against the shared manifest.
 
 ## Team Defaults
 

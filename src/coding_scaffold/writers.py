@@ -358,7 +358,9 @@ def _tools_md() -> str:
     return """# Coding Tool Adapters
 
 CodingScaffold stays tool-neutral. It writes hints for current tools, but the project should remain
-easy to adapt when new coding agents appear.
+easy to adapt when new coding agents appear. OpenCode is the deepest integration target. Claude
+Code and Codex are native configuration targets. OpenClaude, Hermes, and Pi remain lightweight
+guidance-first connectors.
 
 ## OpenCode
 
@@ -393,6 +395,45 @@ Recommended first prompt inside OpenCode:
 ```text
 /first-session
 ```
+
+## Claude Code
+
+Use when a team wants Claude Code's native project settings, permissions, commands, MCP, and
+subagents while keeping CodingScaffold as the shared team contract.
+
+Install or validate:
+
+```bash
+coding-scaffold setup tool --tool claude-code
+```
+
+Generate Claude Code-native project files:
+
+```bash
+coding-scaffold tools adapt --target . --tool claude-code
+```
+
+This writes `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/`, and `.claude/agents/`.
+Use Claude Code's own runtime settings and `/model` controls for actual model selection.
+
+## Codex
+
+Use when a team wants Codex to read project instructions and project-local skills while keeping
+credentials and runtime behavior in Codex's native controls.
+
+Install or validate:
+
+```bash
+coding-scaffold setup tool --tool codex
+```
+
+Generate Codex-native project files:
+
+```bash
+coding-scaffold tools adapt --target . --tool codex
+```
+
+This writes `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
 
 ## OpenClaude
 
@@ -457,6 +498,17 @@ coding-scaffold tools adapt --target . --tool pi
 
 This writes `.coding-scaffold/PI.md`. Start Pi from the project directory with `pi`, authenticate
 with `/login` or environment variables, and run `/reload` after changing project instructions.
+
+## Compatibility Matrix
+
+| Tool | Generated files | Native surface | CodingScaffold stance |
+| --- | --- | --- | --- |
+| OpenCode | config, agents, commands | providers, local models, permissions, agents | deep/default integration |
+| Claude Code | `CLAUDE.md`, settings, commands, reviewer | settings, permissions, MCP, subagents | native config, no runtime control |
+| Codex | `AGENTS.md`, config, skills | layered instructions, approvals, local CLI | native guidance, no runtime control |
+| OpenClaude | adapter guide | profiles, MCP, slash commands | lightweight guidance |
+| Hermes | adapter guide | memory, skills, MCP, backend choices | lightweight guidance |
+| Pi | adapter guide | instructions, sessions, extensions | lightweight guidance |
 
 ## RouteLLM
 
@@ -698,9 +750,9 @@ plan, edit, verify, review, and preserve the best team habits as reusable skills
 ```bash
 git clone <this-repo> coding-scaffold
 cd coding-scaffold
-python3 -m venv .venv
+uv venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+uv sync --extra dev
 coding-scaffold setup run --target /path/to/your/project
 ```
 
@@ -720,7 +772,7 @@ Heavy-lift model: `{routing.strong_model}`
 ## Daily Use
 
 1. {setup_hint}
-2. Start OpenCode with `opencode`, OpenClaude with `openclaude`, Hermes with `hermes`, Pi with `pi`, or your manually selected tool.
+2. Start OpenCode with `opencode`, Claude Code with `claude`, Codex with `codex`, OpenClaude with `openclaude`, Hermes with `hermes`, Pi with `pi`, or your manually selected tool.
 3. Run `/first-session` to inspect without editing.
 4. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
 5. Read the verification output and review findings yourself.

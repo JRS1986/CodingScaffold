@@ -2,7 +2,9 @@
 
 ## Is CodingScaffold a coding agent?
 
-No. It is a scaffold that prepares a project for coding agents and local-first model routing.
+No. It is a scaffold that prepares a project for coding agents, model guidance, team knowledge,
+policy, and onboarding. It is not a replacement for Claude Code, Codex, OpenCode, Cursor, Copilot,
+Hermes, or Pi.
 
 ## Do I need an LLM for the first start?
 
@@ -69,3 +71,8 @@ uncompressed, and open a fresh session when history has become stale.
 
 No. Start with setup, OpenCode, skills, and knowledge. Add RouteLLM or Open Multi-Agent only
 after the team has a proven need.
+
+## Is CodingScaffold a security boundary?
+
+No. Policy packs and adapter settings are guardrails. Use company identity policy, provider
+controls, network rules, secret scanning, CI, and code review for enforcement.

@@ -5,7 +5,8 @@ Start simple. Add advanced workflows only after the team has validated the basic
 ## RouteLLM
 
 RouteLLM can expose one OpenAI-compatible endpoint that routes actual requests between weak/routine
-and strong/heavy-lift models.
+and strong/heavy-lift models. It is optional and advanced; most tools should start with
+recommendation or static profile guidance.
 
 ```bash
 coding-scaffold setup addon --target ~/dev/my-project --addon routellm

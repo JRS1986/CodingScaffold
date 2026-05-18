@@ -2,6 +2,7 @@
 
 Policy packs capture company, unit, department, or team defaults for AI-enabled coding. They are
 reviewable local configuration, not a replacement for identity policy, network controls, or CI.
+See [[Security]] before using policy packs in company repositories.
 
 ## Generate A Policy
 

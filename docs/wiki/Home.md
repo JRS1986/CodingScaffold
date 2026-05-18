@@ -1,17 +1,17 @@
 # CodingScaffold Wiki
 
-CodingScaffold helps teams move from “AI autocomplete” to reviewable agentic coding workflows. The
-README is the quick front door; this wiki explains the project in more depth and gives teams a
-shared rollout playbook.
+CodingScaffold is a local-first onboarding, configuration, and governance scaffold for
+AI-assisted software development teams. The README is the quick front door; this wiki explains the
+project in more depth and gives teams a shared rollout playbook.
 
 ## What CodingScaffold Does
 
 CodingScaffold creates project-local guidance and lightweight configuration for:
 
-- local-first model routing
+- local-first model guidance
 - provider and credential discovery
 - prompt-based model selection
-- OpenCode, OpenClaude, Hermes, and Pi adapters
+- OpenCode, Claude Code, Codex, OpenClaude, Hermes, and Pi adapters
 - reusable team skills
 - agent orchestration profiles
 - shared Markdown, Obsidian, or MemPalace-ready knowledge bases
@@ -22,6 +22,9 @@ CodingScaffold creates project-local guidance and lightweight configuration for:
 
 It does not collect secrets, does not require one model vendor, and does not force a hosted service
 into the workflow.
+
+It is not a coding agent, a replacement for existing coding tools, an autonomous development
+platform, a security boundary, or a universal model router.
 
 ## First-Start Rule
 

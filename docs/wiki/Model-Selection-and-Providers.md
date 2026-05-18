@@ -1,6 +1,7 @@
 # Model Selection and Providers
 
-CodingScaffold separates model recommendation from request routing.
+CodingScaffold separates model recommendation from request routing. Routing is one optional
+backend capability, not the product thesis.
 
 ## Bootstrap Boundary
 
@@ -9,6 +10,15 @@ metadata, hardware facts, credential presence, and the prompt text. It then reco
 does not proxy the prompt or call a provider.
 
 Actual request routing happens later in the coding tool or an optional backend such as RouteLLM.
+
+## Routing Levels
+
+- Recommendation: human-readable model choice for all tools.
+- Static profiles: different agents or commands use different models where the tool supports it.
+- Runtime routing: one endpoint routes per prompt through RouteLLM or a compatible gateway.
+
+Where runtime routing is not supported, CodingScaffold still provides model-selection guidance and
+tool-native profiles.
 
 ## Recommendation
 

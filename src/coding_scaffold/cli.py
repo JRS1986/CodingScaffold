@@ -18,7 +18,7 @@ from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
 from .intake import IntakeAnswers, collect_intake
-from .knowledge import inspect_knowledge_status, write_knowledge_base
+from .knowledge import distill_knowledge, inspect_knowledge_status, write_knowledge_base
 from .model_selection import select_model_for_prompt
 from .policy import write_policy_pack
 from .providers import detect_providers
@@ -29,8 +29,8 @@ from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
-CODING_TOOLS = ["opencode", "openclaude", "hermes", "pi", "both", "manual"]
-INSTALLABLE_TOOLS = ["opencode", "openclaude", "hermes", "pi", "both"]
+CODING_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both", "manual"]
+INSTALLABLE_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
 KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "mempalace"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
@@ -149,6 +149,19 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
     knowledge_status_canonical.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     knowledge_status_canonical.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    knowledge_distill = knowledge_sub.add_parser("distill", help="Propose curated wiki updates from raw notes.")
+    knowledge_distill.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_distill.add_argument(
+        "--source",
+        default="raw",
+        help="Raw knowledge source relative to .coding-scaffold/knowledge, or a project-relative path.",
+    )
+    knowledge_distill.add_argument(
+        "--review",
+        action="store_true",
+        help="Write .new proposal files instead of modifying curated wiki pages.",
+    )
+    knowledge_distill.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     knowledge_status = sub.add_parser("knowledge-status", help=argparse.SUPPRESS)
     knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -461,6 +474,8 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
         action = getattr(args, "knowledge_action", None)
         if action == "status":
             args.command = "knowledge-status"
+        elif action == "distill":
+            args.command = "knowledge-distill"
         return
     if args.command == "context":
         args.command = {
@@ -528,6 +543,18 @@ def main(argv: list[str] | None = None) -> int:
             for warning in status.warnings:
                 print(f"Warning: {warning}", file=sys.stderr)
         return 1 if status.warnings and not status.counts else 0
+
+    if args.command == "knowledge-distill":
+        result = distill_knowledge(args.target, args.source, review=args.review)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        else:
+            print(f"Created {len(result.created)} knowledge proposal file(s).")
+            print(f"Updated {len(result.updated)} knowledge proposal file(s).")
+            print(f"Skipped {len(result.skipped)} raw note(s).")
+            for warning in result.warnings:
+                print(f"Warning: {warning}", file=sys.stderr)
+        return 1 if result.warnings and not (result.created or result.updated) else 0
 
     if args.command == "context-budget":
         budget = inspect_context_budget(

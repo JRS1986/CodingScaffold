@@ -67,6 +67,24 @@ def install_missing_addons(
 
 
 def _plan_for(tool: str) -> ToolInstallPlan:
+    if tool == "claude-code":
+        return ToolInstallPlan(
+            tool="claude-code",
+            executable="claude",
+            detected=shutil.which("claude") is not None,
+            install_command=["npm", "install", "-g", "@anthropic-ai/claude-code"],
+            install_description="Install Claude Code globally with npm.",
+            post_install="Claude Code installed. Start it in a project with: claude",
+        )
+    if tool == "codex":
+        return ToolInstallPlan(
+            tool="codex",
+            executable="codex",
+            detected=shutil.which("codex") is not None,
+            install_command=["npm", "install", "-g", "@openai/codex"],
+            install_description="Install OpenAI Codex CLI globally with npm.",
+            post_install="Codex installed. Start it in a project with: codex",
+        )
     if tool == "hermes":
         return ToolInstallPlan(
             tool="hermes",

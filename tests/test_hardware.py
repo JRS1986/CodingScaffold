@@ -30,6 +30,16 @@ def test_detect_ram_gb_falls_back_to_wmic(monkeypatch) -> None:
     assert hardware._detect_ram_gb() == 16.0
 
 
+def test_detect_ram_gb_handles_invalid_sysconf_values(monkeypatch) -> None:
+    def invalid_sysconf(name: str) -> int:
+        return -1
+
+    monkeypatch.setattr(hardware.os, "sysconf", invalid_sysconf, raising=False)
+    monkeypatch.setattr(hardware.shutil, "which", lambda name: None)
+
+    assert hardware._detect_ram_gb() == 0.0
+
+
 def test_detect_apple_gpu_uses_neutral_intel_fallback(monkeypatch) -> None:
     monkeypatch.setattr(hardware.platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(hardware, "_run", lambda command: "")
