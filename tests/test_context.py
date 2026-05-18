@@ -112,6 +112,64 @@ def test_context_budget_does_not_double_count_sidecars(tmp_path) -> None:
     assert after_both.tokens_estimate > before.tokens_estimate
 
 
+def test_context_budget_warns_on_non_utf8_file(tmp_path) -> None:
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    knowledge.mkdir(parents=True)
+    (knowledge / "good.md").write_text("# Good\nUTF-8 fine.\n", encoding="utf-8")
+    (knowledge / "bad.md").write_bytes(b"caf\xe9 fragment")
+
+    budget = inspect_context_budget(tmp_path)
+
+    paths = {file.path for file in budget.files}
+    assert ".coding-scaffold/knowledge/good.md" in paths
+    assert ".coding-scaffold/knowledge/bad.md" not in paths
+    assert any("bad.md" in warning and "decode" in warning for warning in budget.warnings)
+
+
+def test_compress_context_warns_on_non_utf8_file(tmp_path) -> None:
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    knowledge.mkdir(parents=True)
+    (knowledge / "good.md").write_text(
+        "# Good\n\nPlease note that in order to keep this useful, the team keeps 42 facts.\n",
+        encoding="utf-8",
+    )
+    (knowledge / "bad.md").write_bytes(b"caf\xe9 fragment")
+
+    result = compress_context(tmp_path)
+
+    assert (knowledge / "good.caveman.md") in result.files
+    assert not (knowledge / "bad.caveman.md").exists()
+    assert any("bad.md" in warning and "decode" in warning for warning in result.warnings)
+
+
+def test_context_budget_accepts_utf8_bom_without_warning(tmp_path) -> None:
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    knowledge.mkdir(parents=True)
+    (knowledge / "bom.md").write_bytes(b"\xef\xbb\xbf# BOM\nContent.\n")
+
+    budget = inspect_context_budget(tmp_path)
+
+    assert budget.file_count == 1
+    assert not any("bom.md" in warning for warning in budget.warnings)
+
+
+def test_compress_context_strips_multiline_html_comments(tmp_path) -> None:
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    knowledge.mkdir(parents=True)
+    (knowledge / "note.md").write_text(
+        "Before\n<!-- multi\nline\ncomment -->\nAfter\n",
+        encoding="utf-8",
+    )
+
+    result = compress_context(tmp_path)
+
+    compressed = result.files[0].read_text(encoding="utf-8")
+    assert "<!--" not in compressed
+    assert "-->" not in compressed
+    assert "Before" in compressed
+    assert "After" in compressed
+
+
 def test_compress_context_can_use_cloned_caveman_engine(tmp_path) -> None:
     knowledge = tmp_path / ".coding-scaffold" / "knowledge"
     tool = tmp_path / ".coding-scaffold" / "tools" / "caveman-compression"
