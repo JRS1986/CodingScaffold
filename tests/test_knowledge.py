@@ -25,7 +25,7 @@ def test_write_markdown_knowledge_base_creates_linked_files(tmp_path) -> None:
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "company" / "README.md").exists()
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "raw" / "meetings" / "README.md").exists()
     assert (tmp_path / ".coding-scaffold" / "knowledge" / "wiki" / "architecture.md").exists()
-    assert (tmp_path / ".coding-scaffold" / "knowledge" / "index.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").exists()
 
 
 def test_write_mempalace_knowledge_base_adds_optional_index_guide(tmp_path) -> None:
