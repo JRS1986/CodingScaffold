@@ -46,12 +46,17 @@ def test_setup_run_command(tmp_path, capsys) -> None:
 def test_grouped_context_commands(tmp_path, capsys) -> None:
     main(["knowledge", "create", "--target", str(tmp_path)])
     capsys.readouterr()
+    verbose = tmp_path / ".coding-scaffold" / "knowledge" / "verbose.md"
+    verbose.write_text(
+        "In order to deploy, it is important to please note that we basically simply run the script.\n",
+        encoding="utf-8",
+    )
 
     assert main(["context", "budget", "--target", str(tmp_path), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["source"] == "knowledge"
     assert main(["context", "compress", "--target", str(tmp_path)]) == 0
-    assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.caveman.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "verbose.caveman.md").exists()
 
 
 def test_grouped_tools_commands(tmp_path) -> None:
@@ -249,11 +254,16 @@ def test_context_budget_command(tmp_path, capsys) -> None:
 def test_compress_context_command(tmp_path, capsys) -> None:
     main(["knowledge", "--target", str(tmp_path)])
     capsys.readouterr()
+    verbose = tmp_path / ".coding-scaffold" / "knowledge" / "verbose.md"
+    verbose.write_text(
+        "In order to deploy, it is important to please note that we basically simply run the script.\n",
+        encoding="utf-8",
+    )
 
     assert main(["compress-context", "--target", str(tmp_path)]) == 0
 
     assert "compressed context sidecar" in capsys.readouterr().out
-    assert (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.caveman.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "verbose.caveman.md").exists()
 
 
 def test_setup_knowledge_command(tmp_path) -> None:

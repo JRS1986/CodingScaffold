@@ -267,7 +267,6 @@ def _compress_sentence(line: str) -> str:
     if match:
         prefix, body = match.groups()
     body = re.sub(r"\b(in order to|it is important to|please note that)\b", "", body, flags=re.I)
-    body = re.sub(r"\b(the|a|an)\b", "", body, flags=re.I)
     body = re.sub(rf"\b({'|'.join(sorted(FILLER_WORDS))})\b", "", body, flags=re.I)
     body = re.sub(r"\s+", " ", body).strip()
     return f"{prefix}{body}" if body else ""
