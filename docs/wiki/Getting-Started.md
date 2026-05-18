@@ -53,6 +53,8 @@ first-session documentation. It also asks which coding environment to use:
 
 - `opencode`: default, recommended for the first rollout.
 - `openclaude`: experimental option for teams tracking that workflow.
+- `hermes`: broader autonomous agent harness with memory, skills, MCP, and backend choices.
+- `pi`: minimal terminal coding harness with project instructions, sessions, and extensions.
 - `both`: generate both sets of guidance.
 - `manual`: skip tool adapter generation and wire your own environment.
 

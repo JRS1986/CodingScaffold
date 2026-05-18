@@ -56,10 +56,14 @@ def test_grouped_context_commands(tmp_path, capsys) -> None:
 
 def test_grouped_tools_commands(tmp_path) -> None:
     assert main(["tools", "adapt", "--target", str(tmp_path), "--tool", "opencode"]) == 0
+    assert main(["tools", "adapt", "--target", str(tmp_path), "--tool", "hermes"]) == 0
+    assert main(["tools", "adapt", "--target", str(tmp_path), "--tool", "pi"]) == 0
     assert main(["tools", "route", "--target", str(tmp_path), "--backend", "routellm"]) == 0
     assert main(["tools", "workflow", "--target", str(tmp_path), "--backend", "open-multi-agent"]) == 0
 
     assert (tmp_path / "opencode.json").exists()
+    assert (tmp_path / ".coding-scaffold" / "HERMES.md").exists()
+    assert (tmp_path / ".coding-scaffold" / "PI.md").exists()
     assert (tmp_path / ".coding-scaffold" / "ROUTELLM.md").exists()
     assert (tmp_path / ".coding-scaffold" / "OPEN_MULTI_AGENT.md").exists()
 
@@ -372,6 +376,42 @@ def test_init_accepts_canonical_tool_flag(tmp_path) -> None:
         )
         == 0
     )
+
+
+def test_init_accepts_new_harnesses(tmp_path) -> None:
+    assert (
+        main(
+            [
+                "init",
+                "--target",
+                str(tmp_path / "hermes-project"),
+                "--language",
+                "python",
+                "--tool",
+                "hermes",
+                "--non-interactive",
+            ]
+        )
+        == 0
+    )
+    assert (tmp_path / "hermes-project" / ".coding-scaffold" / "HERMES.md").exists()
+
+    assert (
+        main(
+            [
+                "init",
+                "--target",
+                str(tmp_path / "pi-project"),
+                "--language",
+                "python",
+                "--tool",
+                "pi",
+                "--non-interactive",
+            ]
+        )
+        == 0
+    )
+    assert (tmp_path / "pi-project" / ".coding-scaffold" / "PI.md").exists()
 
 
 def test_init_accepts_legacy_agent_alias(tmp_path) -> None:

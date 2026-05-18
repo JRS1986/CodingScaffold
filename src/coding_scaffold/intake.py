@@ -41,7 +41,7 @@ def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> 
         privacy=_value(provided.privacy, "Privacy mode", "local-first", interactive),
         tool=_value(
             provided.tool,
-            "Coding environment / IDE (opencode/openclaude/both/manual)",
+            "Coding environment / IDE (opencode/openclaude/hermes/pi/both/manual)",
             "opencode",
             interactive,
         ),

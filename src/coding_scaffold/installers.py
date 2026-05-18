@@ -67,6 +67,28 @@ def install_missing_addons(
 
 
 def _plan_for(tool: str) -> ToolInstallPlan:
+    if tool == "hermes":
+        return ToolInstallPlan(
+            tool="hermes",
+            executable="hermes",
+            detected=shutil.which("hermes") is not None,
+            install_command=[
+                "bash",
+                "-lc",
+                "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash",
+            ],
+            install_description="Install Hermes Agent with the official installer.",
+            post_install="Hermes installed. Configure it with `hermes setup`, then start it with: hermes",
+        )
+    if tool == "pi":
+        return ToolInstallPlan(
+            tool="pi",
+            executable="pi",
+            detected=shutil.which("pi") is not None,
+            install_command=["npm", "install", "-g", "@earendil-works/pi-coding-agent"],
+            install_description="Install Pi Coding Agent globally with npm.",
+            post_install="Pi installed. Start it in a project with: pi",
+        )
     if tool == "openclaude":
         return ToolInstallPlan(
             tool="openclaude",

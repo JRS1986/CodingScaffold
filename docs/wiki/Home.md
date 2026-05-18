@@ -11,7 +11,7 @@ CodingScaffold creates project-local guidance and lightweight configuration for:
 - local-first model routing
 - provider and credential discovery
 - prompt-based model selection
-- OpenCode and OpenClaude adapters
+- OpenCode, OpenClaude, Hermes, and Pi adapters
 - reusable team skills
 - agent orchestration profiles
 - shared Markdown, Obsidian, or MemPalace-ready knowledge bases

@@ -51,6 +51,34 @@ Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
 Use `coding-scaffold setup tool --tool both` when a team wants to compare both tools on the same
 project.
 
+## Hermes
+
+Hermes support is lightweight project guidance for teams that want a broader autonomous agent
+harness around coding work:
+
+```bash
+coding-scaffold setup tool --tool hermes
+coding-scaffold tools adapt --target ~/dev/my-project --tool hermes
+```
+
+Generated guidance lives in `.coding-scaffold/HERMES.md`.
+
+Configure Hermes with `hermes setup`, `hermes model`, `hermes tools`, and `hermes env` before
+letting it edit a project.
+
+## Pi
+
+Pi support is lightweight project guidance for teams that want a minimal terminal coding harness:
+
+```bash
+coding-scaffold setup tool --tool pi
+coding-scaffold tools adapt --target ~/dev/my-project --tool pi
+```
+
+Generated guidance lives in `.coding-scaffold/PI.md`.
+
+Pi loads `AGENTS.md` project instructions; restart Pi or run `/reload` after changing guidance.
+
 ## Optional Tooling
 
 Tool adapters are the coding surface. Add-ons support model sizing, routing, team automation, and

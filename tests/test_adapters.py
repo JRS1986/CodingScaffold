@@ -21,6 +21,22 @@ def test_write_opencode_adapter_creates_native_files(tmp_path) -> None:
     assert (tmp_path / ".opencode" / "agents" / "reviewer.md").exists()
 
 
+def test_write_hermes_adapter_creates_project_guidance(tmp_path) -> None:
+    result = write_tool_adapter(tmp_path, "hermes")
+
+    names = {path.name for path in result.files}
+    assert "HERMES.md" in names
+    assert "hermes setup" in (tmp_path / ".coding-scaffold" / "HERMES.md").read_text()
+
+
+def test_write_pi_adapter_creates_project_guidance(tmp_path) -> None:
+    result = write_tool_adapter(tmp_path, "pi")
+
+    names = {path.name for path in result.files}
+    assert "PI.md" in names
+    assert "@earendil-works/pi-coding-agent" in (tmp_path / ".coding-scaffold" / "PI.md").read_text()
+
+
 def test_write_routellm_backend_creates_docs_and_config(tmp_path) -> None:
     result = write_route_backend(tmp_path, "routellm")
 

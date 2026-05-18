@@ -19,6 +19,26 @@ def test_install_missing_tools_reports_missing_without_prompt(monkeypatch) -> No
     assert "npm install -g @gitlawb/openclaude" in results[0].message
 
 
+def test_install_missing_tools_supports_hermes(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+
+    results = install_missing_tools("hermes", interactive=False)
+
+    assert results[0].tool == "hermes"
+    assert results[0].status == "missing"
+    assert "NousResearch/hermes-agent" in results[0].message
+
+
+def test_install_missing_tools_supports_pi(monkeypatch) -> None:
+    monkeypatch.setattr("coding_scaffold.installers.shutil.which", lambda name: None)
+
+    results = install_missing_tools("pi", interactive=False)
+
+    assert results[0].tool == "pi"
+    assert results[0].status == "missing"
+    assert "@earendil-works/pi-coding-agent" in results[0].message
+
+
 def test_install_missing_tools_runs_installer_when_confirmed(monkeypatch) -> None:
     calls: list[list[str]] = []
 

@@ -58,8 +58,8 @@ Optional RouteLLM dependencies can be installed with `uv pip install -e ".[dev,r
 ## First Run
 
 Run guided setup inside a real project. It asks which coding environment you want to use, with
-OpenCode as the default, OpenClaude as an option, and `manual` when you want to wire the tool
-yourself.
+OpenCode as the default, OpenClaude, Hermes, and Pi as options, and `manual` when you want to wire
+the tool yourself.
 
 ```bash
 coding-scaffold setup run --target ~/dev/my-project
@@ -67,9 +67,9 @@ cd ~/dev/my-project
 ```
 
 Setup can run before any model is configured. It validates the selected coding tool and, when
-stdin is interactive, asks before installing a missing tool. OpenCode uses the official install
-script; OpenClaude uses the npm package. It can also configure the knowledge backend and optional
-shared Git remote during setup. Nothing is installed silently.
+stdin is interactive, asks before installing a missing tool. OpenCode and Hermes use their official
+install scripts; OpenClaude and Pi use npm packages. It can also configure the knowledge backend
+and optional shared Git remote during setup. Nothing is installed silently.
 
 If you already have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a
 local runtime installed, the scaffold will detect that. To keep credentials project-local, create an
@@ -84,6 +84,8 @@ You can also validate or install the coding tool directly:
 ```bash
 coding-scaffold setup tool --tool opencode
 coding-scaffold setup tool --tool opencode --install
+coding-scaffold setup tool --tool hermes
+coding-scaffold setup tool --tool pi
 ```
 
 Optional add-ons use the same pattern:
@@ -265,6 +267,17 @@ coding-scaffold setup tool --tool openclaude
 coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
 ```
 
+Hermes is useful when your coding workflow also wants persistent memory, skills, MCP, messaging,
+scheduled tasks, and configurable execution backends. Pi is useful when you want a small terminal
+coding harness with project instructions, slash commands, resumable sessions, and extension points.
+
+```bash
+coding-scaffold setup tool --tool hermes
+coding-scaffold tools adapt --target ~/dev/my-project --tool hermes
+coding-scaffold setup tool --tool pi
+coding-scaffold tools adapt --target ~/dev/my-project --tool pi
+```
+
 ## Knowledge Base
 
 The knowledge base is Markdown-first so it works in GitHub, GitLab, local editors, OpenCode,
@@ -414,7 +427,7 @@ as a substitute for better retrieval, smaller task boundaries, or fresh sessions
 - `hardware.json`: CPU, RAM, OS, WSL status, GPU/VRAM, and llmfit availability.
 - `routing.json`: selected local-first routing policy.
 - `model-selection.json` and `MODEL_SELECTION.md`: routine/heavy-lift model guidance.
-- `TOOLS.md`: OpenCode/OpenClaude adapter guidance.
+- `TOOLS.md`: OpenCode, OpenClaude, Hermes, and Pi adapter guidance.
 - `ORCHESTRATION.md` and `orchestration.json`: agent-role guidance.
 - `skills/README.md` and `SKILLS.md`: project skill guidance.
 - `KNOWLEDGE.md`, `knowledge.json`, and `knowledge/`: optional team memory.

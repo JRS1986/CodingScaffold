@@ -29,8 +29,8 @@ from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
-CODING_TOOLS = ["opencode", "openclaude", "both", "manual"]
-INSTALLABLE_TOOLS = ["opencode", "openclaude", "both"]
+CODING_TOOLS = ["opencode", "openclaude", "hermes", "pi", "both", "manual"]
+INSTALLABLE_TOOLS = ["opencode", "openclaude", "hermes", "pi", "both"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
 KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "mempalace"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
@@ -67,11 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"])
-    init.add_argument("--agent", choices=["opencode", "openclaude", "both", "manual"], dest="tool", help=argparse.SUPPRESS)
+    init.add_argument("--tool", choices=CODING_TOOLS)
+    init.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
     init.add_argument(
         "--coding-tool",
-        choices=["opencode", "openclaude", "both", "manual"],
+        choices=CODING_TOOLS,
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -98,10 +98,10 @@ def build_parser() -> argparse.ArgumentParser:
     wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument("--tool", choices=["opencode", "openclaude", "both", "manual"])
+    wizard.add_argument("--tool", choices=CODING_TOOLS)
     wizard.add_argument(
         "--coding-tool",
-        choices=["opencode", "openclaude", "both", "manual"],
+        choices=CODING_TOOLS,
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -200,7 +200,7 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     setup_tool = sub.add_parser("setup-tool", help=argparse.SUPPRESS)
-    setup_tool.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+    setup_tool.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
     setup_tool.add_argument(
         "--install",
         action="store_true",
@@ -247,7 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     team.add_argument(
         "--tool",
-        choices=["opencode", "openclaude", "both", "manual"],
+        choices=CODING_TOOLS,
         default="opencode",
         help="Default coding tool for `team init`.",
     )
@@ -296,7 +296,7 @@ def build_parser() -> argparse.ArgumentParser:
     tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
     tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
     tools_adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    tools_adapt.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+    tools_adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
     tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
     tools_route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
@@ -315,7 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
     adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    adapt.add_argument("--tool", choices=["opencode", "openclaude", "both"], default="opencode")
+    adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
 
     route = sub.add_parser("route", help=argparse.SUPPRESS)
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")

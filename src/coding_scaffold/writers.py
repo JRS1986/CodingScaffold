@@ -38,6 +38,8 @@ def write_scaffold(
         _write_json(scaffold_dir / "model-selection.json", _model_selection_json(routing)),
         _write_json(scaffold_dir / "opencode.json", _opencode_config(routing)),
         _write_json(scaffold_dir / "openclaude.json", _openclaude_config(routing)),
+        _write_json(scaffold_dir / "hermes.json", _hermes_config(routing)),
+        _write_json(scaffold_dir / "pi.json", _pi_config(routing)),
         _write_text(scaffold_dir / "routellm.config.yaml", _routellm_yaml(routing)),
         _write_text(scaffold_dir / ".gitignore", _scaffold_gitignore()),
         _write_text(scaffold_dir / ".env.example", _env_example()),
@@ -105,6 +107,46 @@ def _openclaude_config(routing: RoutingPlan) -> dict[str, object]:
             },
         ],
         "default_profile": "local",
+    }
+
+
+def _hermes_config(routing: RoutingPlan) -> dict[str, object]:
+    return {
+        "profiles": {
+            "routine": {
+                "endpoint": routing.local_endpoint,
+                "model": routing.weak_model,
+            },
+            "heavy_lift": {
+                "provider": routing.cloud_provider or "local",
+                "model": routing.strong_model,
+            },
+        },
+        "nativeAdapter": {
+            "command": "coding-scaffold tools adapt --target . --tool hermes",
+            "writes": [".coding-scaffold/HERMES.md"],
+        },
+        "setup": ["hermes setup", "hermes model", "hermes tools", "hermes env"],
+    }
+
+
+def _pi_config(routing: RoutingPlan) -> dict[str, object]:
+    return {
+        "profiles": {
+            "routine": {
+                "endpoint": routing.local_endpoint,
+                "model": routing.weak_model,
+            },
+            "heavy_lift": {
+                "provider": routing.cloud_provider or "local",
+                "model": routing.strong_model,
+            },
+        },
+        "nativeAdapter": {
+            "command": "coding-scaffold tools adapt --target . --tool pi",
+            "writes": [".coding-scaffold/PI.md"],
+        },
+        "project_instructions": ["AGENTS.md", ".coding-scaffold/AGENTS.md"],
     }
 
 
@@ -373,6 +415,49 @@ openclaude
 
 Inside OpenClaude, run `/provider` and use `.coding-scaffold/openclaude.json` as the project hint.
 
+## Hermes
+
+Useful when you want a broader autonomous agent harness around coding work: persistent memory,
+skills, MCP, messaging integrations, scheduled automations, and selectable execution backends.
+Treat it as a powerful workflow runner: configure its model, tools, environment, and backend before
+letting it edit a project.
+
+Install or validate:
+
+```bash
+coding-scaffold setup tool --tool hermes
+```
+
+Generate Hermes project guidance:
+
+```bash
+coding-scaffold tools adapt --target . --tool hermes
+```
+
+This writes `.coding-scaffold/HERMES.md`. Start with `hermes setup`, then run `hermes` from the
+project directory.
+
+## Pi
+
+Useful when you want a minimal terminal coding harness with small core behavior, project
+instructions from `AGENTS.md`, slash commands, resumable sessions, prompt templates, skills, and
+TypeScript extension points.
+
+Install or validate:
+
+```bash
+coding-scaffold setup tool --tool pi
+```
+
+Generate Pi project guidance:
+
+```bash
+coding-scaffold tools adapt --target . --tool pi
+```
+
+This writes `.coding-scaffold/PI.md`. Start Pi from the project directory with `pi`, authenticate
+with `/login` or environment variables, and run `/reload` after changing project instructions.
+
 ## RouteLLM
 
 RouteLLM is optional advanced routing, not the default onboarding path. Use it when you want an
@@ -635,7 +720,7 @@ Heavy-lift model: `{routing.strong_model}`
 ## Daily Use
 
 1. {setup_hint}
-2. Start OpenCode with `opencode`, OpenClaude with `openclaude`, or your manually selected tool.
+2. Start OpenCode with `opencode`, OpenClaude with `openclaude`, Hermes with `hermes`, Pi with `pi`, or your manually selected tool.
 3. Run `/first-session` to inspect without editing.
 4. Run `/agentic-change` for one small explorer -> implementer -> reviewer loop.
 5. Read the verification output and review findings yourself.
