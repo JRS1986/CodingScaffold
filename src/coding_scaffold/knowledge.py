@@ -67,7 +67,6 @@ def write_knowledge_base(
     _write(files, scaffold / "KNOWLEDGE.md", _knowledge_guide(backend, shared_remote), overwrite=True)
     _collect(files, skipped, knowledge / "README.md", _knowledge_readme(backend, shared_remote))
     _collect(files, skipped, knowledge / "INDEX.md", _knowledge_index())
-    _collect(files, skipped, knowledge / "index.md", _knowledge_index())
     _collect(files, skipped, knowledge / "raw" / "README.md", _raw_readme())
     _collect(files, skipped, knowledge / "raw" / "meetings" / "README.md", _raw_folder_readme("meetings"))
     _collect(files, skipped, knowledge / "raw" / "decisions" / "README.md", _raw_folder_readme("decisions"))
@@ -153,7 +152,9 @@ def inspect_knowledge_status(target: Path) -> KnowledgeStatus:
     for path in knowledge.rglob("*.md"):
         if path.name.endswith(".new"):
             continue
-        frontmatter = _frontmatter(path)
+        frontmatter, warning = _frontmatter(path)
+        if warning:
+            warnings.append(warning)
         scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
         maturity = frontmatter.get("maturity") or "unspecified"
         counts.setdefault(scope, {})
@@ -204,22 +205,50 @@ def distill_knowledge(target: Path, source: str = "raw", review: bool = True) ->
     return KnowledgeDistillResult(created, updated, skipped, warnings)
 
 
-def _frontmatter(path: Path) -> dict[str, str]:
-    lines = path.read_text(encoding="utf-8").splitlines()
+def _frontmatter(path: Path) -> tuple[dict[str, str], str | None]:
+    # Supported subset: `---` fenced YAML-style block, one `key: value` per line.
+    # Splits on the first unquoted `:`; preserves the raw value (including quotes,
+    # brackets, and nested colons) after stripping surrounding matched quotes.
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        return {}, f"{path.name} could not be decoded as UTF-8; frontmatter skipped"
+    lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
-        return {}
+        return {}, None
     values: dict[str, str] = {}
     for line in lines[1:]:
         if line.strip() == "---":
             break
-        key, separator, value = line.partition(":")
-        if separator:
-            field = key.strip()
-            cleaned = value.strip().strip('"').strip("'")
-            if field == "source_refs" and not cleaned:
-                cleaned = "[]"
-            values[field] = cleaned
-    return values
+        field, value = _split_first_unquoted_colon(line)
+        if field is None:
+            continue
+        cleaned = _strip_matched_quotes(value.strip())
+        if field == "source_refs" and not cleaned:
+            cleaned = "[]"
+        values[field] = cleaned
+    return values, None
+
+
+def _split_first_unquoted_colon(line: str) -> tuple[str | None, str]:
+    quote: str | None = None
+    for index, char in enumerate(line):
+        if quote is not None:
+            if char == quote:
+                quote = None
+            continue
+        if char in ('"', "'"):
+            quote = char
+            continue
+        if char == ":":
+            return line[:index].strip(), line[index + 1 :]
+    return None, ""
+
+
+def _strip_matched_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
 
 
 def _scope_from_path(path: Path, knowledge: Path) -> str:

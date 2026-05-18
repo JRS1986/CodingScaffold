@@ -307,6 +307,10 @@ models, set `AZURE_OPENAI_*` or set `AZURE_AI_MODEL_FAMILY=openai`. If it serves
 set `AZURE_AI_MODEL_FAMILY=anthropic`. Skills and agents can then ask for `routine` or
 `heavy-lift` without caring whether the request travels through Azure, OpenAI directly, Anthropic
 directly, or a local OpenAI-compatible endpoint.
+
+Azure endpoint and deployment values are treated as sensitive. The
+generated `providers.json` and adapter configs contain a placeholder; the
+real values live only in `.env.local` and are resolved at agent start.
 """
 
 

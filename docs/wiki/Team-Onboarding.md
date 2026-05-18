@@ -74,3 +74,15 @@ coding-scaffold team doctor --target .
 
 Use `team sync` after team knowledge, agents, skills, or policy changes. Use `team doctor` before a
 first agentic coding session to confirm the local project sees the shared assets.
+
+## Trust model
+
+Team manifest content is third-party input. `coding-scaffold team sync`
+treats every remote as untrusted: imports land under
+`.coding-scaffold/team/sources/<kind>/<slug>/`, never inside your curated
+`.coding-scaffold/knowledge/` tree. Review imported markdown before
+linking it from your own pages.
+
+`file://` and local-path remotes require `--allow-local` so a teammate's
+manifest cannot redirect a sync at an arbitrary directory on your
+machine without explicit consent.

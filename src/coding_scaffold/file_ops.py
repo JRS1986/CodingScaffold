@@ -38,3 +38,25 @@ def collect_json(
         skipped.append(path)
         return
     files.append(write_json(path, payload, overwrite=False, sort_keys=sort_keys))
+
+
+def deep_merge_mapping(
+    base: dict[str, object],
+    overlay: dict[str, object],
+    deep_keys: tuple[str, ...] = (),
+) -> dict[str, object]:
+    """Merge ``overlay`` into ``base``. For top-level keys in ``deep_keys``,
+    if both sides are mappings the merge recurses one level; otherwise overlay
+    wins. Non-listed keys use shallow overlay-wins.
+    """
+    result: dict[str, object] = dict(base)
+    for key, value in overlay.items():
+        if (
+            key in deep_keys
+            and isinstance(value, dict)
+            and isinstance(result.get(key), dict)
+        ):
+            result[key] = {**result[key], **value}  # type: ignore[dict-item]
+        else:
+            result[key] = value
+    return result

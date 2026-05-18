@@ -133,30 +133,34 @@ def _opencode_policy_payload(
 
 
 def _merge_opencode_config(path: Path, policy: dict[str, object]) -> tuple[Path, str | None]:
+    from .file_ops import deep_merge_mapping
+
     current: dict[str, object] = {}
     warning = None
-    if path.exists():
+    target_path = path
+    file_existed = path.exists()
+    if file_existed:
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            warning = f"Could not parse {path}; wrote policy overlay but left existing config unchanged."
-            return path, warning
+            warning = f"Could not parse {path}; wrote policy overlay to {path}.new instead."
+            target_path = path.with_suffix(path.suffix + ".new")
+            target_path.write_text(json.dumps(policy, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            return target_path, warning
         if isinstance(loaded, dict):
             current = loaded
-    merged = {**current, **policy}
-    if "mcp" in current and "mcp" in policy:
-        merged["mcp"] = _merge_mapping(current["mcp"], policy["mcp"])
+
+    merged = deep_merge_mapping(current, policy, deep_keys=("mcp", "permission"))
     if "instructions" in current or "instructions" in policy:
         merged["instructions"] = _merge_list(current.get("instructions"), policy.get("instructions"))
-    path.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path, warning
 
-
-def _merge_mapping(left: object, right: object) -> dict[str, object]:
-    result: dict[str, object] = dict(left) if isinstance(left, dict) else {}
-    if isinstance(right, dict):
-        result.update(right)
-    return result
+    if file_existed:
+        target_path = path.with_suffix(path.suffix + ".new")
+        warning = (
+            f"Staged {target_path.name}; review and `mv {target_path.name} {path.name}` to apply."
+        )
+    target_path.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target_path, warning
 
 
 def _merge_list(left: object, right: object) -> list[object]:

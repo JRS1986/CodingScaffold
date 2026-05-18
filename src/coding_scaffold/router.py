@@ -87,7 +87,10 @@ def _select_local_model(hardware: HardwareProfile, role: str) -> str | None:
     ]
     if not fitted:
         return None
-    return fitted[-1].name
+    # Pick the strongest fit by required resources rather than list order: a
+    # higher min_ram_gb / min_vram_gb requirement is a proxy for capability,
+    # so we don't silently downgrade if LOCAL_CODER_MODELS gets reordered.
+    return max(fitted, key=lambda model: (model.min_ram_gb, model.min_vram_gb or 0)).name
 
 
 def _first_endpoint(providers: list[Provider]) -> str | None:

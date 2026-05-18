@@ -1,30 +1,45 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 
-SECRET_ENV_NAMES = [
+_ENV_LINE = re.compile(
+    r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*='
+    r'\s*(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|([^#\n]*?))\s*(?:#.*)?$'
+)
+
+
+SECRET_KEY_ENV_NAMES = (
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "AZURE_OPENAI_API_KEY",
-    "AZURE_OPENAI_ENDPOINT",
-    "AZURE_OPENAI_DEPLOYMENT",
     "AZURE_AI_API_KEY",
-    "AZURE_AI_ENDPOINT",
-    "AZURE_AI_MODEL",
-    "AZURE_AI_MODEL_FAMILY",
     "AZURE_AI_SERVICES_KEY",
-    "AZURE_AI_SERVICES_ENDPOINT",
     "AZURE_COGNITIVE_SERVICES_KEY",
-    "AZURE_COGNITIVE_SERVICES_ENDPOINT",
     "OPENROUTER_API_KEY",
     "GROQ_API_KEY",
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
-]
+)
+
+AZURE_NONKEY_ENV_NAMES = (
+    "AZURE_OPENAI_ENDPOINT",
+    "AZURE_OPENAI_DEPLOYMENT",
+    "AZURE_AI_ENDPOINT",
+    "AZURE_AI_MODEL",
+    "AZURE_AI_MODEL_FAMILY",
+    "AZURE_AI_SERVICES_ENDPOINT",
+    "AZURE_COGNITIVE_SERVICES_ENDPOINT",
+)
+
+# Union: everything that belongs in .env.local rather than committed config.
+# Azure endpoints/deployments are treated as sensitive because the subdomain
+# typically encodes tenant identity.
+SECRET_ENV_NAMES = SECRET_KEY_ENV_NAMES + AZURE_NONKEY_ENV_NAMES
 
 
 def scaffold_dir(target: Path) -> Path:
@@ -65,11 +80,21 @@ def _read_env_file(path: Path) -> dict[str, str]:
         return {}
     values: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
             continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip("'\"")
+        match = _ENV_LINE.match(raw_line)
+        if not match:
+            continue
+        key = match.group(1)
+        double_quoted, single_quoted, unquoted = match.group(2), match.group(3), match.group(4)
+        if double_quoted is not None:
+            value = double_quoted
+        elif single_quoted is not None:
+            value = single_quoted
+        else:
+            value = (unquoted or "").strip()
+        values[key] = value
     return values
 
 
