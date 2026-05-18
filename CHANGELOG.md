@@ -5,6 +5,18 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Foam knowledge backend.** `coding-scaffold knowledge create --backend foam` generates a
+  self-contained VS Code workspace under `.coding-scaffold/knowledge/` with an extensions
+  recommendation for `foam.foam-vscode`, Foam workspace settings, note templates under
+  `.foam/templates/`, and a `FOAM.md` entry note. Foam is MIT-licensed and runs entirely in
+  VS Code — a commercial-friendly alternative to Obsidian for organizations that don't want
+  the paid Obsidian Commercial license. See
+  [Knowledge Base / Foam](docs/wiki/Knowledge-Base.md#foam).
+
 ## [0.1.0] — 2026-05-18
 
 First tagged release. The scaffold is positioned for a controlled team pilot, not yet for

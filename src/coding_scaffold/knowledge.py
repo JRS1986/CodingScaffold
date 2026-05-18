@@ -122,6 +122,8 @@ def write_knowledge_base(
     _collect(files, skipped, knowledge / "sync.md", _sync_template(shared_remote))
     if backend == "obsidian":
         _collect_obsidian_files(files, skipped, knowledge)
+    if backend == "foam":
+        _collect_foam_files(files, skipped, knowledge)
     if backend == "mempalace":
         _collect(files, skipped, knowledge / "mempalace.md", _mempalace_template())
     if adapter == "opencode":
@@ -344,6 +346,15 @@ def _knowledge_json(backend: str, shared_remote: str | None) -> str:
             "vault_path": ".coding-scaffold/knowledge",
             "open": "Open .coding-scaffold/knowledge as an Obsidian vault.",
         },
+        "foam": {
+            "optional": True,
+            "workspace_path": ".coding-scaffold/knowledge",
+            "extension": "foam.foam-vscode",
+            "open": (
+                "Open .coding-scaffold/knowledge as a VS Code workspace; "
+                "the Foam extension recommends itself on first open."
+            ),
+        },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
@@ -359,6 +370,15 @@ def _knowledge_guide(backend: str, shared_remote: str | None) -> str:
         "This scaffold also generated Obsidian vault settings, templates, and a start page."
         if backend == "obsidian"
         else "Run `coding-scaffold knowledge --backend obsidian` later if you want an Obsidian vault."
+    )
+    foam_line = (
+        "This scaffold also generated a VS Code workspace and Foam templates under "
+        "`.coding-scaffold/knowledge/`."
+        if backend == "foam"
+        else (
+            "Run `coding-scaffold knowledge --backend foam` later if you want a Foam workspace "
+            "(MIT-licensed VS Code extension)."
+        )
     )
     return f"""# Team Knowledge Base
 
@@ -417,6 +437,15 @@ or keep this folder in the project repo if the knowledge is project-specific and
 
 Obsidian is useful when humans want backlinks, graph navigation, templates, and a pleasant reading
 surface. It still uses Markdown files, so Git remains the review and sharing mechanism.
+
+## Optional Foam
+
+{foam_line}
+
+Foam is a free, MIT-licensed VS Code extension that adds backlinks, a graph view, and templates on
+top of plain Markdown. Use it when teammates want Obsidian-style ergonomics without the commercial
+license (Obsidian is free for personal use but requires a paid Commercial license for
+organizations of more than two people).
 
 ## Optional MemPalace
 
@@ -971,4 +1000,148 @@ def _opencode_share_agent_pattern() -> str:
 Inspect `.coding-scaffold/knowledge/agents/README.md`, `.opencode/agents/`, and the recent session
 context. Propose a small documented agent role or update an existing one. Include when to use it,
 what it may read or edit, verification expectations, and handoff rules.
+"""
+
+
+def _collect_foam_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
+    _collect(files, skipped, knowledge / "FOAM.md", _foam_start_here())
+    _collect(files, skipped, knowledge / ".vscode" / "extensions.json", _foam_extensions_json())
+    _collect(files, skipped, knowledge / ".vscode" / "settings.json", _foam_settings_json())
+    _collect(files, skipped, knowledge / ".foam" / "templates" / "decision.md", _foam_decision_template())
+    _collect(files, skipped, knowledge / ".foam" / "templates" / "skill.md", _foam_skill_template())
+    _collect(files, skipped, knowledge / ".foam" / "templates" / "agent.md", _foam_agent_template())
+
+
+def _foam_start_here() -> str:
+    return """# Foam Workspace
+
+This directory is also wired as a Foam workspace. Open `.coding-scaffold/knowledge/` in VS Code
+and accept the `foam.foam-vscode` recommendation to enable backlinks, the graph view, and the
+templates under `.foam/templates/`.
+
+Foam reads plain Markdown with `[[wikilink]]` syntax. The scaffold's curated wiki pages under
+`wiki/` use standard relative links so they render on GitHub; feel free to use `[[wikilinks]]` in
+your own notes under `raw/`, `sessions/`, `decisions/`, and the layered scopes.
+
+## Suggested workflow
+
+1. Capture raw notes from agent sessions in `raw/code-notes/` or `raw/incidents/`.
+2. Use Foam's graph view to spot recurring topics.
+3. Promote stable notes into `wiki/`, `decisions/`, or one of the hierarchical-sharing scopes
+   (`team/`, `department/`, `unit/`, `company/`) via pull request.
+4. Use the templates under `.foam/templates/` when starting a new decision, skill, or agent note
+   (right-click in VS Code → "Foam: Create new note from template").
+
+## Why Foam
+
+Foam is MIT-licensed and runs entirely in VS Code. It's a free alternative to Obsidian for teams
+that need a commercial license for organizational use. Markdown stays the source of truth — Git
+remains the review and sharing mechanism.
+"""
+
+
+def _foam_extensions_json() -> str:
+    return json.dumps(
+        {
+            "recommendations": [
+                "foam.foam-vscode",
+            ],
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _foam_settings_json() -> str:
+    return json.dumps(
+        {
+            "foam.edit.linkReferenceDefinitions": "off",
+            "foam.files.defaultExtension": ".md",
+            "foam.files.ignore": [
+                "**/.git/**",
+                "**/.coding-scaffold/**/_repo/**",
+            ],
+            "foam.graph.style": {
+                "background": "#202020",
+                "fontSize": 12,
+            },
+            "foam.openDailyNote.directory": "raw/meetings",
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _foam_decision_template() -> str:
+    return """---
+foam_template:
+  name: Decision
+  description: Architecture, model routing, tool choice, data handling, or workflow decision.
+---
+# Decision: $FOAM_TITLE
+
+Date: $FOAM_DATE_YEAR-$FOAM_DATE_MONTH-$FOAM_DATE_DATE
+Status: proposed | accepted | superseded
+
+Related: [[FOAM]]
+
+## Context
+
+What forced this decision?
+
+## Decision
+
+What did we decide?
+
+## Consequences
+
+What changes downstream? What did we trade off?
+
+## Agent Notes
+
+What should an AI coding agent know about this decision?
+"""
+
+
+def _foam_skill_template() -> str:
+    return """---
+foam_template:
+  name: Skill
+  description: A reusable prompt or workflow that the team has validated.
+---
+# Skill: $FOAM_TITLE
+
+Status: draft | validated | recommended | standard
+
+Related agents:
+
+## When To Use
+
+## Workflow
+
+## Verification
+
+## Maintenance Notes
+"""
+
+
+def _foam_agent_template() -> str:
+    return """---
+foam_template:
+  name: Agent
+  description: A trusted agent role with explicit scope and handoff rules.
+---
+# Agent: $FOAM_TITLE
+
+Status: draft | validated | recommended | standard
+
+Related skills:
+
+## Responsibility
+
+## Allowed Context
+
+## Write Scope
+
+## Handoff Rules
 """

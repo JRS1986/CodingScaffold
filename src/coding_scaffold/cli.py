@@ -32,7 +32,7 @@ from .writers import write_scaffold
 CODING_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both", "manual"]
 INSTALLABLE_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
-KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "mempalace"]
+KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
 
 
@@ -95,7 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
     init.add_argument(
         "--knowledge-backend",
-        choices=["none", "markdown", "obsidian", "mempalace"],
+        choices=["none", "markdown", "obsidian", "foam", "mempalace"],
         default=None,
         help="Configure shared knowledge during setup.",
     )
@@ -124,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--no-install-addons", action="store_true", help="Do not offer optional add-on setup.")
     wizard.add_argument(
         "--knowledge-backend",
-        choices=["none", "markdown", "obsidian", "mempalace"],
+        choices=["none", "markdown", "obsidian", "foam", "mempalace"],
         default=None,
         help="Configure shared knowledge during setup.",
     )
@@ -143,13 +143,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     knowledge = sub.add_parser("knowledge", help="Create a shared team knowledge base.")
     knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
+    knowledge.add_argument("--backend", choices=["markdown", "obsidian", "foam", "mempalace"], default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_sub = knowledge.add_subparsers(dest="knowledge_action", metavar="action")
     knowledge_create = knowledge_sub.add_parser("create", help="Create or update shared team knowledge.")
     knowledge_create.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge_create.add_argument("--backend", choices=["markdown", "obsidian", "mempalace"], default="markdown")
+    knowledge_create.add_argument("--backend", choices=["markdown", "obsidian", "foam", "mempalace"], default="markdown")
     knowledge_create.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge_create.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
@@ -243,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_knowledge.add_argument(
         "--backend",
-        choices=["markdown", "obsidian", "mempalace"],
+        choices=["markdown", "obsidian", "foam", "mempalace"],
         default="markdown",
         help="Knowledge backend to generate.",
     )
@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
     team_init.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
     team_init.add_argument(
         "--knowledge-backend",
-        choices=["markdown", "obsidian", "mempalace"],
+        choices=["markdown", "obsidian", "foam", "mempalace"],
         default="markdown",
         help="Knowledge backend for `team init`.",
     )
@@ -897,9 +897,9 @@ def _maybe_setup_knowledge(
     shared_remote = getattr(args, "knowledge_remote", None)
     if is_wizard and sys.stdin.isatty() and backend is None:
         backend = _prompt_choice(
-            "Knowledge base backend (none/markdown/obsidian/mempalace)",
+            "Knowledge base backend (none/markdown/obsidian/foam/mempalace)",
             "markdown",
-            {"none", "markdown", "obsidian", "mempalace"},
+            {"none", "markdown", "obsidian", "foam", "mempalace"},
         )
         if backend != "none" and shared_remote is None:
             shared_remote = _prompt_optional(

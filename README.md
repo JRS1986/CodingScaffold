@@ -401,14 +401,26 @@ coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
 This creates Obsidian-friendly folders, backlinks, frontmatter templates, and `.obsidian/` settings
 while keeping Markdown as the source of truth.
 
+Foam mode (MIT-licensed VS Code extension, free for any use):
+
+```bash
+coding-scaffold knowledge create --target ~/dev/my-project --backend foam
+```
+
+Generates a self-contained VS Code workspace under `.coding-scaffold/knowledge/` with the Foam
+extension recommendation, workspace settings, and note templates. Use this when your organization
+needs a commercial-friendly alternative to Obsidian (Obsidian requires a paid Commercial license
+for organizations of more than two people).
+
 Optional MemPalace index:
 
 ```bash
 coding-scaffold knowledge create --target ~/dev/my-project --backend mempalace
 ```
 
-Use Obsidian when humans want better navigation and graph-style reading. Use MemPalace when the
-Markdown corpus grows large enough to benefit from semantic retrieval or MCP memory workflows.
+Use Obsidian or Foam when humans want better navigation and graph-style reading. Use MemPalace
+when the Markdown corpus grows large enough to benefit from semantic retrieval or MCP memory
+workflows.
 
 Hierarchical sharing is an optional organization pattern. Start with one repo and folder scopes when
 everyone has the same access. Use multiple Git remotes only when company, unit, department, or team
@@ -550,6 +562,7 @@ Optional commands can also generate:
 - `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
 - `.coding-scaffold/OPEN_MULTI_AGENT.md`, `open-multi-agent.team.json`, and a TypeScript example.
 - Obsidian vault files under `.coding-scaffold/knowledge/.obsidian/`.
+- Foam workspace files under `.coding-scaffold/knowledge/.vscode/` and `.coding-scaffold/knowledge/.foam/`.
 - `.coding-scaffold/tools/caveman-compression/` and `.caveman.md` context sidecars.
 
 ## Commands

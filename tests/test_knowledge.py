@@ -49,6 +49,39 @@ def test_write_obsidian_knowledge_base_adds_vault_files(tmp_path) -> None:
     assert (tmp_path / ".coding-scaffold" / "knowledge" / ".obsidian" / "graph.json").exists()
 
 
+def test_write_foam_knowledge_base_adds_workspace_files(tmp_path) -> None:
+    result = write_knowledge_base(tmp_path, backend="foam", adapter=None)
+
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    # Foam-specific files were emitted.
+    assert (knowledge / "FOAM.md").exists()
+    assert (knowledge / ".vscode" / "extensions.json").exists()
+    assert (knowledge / ".vscode" / "settings.json").exists()
+    assert (knowledge / ".foam" / "templates" / "decision.md").exists()
+    assert (knowledge / ".foam" / "templates" / "skill.md").exists()
+    assert (knowledge / ".foam" / "templates" / "agent.md").exists()
+
+    # The standard knowledge tree still gets built alongside the Foam workspace.
+    assert (knowledge / "INDEX.md").exists()
+    assert (knowledge / "wiki" / "architecture.md").exists()
+    assert (knowledge / "decisions" / "0001-decision-template.md").exists()
+
+    # Generated VS Code extensions file recommends the Foam extension.
+    extensions = json.loads((knowledge / ".vscode" / "extensions.json").read_text())
+    assert "foam.foam-vscode" in extensions["recommendations"]
+
+    # knowledge.json records the Foam configuration.
+    config = json.loads((tmp_path / ".coding-scaffold" / "knowledge.json").read_text())
+    assert config["backend"] == "foam"
+    assert config["foam"]["workspace_path"] == ".coding-scaffold/knowledge"
+    assert config["foam"]["extension"] == "foam.foam-vscode"
+
+    # Obsidian-specific files are NOT emitted in foam mode.
+    names = {path.name for path in result.files}
+    assert "00 Start Here.md" not in names
+    assert "app.json" not in names
+
+
 def test_write_knowledge_base_preserves_existing_notes(tmp_path) -> None:
     index = tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md"
     index.parent.mkdir(parents=True)
