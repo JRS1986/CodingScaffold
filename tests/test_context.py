@@ -84,7 +84,7 @@ def test_compress_context_drops_empty_list_items(tmp_path) -> None:
     knowledge = tmp_path / ".coding-scaffold" / "knowledge"
     knowledge.mkdir(parents=True)
     (knowledge / "note.md").write_text(
-        "- The basically simply\n- Very clearly important\n",
+        "- basically simply\n- Very clearly important\n",
         encoding="utf-8",
     )
 
@@ -188,3 +188,23 @@ def test_compress_context_can_use_cloned_caveman_engine(tmp_path) -> None:
 
     assert not result.warnings
     assert result.files[0].read_text(encoding="utf-8") == "Cave.\n"
+
+
+def test_compress_preserves_inline_code_identifiers(tmp_path):
+    from coding_scaffold.context import compress_context
+
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    knowledge.mkdir(parents=True)
+    note = knowledge / "note.md"
+    note.write_text(
+        "Use `the-prod-route` to basically deploy.\n"
+        "See [the docs](./the-docs) for clearly important details.\n",
+        encoding="utf-8",
+    )
+
+    result = compress_context(tmp_path, source="knowledge")
+
+    assert not result.warnings, result.warnings
+    compressed = (knowledge / "note.caveman.md").read_text(encoding="utf-8")
+    assert "`the-prod-route`" in compressed, compressed
+    assert "[the docs](./the-docs)" in compressed, compressed
