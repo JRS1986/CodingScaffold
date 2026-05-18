@@ -5,7 +5,7 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] — 2026-05-18
 
 ### Added
 
@@ -16,6 +16,46 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   VS Code — a commercial-friendly alternative to Obsidian for organizations that don't want
   the paid Obsidian Commercial license. See
   [Knowledge Base / Foam](docs/wiki/Knowledge-Base.md#foam).
+
+### Fixed
+
+- **Knowledge index case-collision hardening.** Stale `index.md` reference in the generated
+  `AGENTS.md` cleaned up; the golden-output tests gained an automatic `_casefold_collisions`
+  guard so any future case-sensitive vs case-insensitive filesystem mismatch is caught at test
+  time, not in Linux CI after the fact.
+- **Misleading `setup tool --install` example.** The README block previously showed OpenCode
+  twice (with and without `--install`) while Hermes and Pi appeared only once. Rewritten so
+  every tool is listed once for the validate-and-configure form and `--install` is shown once
+  as a universal modifier — it's a flag on `setup tool` itself, not OpenCode-specific.
+- **Non-existent `policy --strict` flag** removed from the control-and-reproducibility persona
+  path. Default policy is already strict; `--relaxed-permissions` is documented as the opt-out.
+
+### Changed
+
+- **Compatibility matrix dedup.** The README compatibility table was diverging from the
+  canonical 11-row capability matrix in `docs/wiki/Tool-Adapters.md`. Replaced with a quick-scan
+  tool → support-depth strip that links to the canonical version, eliminating two-source drift.
+
+### Documentation
+
+- 14 audit findings reconciled between code and docs: knowledge-tree listings completed in
+  README and Knowledge-Base.md to match what `knowledge.py` actually writes (`decisions/`,
+  `sessions/`, `sharing/`, and the layered scopes); `.coding-scaffold/team/sources/` added to
+  the outputs inventory; Claude Code and Codex added to the installer sentence;
+  `INDEX.md` casing corrected throughout.
+- **Review-Backlog reorganized.** Twelve items delivered as of v0.1.0 moved into a
+  `Delivered as of v0.1.0` section at the top of `docs/wiki/Review-Backlog.md` so the priority
+  sections actually reflect remaining work.
+- **`--share` and `--relaxed-permissions` flags surfaced** in `docs/wiki/Policy-Packs.md` with
+  an example and a one-line explanation of each option.
+- **Wiki-style `[[X]]` links converted to relative Markdown** in `Home.md`, `_Sidebar.md`,
+  `Policy-Packs.md`, and `Knowledge-Base.md` so the docs render correctly when browsing
+  `docs/wiki/` in the repo on GitHub.
+
+### Housekeeping
+
+- `.gitignore` entries added for `.claude/settings.local.json` and `.claude/worktrees/` so
+  agent-tool artifacts don't accidentally land in the repo.
 
 ## [0.1.0] — 2026-05-18
 
@@ -88,4 +128,5 @@ for the supported entry points.
   supported. Windows native (outside WSL) works for documentation generation but not for tool
   installation — use WSL for the full flow.
 
+[0.2.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.2.0
 [0.1.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.1.0
