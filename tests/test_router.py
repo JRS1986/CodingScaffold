@@ -1,17 +1,25 @@
 import random
 
-from coding_scaffold.hardware import HardwareProfile
 from coding_scaffold.intake import IntakeAnswers
 from coding_scaffold.model_catalog import LOCAL_CODER_MODELS, ROUTELLM_MF_DEFAULT_THRESHOLD
-from coding_scaffold.providers import Provider
 from coding_scaffold.router import _select_local_model, build_routing_plan
 
 
-def test_local_only_never_selects_cloud_provider() -> None:
+def test_local_only_never_selects_cloud_provider(hardware_profile, provider_factory) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
-        HardwareProfile("linux", False, 16, 64, "GPU", 48, False, ["ollama"]),
-        [Provider("openai", "cloud", True, "OPENAI_API_KEY set")],
+        hardware_profile(
+            cpu_count=16, ram_gb=64, gpu_name="GPU", vram_gb=48, llmfit_available=False
+        ),
+        [
+            provider_factory(
+                name="openai",
+                kind="cloud",
+                status="OPENAI_API_KEY set",
+                endpoint=None,
+                model_family="openai",
+            )
+        ],
     )
 
     assert plan.cloud_provider is None
@@ -20,11 +28,19 @@ def test_local_only_never_selects_cloud_provider() -> None:
     assert plan.route_threshold == ROUTELLM_MF_DEFAULT_THRESHOLD
 
 
-def test_cloud_can_backfill_strong_model() -> None:
+def test_cloud_can_backfill_strong_model(hardware_profile, provider_factory) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-first"),
-        HardwareProfile("linux", False, 8, 16, None, None, False, []),
-        [Provider("anthropic", "cloud", True, "ANTHROPIC_API_KEY set")],
+        hardware_profile(ram_gb=16, llmfit_available=False, local_runtimes=[]),
+        [
+            provider_factory(
+                name="anthropic",
+                kind="cloud",
+                status="ANTHROPIC_API_KEY set",
+                endpoint=None,
+                model_family="anthropic",
+            )
+        ],
     )
 
     assert plan.cloud_provider == "anthropic"
@@ -32,10 +48,10 @@ def test_cloud_can_backfill_strong_model() -> None:
     assert plan.strong_model == "anthropic/claude-sonnet"
 
 
-def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists() -> None:
+def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists(hardware_profile) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-first"),
-        HardwareProfile("linux", False, 8, 16, None, None, False, []),
+        hardware_profile(ram_gb=16, llmfit_available=False, local_runtimes=[]),
         [],
     )
 
@@ -43,16 +59,17 @@ def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists() -> None
     assert plan.strong_model == "qwen2.5-coder:7b-instruct"
 
 
-def test_azure_provider_keeps_endpoint_and_model_family_separate() -> None:
+def test_azure_provider_keeps_endpoint_and_model_family_separate(
+    hardware_profile, provider_factory
+) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-first"),
-        HardwareProfile("linux", False, 8, 16, None, None, False, []),
+        hardware_profile(ram_gb=16, llmfit_available=False, local_runtimes=[]),
         [
-            Provider(
-                "azure-ai",
-                "cloud",
-                True,
-                "Azure AI endpoint and key set",
+            provider_factory(
+                name="azure-ai",
+                kind="cloud",
+                status="Azure AI endpoint and key set",
                 endpoint="https://example.services.ai.azure.com",
                 model_family="anthropic",
                 deployment="team-sonnet",
@@ -65,15 +82,24 @@ def test_azure_provider_keeps_endpoint_and_model_family_separate() -> None:
     assert plan.strong_model == "azure-ai/team-sonnet"
 
 
-def test_local_model_thresholds_pick_expected_strong_models() -> None:
+def test_local_model_thresholds_pick_expected_strong_models(hardware_profile) -> None:
     qwen_32b_plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
-        HardwareProfile("linux", False, 16, 32, "GPU", 24, False, []),
+        hardware_profile(
+            cpu_count=16, gpu_name="GPU", vram_gb=24, llmfit_available=False, local_runtimes=[]
+        ),
         [],
     )
     qwen_40b_plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
-        HardwareProfile("linux", False, 16, 56, "GPU", 32, False, []),
+        hardware_profile(
+            cpu_count=16,
+            ram_gb=56,
+            gpu_name="GPU",
+            vram_gb=32,
+            llmfit_available=False,
+            local_runtimes=[],
+        ),
         [],
     )
 
@@ -81,18 +107,25 @@ def test_local_model_thresholds_pick_expected_strong_models() -> None:
     assert qwen_40b_plan.strong_model == "qwen/qwen3-coder-40b"
 
 
-def test_missing_vram_does_not_exclude_ram_only_candidates() -> None:
+def test_missing_vram_does_not_exclude_ram_only_candidates(hardware_profile) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
-        HardwareProfile("linux", False, 8, 10, None, None, False, []),
+        hardware_profile(ram_gb=10, llmfit_available=False, local_runtimes=[]),
         [],
     )
 
     assert plan.weak_model == "qwen2.5-coder:7b-instruct"
 
 
-def test_select_local_model_is_independent_of_catalog_order(monkeypatch) -> None:
-    hardware = HardwareProfile("linux", False, 16, 64, "GPU", 48, False, [])
+def test_select_local_model_is_independent_of_catalog_order(monkeypatch, hardware_profile) -> None:
+    hardware = hardware_profile(
+        cpu_count=16,
+        ram_gb=64,
+        gpu_name="GPU",
+        vram_gb=48,
+        llmfit_available=False,
+        local_runtimes=[],
+    )
 
     baseline = _select_local_model(hardware, "strong")
 
@@ -111,10 +144,10 @@ def test_select_local_model_is_independent_of_catalog_order(monkeypatch) -> None
     assert _select_local_model(hardware, "strong") == baseline
 
 
-def test_low_memory_machine_has_no_local_model_candidate() -> None:
+def test_low_memory_machine_has_no_local_model_candidate(hardware_profile) -> None:
     plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
-        HardwareProfile("linux", False, 4, 8, None, None, False, []),
+        hardware_profile(cpu_count=4, ram_gb=8, llmfit_available=False, local_runtimes=[]),
         [],
     )
 

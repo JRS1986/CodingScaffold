@@ -1,31 +1,25 @@
 from coding_scaffold.model_selection import select_model_for_prompt
-from coding_scaffold.model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
-from coding_scaffold.providers import Provider
-from coding_scaffold.router import RoutingPlan
 
 
-def test_select_model_routes_security_review_to_heavy_lift_provider() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "azure-ai/team-sonnet",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        "http://127.0.0.1:11434/v1",
-        "azure-ai",
-        "anthropic",
-        ["route locally first"],
-        {"selection_mode": "recommend"},
+def test_select_model_routes_security_review_to_heavy_lift_provider(
+    routing_plan_factory, provider_factory
+) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="azure-ai/team-sonnet",
+        cloud_provider="azure-ai",
+        cloud_model_family="anthropic",
+        route_rules=["route locally first"],
     )
     providers = [
-        Provider("ollama", "local", True, "CLI found", "http://127.0.0.1:11434/v1"),
-        Provider(
-            "azure-ai",
-            "cloud",
-            True,
-            "Azure AI endpoint and key set",
-            "https://example.services.ai.azure.com",
-            "anthropic",
-            "team-sonnet",
+        provider_factory(),
+        provider_factory(
+            name="azure-ai",
+            kind="cloud",
+            status="Azure AI endpoint and key set",
+            endpoint="https://example.services.ai.azure.com",
+            model_family="anthropic",
+            deployment="team-sonnet",
         ),
     ]
 
@@ -41,24 +35,31 @@ def test_select_model_routes_security_review_to_heavy_lift_provider() -> None:
     assert selection.model == "azure-ai/team-sonnet"
 
 
-def test_select_model_routes_short_fix_to_local_routine_model() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "azure-openai/team-gpt",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        "http://127.0.0.1:11434/v1",
-        "azure-openai",
-        "openai",
-        ["route locally first"],
-        {"selection_mode": "recommend"},
+def test_select_model_routes_short_fix_to_local_routine_model(
+    routing_plan_factory, provider_factory
+) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="azure-openai/team-gpt",
+        cloud_provider="azure-openai",
+        cloud_model_family="openai",
+        route_rules=["route locally first"],
     )
     providers = [
-        Provider("ollama", "local", True, "CLI found", "http://127.0.0.1:11434/v1"),
-        Provider("azure-openai", "cloud", True, "Azure OpenAI env set", None, "openai", "team-gpt"),
+        provider_factory(),
+        provider_factory(
+            name="azure-openai",
+            kind="cloud",
+            status="Azure OpenAI env set",
+            endpoint=None,
+            model_family="openai",
+            deployment="team-gpt",
+        ),
     ]
 
-    selection = select_model_for_prompt("Fix this failing formatter test.", routing, providers, "auto")
+    selection = select_model_for_prompt(
+        "Fix this failing formatter test.", routing, providers, "auto"
+    )
 
     assert selection.route == "routine"
     assert selection.provider == "ollama"
@@ -67,17 +68,12 @@ def test_select_model_routes_short_fix_to_local_routine_model() -> None:
     assert selection.mode == "auto"
 
 
-def test_select_model_does_not_match_markers_inside_words() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        ["route locally first"],
-        {"selection_mode": "recommend"},
+def test_select_model_does_not_match_markers_inside_words(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=["route locally first"],
     )
 
     selection = select_model_for_prompt(
@@ -92,17 +88,13 @@ def test_select_model_does_not_match_markers_inside_words() -> None:
     assert "doc" not in joined_reasons
 
 
-def test_select_model_empty_prompt_profile() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        None,
-        None,
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_empty_prompt_profile(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model=None,
+        strong_model=None,
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
 
     selection = select_model_for_prompt("", routing, [])
@@ -111,17 +103,13 @@ def test_select_model_empty_prompt_profile() -> None:
     assert selection.confidence == 0.1
 
 
-def test_select_model_heavy_marker_wins_over_routine_marker() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_heavy_marker_wins_over_routine_marker(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
 
     selection = select_model_for_prompt("Review this small test migration.", routing, [])
@@ -130,17 +118,13 @@ def test_select_model_heavy_marker_wins_over_routine_marker() -> None:
     assert selection.model == "qwen-large"
 
 
-def test_select_model_long_prompt_without_markers_routes_heavy_lift() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_long_prompt_without_markers_routes_heavy_lift(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
     prompt = " ".join(f"word{i}" for i in range(181))
 
@@ -150,17 +134,13 @@ def test_select_model_long_prompt_without_markers_routes_heavy_lift() -> None:
     assert selection.prompt_profile == "complex-change"
 
 
-def test_select_model_word_count_boundary() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_word_count_boundary(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
     forty_words = " ".join(f"word{i}" for i in range(40))
     forty_one_words = " ".join(f"word{i}" for i in range(41))
@@ -169,17 +149,13 @@ def test_select_model_word_count_boundary() -> None:
     assert select_model_for_prompt(forty_one_words, routing, []).prompt_profile == "standard-change"
 
 
-def test_select_model_common_agent_design_review_words_stay_routine() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_common_agent_design_review_words_stay_routine(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
 
     prompts = [
@@ -193,17 +169,13 @@ def test_select_model_common_agent_design_review_words_stay_routine() -> None:
         assert selection.route == "routine"
 
 
-def test_select_model_heavy_phrases_still_escalate() -> None:
-    routing = RoutingPlan(
-        "local-first-router",
-        "qwen-small",
-        "qwen-large",
-        ROUTELLM_MF_DEFAULT_THRESHOLD,
-        None,
-        None,
-        None,
-        [],
-        {},
+def test_select_model_heavy_phrases_still_escalate(routing_plan_factory) -> None:
+    routing = routing_plan_factory(
+        weak_model="qwen-small",
+        strong_model="qwen-large",
+        local_endpoint=None,
+        route_rules=[],
+        model_policy={},
     )
 
     selection = select_model_for_prompt("Write a system design for the agent runtime.", routing, [])
