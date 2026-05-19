@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 import pytest
 
+import coding_scaffold.pilot as pilot_module
 from coding_scaffold.cli import build_parser, main
 from coding_scaffold.doctor import run_doctor
 from coding_scaffold.pilot import SUPPORTED_TOOLS, run_pilot
@@ -117,8 +119,19 @@ def test_doctor_cli_text_output_runs(
     captured = capsys.readouterr()
     assert rc == 0
     assert "CodingScaffold doctor" in captured.out
+    assert captured.out.count("CodingScaffold doctor") == 1
     assert "Recommended next steps:" in captured.out
     assert "Ignore for now" in captured.out
+
+
+def test_doctor_cli_verbose_includes_legacy_snapshot(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = main(["doctor", "--target", str(tmp_path), "--verbose"])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert captured.out.count("CodingScaffold doctor") == 2
+    assert "Python package is runnable" in captured.out
 
 
 # ---------------------------------------------------------------------------
@@ -139,10 +152,47 @@ def test_pilot_prints_three_step_recipe(tmp_path: Path) -> None:
 
 def test_pilot_does_not_attempt_to_install_anything(tmp_path: Path) -> None:
     # The pilot is read-only: even when the tool is missing, the printed recipe asks the
-    # USER to run `setup run --install`. The pilot itself never writes files or installs.
+    # USER to run `setup run --install-tools`. The pilot itself never writes files or installs.
     run_pilot(tmp_path, tool="opencode")
     # No files are written to the target directory.
     assert not list(tmp_path.iterdir())
+
+
+def test_pilot_missing_tool_recipe_uses_valid_setup_run_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_which(name: str) -> str | None:
+        if name in {"git", "ollama"}:
+            return f"/usr/bin/{name}"
+        return None
+
+    monkeypatch.setattr(pilot_module.shutil, "which", fake_which)
+
+    report = run_pilot(tmp_path, tool="opencode")
+    setup_step = report.steps[0]
+    assert "--install-tools" in setup_step
+    assert "--install " not in f"{setup_step} "
+    # Regression guard: the printed recipe should be parseable by the real CLI parser.
+    build_parser().parse_args(shlex.split(setup_step)[1:])
+
+
+def test_pilot_environment_not_ok_when_selected_tool_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_which(name: str) -> str | None:
+        if name in {"git", "ollama"}:
+            return f"/usr/bin/{name}"
+        return None
+
+    monkeypatch.setattr(pilot_module.shutil, "which", fake_which)
+
+    report = run_pilot(tmp_path, tool="opencode")
+    assert report.environment["git"] is True
+    assert report.environment["local_runtime_cli"] == ["ollama"]
+    tool_info = report.environment["tool"]
+    assert isinstance(tool_info, dict)
+    assert tool_info["installed"] is False
+    assert report.environment_ok is False
 
 
 def test_pilot_rejects_unknown_tool(tmp_path: Path) -> None:
