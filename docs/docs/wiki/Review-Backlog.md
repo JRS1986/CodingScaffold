@@ -10,7 +10,7 @@ The items below were on this backlog and have shipped. Kept here so the design i
 linkable — see the cross-references for where the work landed.
 
 - **P1-01 Sharpen Product Scope And Non-Goals** — README "What This Is" / "What This Is Not"
-  sections; wiki [Home](Home.md), [Core Concepts](Core-Concepts.md), and [FAQ](FAQ.md) use the
+  sections; wiki [Home](index.md), [Core Concepts](Core-Concepts.md), and [FAQ](FAQ.md) use the
   same north-star language.
 - **P1-02 Reframe Routing As Optional Backend Capability** — three-level routing model is
   documented in [Model Selection and Providers](Model-Selection-and-Providers.md) and reflected
@@ -30,7 +30,7 @@ linkable — see the cross-references for where the work landed.
   `last_reviewed`, `source_refs`, and warns on stale `last_reviewed` past 180 days.
 - **P2-04 Create A 10-Minute MVP Demo Path** — documented in
   [Getting Started](Getting-Started.md#first-pilot-in-ten-minutes) and the
-  [README first-run section](../../README.md#first-run).
+  [Getting Started first-pilot section](Getting-Started.md#first-pilot-in-ten-minutes).
 - **P2-05 Add Security And Company-Usage Notes** — [Security](Security.md) page with company
   checklist, credentials, policy packs, shared knowledge, and a full threat model.
 - **P3-05 Add CI, Ruff, And Release Workflow** — `.github/workflows/ci.yml` runs `ruff check`

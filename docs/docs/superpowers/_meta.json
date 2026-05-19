@@ -1,0 +1,13 @@
+[
+  {
+    "type": "dir",
+    "name": "plans",
+    "label": "Plans"
+  },
+  {
+    "type": "dir",
+    "name": "specs",
+    "label": "Specs"
+  }
+]
+

@@ -1,0 +1,12 @@
+[
+  {
+    "text": "Wiki",
+    "link": "/wiki/",
+    "activeMatch": "/wiki/"
+  },
+  {
+    "text": "Superpowers",
+    "link": "/superpowers/",
+    "activeMatch": "/superpowers/"
+  }
+]
