@@ -110,7 +110,8 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
     env_info["tool"] = {"name": tool, "binary": tool_binary, "installed": tool_present}
     if not tool_present:
         warnings.append(
-            f"`{tool_binary}` is not on PATH. The setup step below offers --install to add it; "
+            f"`{tool_binary}` is not on PATH. The setup step below offers --install-tools "
+            "to add it; "
             "this pilot wrapper never installs anything itself."
         )
 
@@ -130,7 +131,12 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
             "or install Ollama before running it."
         )
 
-    environment_ok = python_ok and bool(git_path) and (bool(found_keys) or bool(local_runtime_binaries))
+    environment_ok = (
+        python_ok
+        and bool(git_path)
+        and tool_present
+        and (bool(found_keys) or bool(local_runtime_binaries))
+    )
 
     # Build the printable recipe. Same shape regardless of tool, with the tool name woven in.
     steps = _build_steps(root, tool=tool, tool_present=tool_present)
@@ -149,7 +155,7 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
 def _build_steps(root: Path, *, tool: str, tool_present: bool) -> list[str]:
     setup_args = f"--target {_format_target(root)} --tool {tool} --mode beginner"
     if not tool_present:
-        setup_args += " --install"
+        setup_args += " --install-tools"
     return [
         f"coding-scaffold setup run {setup_args}",
         f"coding-scaffold pr-template init --target {_format_target(root)}",

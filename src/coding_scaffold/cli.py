@@ -670,6 +670,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     doctor.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    doctor.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Also print the legacy hardware/provider recommendation snapshot.",
+    )
 
     pilot = sub.add_parser(
         "pilot",
@@ -934,8 +939,9 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
         else:
             print(format_doctor_text(report))
-            # Keep the original system snapshot at the end for continuity.
-            _print_doctor()
+            if getattr(args, "verbose", False):
+                print()
+                _print_doctor()
         return 0
 
     if args.command == "pilot":
