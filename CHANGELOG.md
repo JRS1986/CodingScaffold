@@ -7,6 +7,38 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-05-19
+
+### Fixed
+
+- **`pilot` prints a valid setup recipe when the selected tool is missing.** The generated
+  happy-path command now uses `setup run --install-tools` instead of the invalid
+  `setup run --install`, with a regression test that parses the printed recipe through
+  the real CLI parser. Closes
+  [#77](https://github.com/JRS1986/CodingScaffold/issues/77) via
+  [#78](https://github.com/JRS1986/CodingScaffold/pull/78).
+- **`pilot` readiness no longer says OK when the selected coding tool is missing.**
+  The environment summary now includes selected-tool presence in `environment_ok`, so
+  first-time users do not see contradictory `Environment OK: yes` and `installed: False`
+  signals. Closes [#76](https://github.com/JRS1986/CodingScaffold/issues/76).
+- **`doctor` default text output is no longer duplicated.** The structured accessibility
+  report is now the default output; the old hardware/provider recommendation snapshot
+  is available with `doctor --verbose`. Closes
+  [#75](https://github.com/JRS1986/CodingScaffold/issues/75).
+
+### Documentation
+
+- **README and docs site optimized for command discoverability.** The README now includes a
+  "Which Command Do I Need?" table, a smaller everyday flow, and a journey-based command
+  reference instead of a large undifferentiated command dump.
+- **Published docs homepage and wiki index now route readers by need.** The docs front page,
+  wiki index, Getting Started, FAQ, Team Rollout, and Team Onboarding pages now emphasize
+  `doctor` + `pilot` for first contact, a two-person small-team pilot, and postponing
+  advanced features until the team has a concrete need.
+- **Stale docs paths and command wording cleaned up.** Updated moved `docs/docs/wiki/...`
+  references, clarified `--install-tools`, refreshed the repo's own `AGENTS.md` test-count
+  note, and verified visible relative Markdown links.
+
 ### Infrastructure (no package changes)
 
 These changes affect the repo's tooling and the published docs site, not the
@@ -331,6 +363,7 @@ for the supported entry points.
   supported. Windows native (outside WSL) works for documentation generation but not for tool
   installation — use WSL for the full flow.
 
+[0.5.1]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.5.1
 [0.5.0]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.5.0
 [0.4.2]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.2
 [0.4.1]: https://github.com/JRS1986/CodingScaffold/releases/tag/v0.4.1
