@@ -5,6 +5,30 @@ All notable changes to CodingScaffold are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Infrastructure (no package changes)
+
+These changes affect the repo's tooling and the published docs site, not the
+`coding-scaffold` Python package. No version bump.
+
+- **Docs site live at https://jrs1986.github.io/CodingScaffold/.** Contributed in
+  [#68](https://github.com/JRS1986/CodingScaffold/pull/68) by @YanPes: an [rspress](https://rspress.dev)
+  static site under `docs/`, with an `llms-full.txt` discoverability plugin so the docs
+  surface is also crawlable by LLMs. Wiki content moved from `docs/wiki/` to
+  `docs/docs/wiki/` (the rspress content root).
+- **Dedicated GitHub Pages workflow.** `.github/workflows/docs.yml` builds rspress on
+  every push to `main` (and validates on PRs touching `docs/**`); the deploy job uses
+  `actions/configure-pages@v5` with `enablement: true` so the workflow self-bootstraps on
+  a fork ([#69](https://github.com/JRS1986/CodingScaffold/pull/69),
+  [#72](https://github.com/JRS1986/CodingScaffold/pull/72)).
+- **GitHub Actions Node 24 readiness.** `actions/checkout` and `actions/setup-node` bumped
+  v4 → v5 ahead of the 2026-06-02 forced cutover, closing
+  [#70](https://github.com/JRS1986/CodingScaffold/issues/70) via
+  [#71](https://github.com/JRS1986/CodingScaffold/pull/71).
+- **rspress `base` path.** Set to `/CodingScaffold/` so the project-page asset URLs resolve
+  correctly under the `jrs1986.github.io` apex ([#73](https://github.com/JRS1986/CodingScaffold/pull/73)).
+
 ## [0.5.0] — 2026-05-18
 
 ### Added
