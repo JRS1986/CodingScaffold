@@ -10,7 +10,7 @@ The items below were on this backlog and have shipped. Kept here so the design i
 linkable — see the cross-references for where the work landed.
 
 - **P1-01 Sharpen Product Scope And Non-Goals** — README "What This Is" / "What This Is Not"
-  sections; wiki [Home](Home.md), [Core Concepts](Core-Concepts.md), and [FAQ](FAQ.md) use the
+  sections; wiki [Home](index.md), [Core Concepts](Core-Concepts.md), and [FAQ](FAQ.md) use the
   same north-star language.
 - **P1-02 Reframe Routing As Optional Backend Capability** — three-level routing model is
   documented in [Model Selection and Providers](Model-Selection-and-Providers.md) and reflected

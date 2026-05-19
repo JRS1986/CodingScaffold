@@ -12,6 +12,7 @@
     "@rspress/core": "^2.0.10"
   },
   "devDependencies": {
+    "@rspress/plugin-llms": "^2.0.12",
     "@types/node": "^22.8.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
