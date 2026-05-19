@@ -12,11 +12,18 @@ No. Setup, hardware probe, credential templates, adapter generation, and `tools 
 recommendations work without calling a model. You need an LLM only when a coding tool such as
 OpenCode or OpenClaude starts an actual agent session.
 
+## What should I run first?
+
+Run `coding-scaffold doctor --target .`. It surveys the repo and recommends the next 1-3 commands.
+If you want the smallest useful demo, run `coding-scaffold pilot --target . --tool opencode` next
+and follow the printed recipe.
+
 ## Does setup install tools?
 
 Yes, when it is running interactively and the selected coding environment is missing. It asks before
 installing. You can also run `coding-scaffold setup tool --tool opencode` to validate the tool, or
-add `--install` to install a missing tool intentionally.
+add `--install` to `setup tool` to install a missing tool intentionally. If `pilot` prints a
+`setup run` recipe for a missing tool, it uses `--install-tools`.
 
 ## Does the scaffold install optional add-ons too?
 

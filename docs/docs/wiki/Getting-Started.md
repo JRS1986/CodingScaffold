@@ -32,7 +32,8 @@ Safe guided wrapper. Runs only read-only local checks (Python version, `git` on 
 chosen coding tool's binary on PATH, whether `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` /
 `GITHUB_TOKEN` are set, whether Ollama / LM Studio / llama-server are installed) and then
 prints the exact 10-minute path tailored to your environment. The recipe may include
-`--install` flags, but `pilot` itself never installs anything — you make that call.
+install flags such as `--install-tools`, but `pilot` itself never installs anything — you make
+that call.
 
 Both commands accept `--target` (defaults to `cwd`) and `--json`. Run `coding-scaffold
 doctor --help` or `pilot --help` for the full surface.
@@ -78,6 +79,9 @@ On Windows PowerShell outside WSL:
 `uv.lock` is committed. Use `uv sync --extra dev` for reproducible development and CI parity.
 
 ## Prepare A Project
+
+For a new user, prefer `pilot` first because it explains the next commands without writing files.
+Run direct setup when you already know you want generated scaffold files:
 
 ```bash
 coding-scaffold setup run --target ~/dev/my-project
@@ -132,6 +136,9 @@ coding-scaffold team connect --target . \
 coding-scaffold team doctor --target .
 ```
 
+Use top-level `coding-scaffold doctor --target .` until your project actually has a team manifest.
+Use `coding-scaffold team doctor` after `team connect` or `team init`.
+
 ## Install OpenCode
 
 OpenCode is the recommended default adapter for the first team rollout.
@@ -151,7 +158,15 @@ This is the first useful path for Lena, the curious coding newbie, and for a sma
 goal is not to enable every governance feature. The goal is one inspected repo, one named verifier,
 and one tiny change the developer understands.
 
-Use an existing repo and start with OpenCode:
+The command-friendly version is:
+
+```bash
+coding-scaffold doctor --target .
+coding-scaffold pilot --target . --tool opencode
+# follow the printed steps
+```
+
+The manual version is below when you want to see the shape in advance:
 
 ```bash
 coding-scaffold setup run --target ~/dev/my-project --mode beginner --tool opencode

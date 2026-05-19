@@ -7,23 +7,40 @@ This page is a practical plan for introducing CodingScaffold to a team.
 For a sub-20-person team, start with a two-person pilot instead of a full rollout. Use one real
 project and one safe issue. The first milestone is repeatability, not enterprise coverage.
 
-1. Developer A runs `coding-scaffold setup run --target <repo> --mode beginner --tool opencode`.
-2. Developer A runs OpenCode `/first-session` and asks the agent to inspect, identify build/test
+1. Developer A runs `coding-scaffold doctor --target .`, then
+   `coding-scaffold pilot --target . --tool opencode`.
+2. Developer A follows the printed setup recipe and runs OpenCode `/first-session`.
+3. Developer A asks the agent to inspect, identify build/test
    commands, name key files, and propose one small safe improvement without editing.
-3. Developer A runs `/agentic-change` only after the plan is understandable.
-4. Review the diff, generated credential templates, provider hints, and test output.
-5. Developer B repeats the same first-session flow in the same repo and compares whether the
+4. Developer A runs `/agentic-change` only after the plan is understandable.
+5. Review the diff, generated credential templates, provider hints, and test output.
+6. Developer B repeats the same first-session flow in the same repo and compares whether the
    agent identifies the same verifier and main code paths.
-6. If both sessions are reviewable, add the lightweight team layer:
+7. If both sessions are reviewable, add the lightweight team layer:
    `coding-scaffold pr-template init`, `coding-scaffold permissions write`, and
    `coding-scaffold knowledge create --backend markdown`.
-7. Capture one decision or useful prompt in the knowledge base. Create a skill only after the team
+8. Capture one decision or useful prompt in the knowledge base. Create a skill only after the team
    repeats the workflow enough that the playbook is stable.
-8. Add team manifests, MCP policy, routing, or multi-agent automation only when the team has a real
+9. Add team manifests, MCP policy, routing, or multi-agent automation only when the team has a real
    sharing or control problem to solve.
 
 The pilot is succeeding when developers can explain the change without trusting the agent blindly,
 the verification command is explicit, and review stays smaller than the original manual task.
+
+## 30-Minute Team Workshop
+
+Use this agenda when introducing the scaffold to 3-8 developers:
+
+| Time | Activity | Output |
+| --- | --- | --- |
+| 0-5 min | Run `doctor` and `pilot` together | Everyone sees the same small command surface. |
+| 5-15 min | Developer A runs `/first-session` inspect-only | Build/test command and key files are named. |
+| 15-22 min | Run one bounded `/agentic-change` | Small diff plus verification output. |
+| 22-27 min | Developer B repeats the inspect-only path | Compare whether the agent finds the same verifier. |
+| 27-30 min | Decide what to commit | PR template, one knowledge note, or no change yet. |
+
+Do not introduce team manifests, RouteLLM, MCP policy, or reusable skills during the workshop
+unless the team already has a concrete problem those features solve.
 
 ## Team Defaults
 
@@ -178,7 +195,7 @@ and where do real controls live?" using the scaffold's own docs.
 coding-scaffold setup run --target . --tool opencode
 coding-scaffold policy --target . --scope company
 # Read .coding-scaffold/policy/company.md, opencode.json.new, providers.json.
-# Read docs/wiki/Security.md — Threat Model section.
+# Read docs/docs/wiki/Security.md — Threat Model section.
 ```
 
 The acceptance artifact is the policy diff plus a checklist of which platform controls back it

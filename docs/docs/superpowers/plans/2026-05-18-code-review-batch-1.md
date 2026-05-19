@@ -437,7 +437,7 @@ This is the largest task. Split into four steps that each leave the suite green.
 - Modify: `src/coding_scaffold/team.py` (layout + clone strategy + scheme validation)
 - Modify: `src/coding_scaffold/cli.py` (add `--allow-local` flag to `team connect`/`team sync`)
 - Modify: `tests/test_team.py` (regressions + new safety assertions; existing tests get `--allow-local` where needed)
-- Modify: `docs/wiki/Team-Onboarding.md` (trust-model paragraph)
+- Modify: `docs/docs/wiki/Team-Onboarding.md` (trust-model paragraph)
 
 - [ ] **Step 1: Write the four new failing regression tests**
 
@@ -678,7 +678,7 @@ Search `tests/test_team.py` for existing tests that call `sync_team` or `connect
 
 - [ ] **Step 6: Add the trust-model paragraph to docs**
 
-In `docs/wiki/Team-Onboarding.md`, append:
+In `docs/docs/wiki/Team-Onboarding.md`, append:
 
 ```markdown
 ## Trust model
@@ -707,7 +707,7 @@ All green, including the four new regression tests and any existing tests adapte
 
 ```
 git add src/coding_scaffold/team.py src/coding_scaffold/cli.py \
-        tests/test_team.py docs/wiki/Team-Onboarding.md
+        tests/test_team.py docs/docs/wiki/Team-Onboarding.md
 git commit -m "Confine team sync to team/sources; require --allow-local for file paths
 
 Sync now never writes to .coding-scaffold/knowledge/. Remote URLs clone
@@ -759,8 +759,8 @@ Plus the mechanical-fix batch already merged into this branch (closes #33, #37, 
 
 ## Spec / plan
 
-- [Design spec](docs/superpowers/specs/2026-05-18-code-review-batch-1-design.md)
-- [Implementation plan](docs/superpowers/plans/2026-05-18-code-review-batch-1.md)
+- [Design spec](../specs/2026-05-18-code-review-batch-1-design.md)
+- [Implementation plan](./2026-05-18-code-review-batch-1.md)
 EOF
 )"
 ```

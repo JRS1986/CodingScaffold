@@ -14,7 +14,7 @@ respect that posture.
 Run these before claiming a change is done. Each must pass with exit code 0.
 
 - `uv run ruff check` — lint passes.
-- `uv run pytest -q` — full test suite passes (310+ tests as of v0.4.1).
+- `uv run pytest -q` — full test suite passes (330+ tests as of v0.5.0).
 
 For larger changes, also run the scaffold on itself as a smoke check:
 

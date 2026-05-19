@@ -35,15 +35,24 @@ call happens later, inside the coding tool, when a developer runs an agent comma
 
 ## Recommended Reading
 
-1. [Getting Started](./Getting-Started.md): install, run setup, refresh safely, and complete the first agentic coding session.
-2. [Core Concepts](./Core-Concepts.md): understand the main ideas before introducing it to a team.
-3. [Model Selection and Providers](./Model-Selection-and-Providers.md): local-first routing, Azure/OpenAI/Anthropic abstraction, and auto mode.
-4. [Skills and Agents](./Skills-and-Agents.md): how teams turn good workflows into reusable assets.
-5. [Knowledge Base](./Knowledge-Base.md): Markdown, Obsidian, MemPalace, and shared GitHub/GitLab memory.
-6. [Context Hygiene](./Context-Hygiene.md): avoid oversized or stale context and add optional compression.
-7. [Team Onboarding](./Team-Onboarding.md): connect new developers to shared knowledge, skills, agents, and policy.
-8. [Policy Packs](./Policy-Packs.md): local OpenCode policy defaults for company/unit/team rollout.
-9. [Team Rollout](./Team-Rollout.md): a practical adoption plan for a team workshop or internal pilot.
+Start with the smallest path that matches your job today:
+
+| Need | Page | What you get |
+| --- | --- | --- |
+| First useful session | [Getting Started](./Getting-Started.md) | The `doctor` + `pilot` path and the first bounded agentic change. |
+| Small-team pilot | [Team Rollout](./Team-Rollout.md) | A two-person rollout plan for teams under 20 people. |
+| Security/compliance review | [Security](./Security.md) | Credential, provider, MCP, policy, and trust-boundary notes. |
+| Tool comparison | [Tool Adapters](./Tool-Adapters.md) | Capability matrix for OpenCode, Claude Code, Codex, OpenClaude, Hermes, and Pi. |
+| Shared memory | [Knowledge Base](./Knowledge-Base.md) | Markdown, Obsidian, Foam, MemPalace, and shared Git workflows. |
+
+Then use the reference pages when the need appears:
+
+- [Core Concepts](./Core-Concepts.md): the vocabulary behind local-first scaffolding.
+- [Model Selection and Providers](./Model-Selection-and-Providers.md): routine vs heavy-lift guidance.
+- [Skills and Agents](./Skills-and-Agents.md): reusable playbooks and agent definitions.
+- [Context Hygiene](./Context-Hygiene.md): context budgets, linting, and compression sidecars.
+- [Team Onboarding](./Team-Onboarding.md): manifests for teams that already have shared assets.
+- [Policy Packs](./Policy-Packs.md): reviewable provider, sharing, permission, and MCP defaults.
 
 ## Design Posture
 

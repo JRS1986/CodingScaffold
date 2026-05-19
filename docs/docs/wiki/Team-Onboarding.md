@@ -5,6 +5,10 @@ skills, trusted agents, policy, and config. Put those defaults in a reviewed non
 
 ## New Developer Flow
 
+Use this page after the team has a reviewed onboarding manifest. If you are trying the scaffold in
+a repo that does not have a manifest yet, start with `coding-scaffold doctor --target .` and
+`coding-scaffold pilot --target . --tool opencode` instead.
+
 ```bash
 git clone https://github.com/acme/project.git
 cd project

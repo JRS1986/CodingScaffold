@@ -131,7 +131,8 @@ colleagues evaluating the project.
 - Docs include text alternatives or a transcript.
 - Media does not expose secrets, real customer code, or private provider configuration.
 
-**Likely touchpoints:** `docs/demo/`, `docs/wiki/Getting-Started.md`, `docs/wiki/Team-Rollout.md`.
+**Likely touchpoints:** `docs/demo/`, `docs/docs/wiki/Getting-Started.md`,
+`docs/docs/wiki/Team-Rollout.md`.
 
 ## Later Platform Work
 

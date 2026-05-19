@@ -25,7 +25,20 @@ tailored to what's already present, and explicitly names the advanced features y
 ignore for now. `pilot` is a safe guided wrapper — it runs only read-only local checks
 (Python version, git availability, tool presence on PATH, credentials in env) and prints
 the exact commands to run next. Neither command installs anything or writes files; the
-recipe they print may include `--install` flags, but you make that call.
+recipe they print may include install flags such as `--install-tools`, but you make that call.
+
+## Which Command Do I Need?
+
+| Situation | Run this first | Why |
+| --- | --- | --- |
+| "I just opened this repo" | `coding-scaffold doctor --target .` | Shows what is already set up and what to do next. |
+| "I want the smallest useful demo" | `coding-scaffold pilot --target . --tool opencode` | Prints the 10-minute path without writing files or installing anything. |
+| "I am ready to generate scaffold files" | `coding-scaffold setup run --target . --mode beginner --tool opencode` | Writes the project-local guidance and adapter files. |
+| "I want to know if this repo is ready" | `coding-scaffold eval run --target .` | Runs the deterministic readiness checks. |
+| "A larger AI-assisted change is starting" | `coding-scaffold session init --target . --task "..."` | Creates a reviewable session trace. |
+
+Everything else (`policy`, `mcp`, `skills`, `memory`, `team`, routing, and workflow automation)
+is useful later, but it should not be day-one cognitive load.
 
 > Looking for a specific entry point? See the [persona paths](docs/docs/wiki/Team-Rollout.md#persona-paths)
 > (beginner / control-and-reproducibility / security review / team lead). For the threat model
@@ -179,6 +192,9 @@ coding-scaffold team sync --target .
 coding-scaffold team doctor --target .
 ```
 
+Run `coding-scaffold team doctor` only after a team manifest exists. For a new repo without a
+manifest, use top-level `coding-scaffold doctor --target .`.
+
 Then start the first session:
 
 ```bash
@@ -259,6 +275,44 @@ workflow automation only when the team has a concrete need.
 
 ## Everyday Flow
 
+Use this after the first successful pilot. The everyday path is deliberately smaller than the full
+command reference:
+
+1. Ask the scaffold what is next:
+
+   ```bash
+   coding-scaffold doctor --target ~/dev/my-project
+   ```
+
+2. Run or refresh setup when the project needs generated guidance:
+
+   ```bash
+   coding-scaffold setup run --target ~/dev/my-project --mode beginner --tool opencode
+   coding-scaffold setup update --target ~/dev/my-project
+   ```
+
+3. Before a meaningful agent-assisted change, create a trace:
+
+   ```bash
+   coding-scaffold session init --target ~/dev/my-project --task "Small safe improvement"
+   ```
+
+4. Check readiness and context health:
+
+   ```bash
+   coding-scaffold eval run --target ~/dev/my-project
+   coding-scaffold context lint --target ~/dev/my-project
+   ```
+
+5. Ask for a model recommendation when the route is unclear:
+
+   ```bash
+   coding-scaffold tools select-model --target ~/dev/my-project \
+     --prompt "Review this authentication refactor for security regressions."
+   ```
+
+Use the commands below when you need deeper setup:
+
 1. Probe the machine and provider setup:
 
    ```bash
@@ -277,14 +331,7 @@ workflow automation only when the team has a concrete need.
    coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
    ```
 
-4. Ask for a model recommendation when the route is unclear:
-
-   ```bash
-   coding-scaffold tools select-model --target ~/dev/my-project \
-     --prompt "Review this authentication refactor for security regressions."
-   ```
-
-5. Capture repeatable workflows as skills:
+4. Capture repeatable workflows as skills:
 
    ```bash
    coding-scaffold skill --target ~/dev/my-project \
@@ -292,7 +339,7 @@ workflow automation only when the team has a concrete need.
      --name "Release Review"
    ```
 
-6. Capture decisions, useful prompts, skills, and agent patterns in team memory:
+5. Capture decisions, useful prompts, skills, and agent patterns in team memory:
 
    ```bash
    coding-scaffold setup knowledge --target ~/dev/my-project \
@@ -300,14 +347,14 @@ workflow automation only when the team has a concrete need.
      --shared-remote https://github.com/acme/team-ai-knowledge.git
    ```
 
-7. Connect to team onboarding when a shared manifest exists:
+6. Connect to team onboarding when a shared manifest exists:
 
    ```bash
    coding-scaffold team connect --target ~/dev/my-project \
      --manifest https://github.com/acme/platform-ai-onboarding.git
    ```
 
-8. Apply local policy defaults when your team has provider, sharing, or MCP rules:
+7. Apply local policy defaults when your team has provider, sharing, or MCP rules:
 
    ```bash
    coding-scaffold policy --target ~/dev/my-project \
@@ -317,7 +364,7 @@ workflow automation only when the team has a concrete need.
      --disable-mcp-server jira
    ```
 
-9. Add advanced routing or workflow automation only when the team has a real need:
+8. Add advanced routing or workflow automation only when the team has a real need:
 
    ```bash
    coding-scaffold tools route --target ~/dev/my-project --backend routellm
@@ -625,44 +672,24 @@ Optional commands can also generate:
 - Foam workspace files under `.coding-scaffold/knowledge/.vscode/` and `.coding-scaffold/knowledge/.foam/`.
 - `.coding-scaffold/tools/caveman-compression/` and `.caveman.md` context sidecars.
 
-## Commands
+## Command Reference
 
-```bash
-coding-scaffold probe --json
-coding-scaffold setup run --target ~/dev/my-project
-coding-scaffold credentials --target ~/dev/my-project --format env
-coding-scaffold setup tool --tool opencode
-coding-scaffold setup tool --tool claude-code
-coding-scaffold setup tool --tool codex
-coding-scaffold setup addon --target ~/dev/my-project --addon llmfit
-coding-scaffold setup addon --target ~/dev/my-project --addon routellm
-coding-scaffold setup addon --target ~/dev/my-project --addon open-multi-agent
-coding-scaffold setup addon --target ~/dev/my-project --addon obsidian
-coding-scaffold setup addon --target ~/dev/my-project --addon caveman-compression
-coding-scaffold setup knowledge --target ~/dev/my-project --backend obsidian
-coding-scaffold setup update --target ~/dev/my-project
-coding-scaffold knowledge status --target ~/dev/my-project
-coding-scaffold context budget --target ~/dev/my-project --source knowledge
-coding-scaffold context budget --target ~/dev/my-project --source knowledge --prefer compressed
-coding-scaffold context compress --target ~/dev/my-project --source knowledge
-coding-scaffold context compress --target ~/dev/my-project --source knowledge --engine caveman
-coding-scaffold team init --target ~/dev/my-project --team platform-api
-coding-scaffold team connect --target ~/dev/my-project --manifest https://github.com/acme/platform-ai-onboarding.git
-coding-scaffold team sync --target ~/dev/my-project
-coding-scaffold team doctor --target ~/dev/my-project
-coding-scaffold tools select-model --target ~/dev/my-project --prompt "Review this migration"
-coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
-coding-scaffold tools adapt --target ~/dev/my-project --tool claude-code
-coding-scaffold tools adapt --target ~/dev/my-project --tool codex
-coding-scaffold skill --target ~/dev/my-project --adapter opencode --name "Release Review"
-coding-scaffold knowledge create --target ~/dev/my-project --backend obsidian
-coding-scaffold knowledge distill --target ~/dev/my-project --source raw --review
-coding-scaffold tools orchestrate --target ~/dev/my-project --profile pair
-coding-scaffold policy --target ~/dev/my-project --scope company
-coding-scaffold tools route --target ~/dev/my-project --backend routellm
-coding-scaffold tools workflow --target ~/dev/my-project --backend open-multi-agent
-coding-scaffold doctor
-```
+`coding-scaffold --help` is the best full reference because it groups commands by journey before
+showing every command. The most common commands are:
+
+| Need | Command |
+| --- | --- |
+| See status and next steps | `coding-scaffold doctor --target .` |
+| Print the 10-minute recipe | `coding-scaffold pilot --target . --tool opencode` |
+| Guided setup | `coding-scaffold setup run --target . --mode beginner --tool opencode` |
+| Validate/install a tool intentionally | `coding-scaffold setup tool --tool opencode --install` |
+| Refresh generated files safely | `coding-scaffold setup update --target .` |
+| Readiness check | `coding-scaffold eval run --target .` |
+| Context checks | `coding-scaffold context lint --target .` |
+| Session trace | `coding-scaffold session init --target . --task "..."` |
+| Shared knowledge | `coding-scaffold knowledge create --target . --backend markdown` |
+| Team manifest flow | `coding-scaffold team init/connect/sync/doctor --target .` |
+| Advanced routing/workflows | `coding-scaffold tools route/workflow/orchestrate --target .` |
 
 ## Design Goals
 

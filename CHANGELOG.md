@@ -56,14 +56,14 @@ These changes affect the repo's tooling and the published docs site, not the
   checks (Python version, `git` on PATH, the chosen tool's binary on PATH, credentials
   in env, local-runtime CLIs) and then prints the exact three-step recipe tailored to
   your environment. Never installs anything. Never writes files. The printed recipe may
-  include `--install` flags, but the user makes that call. Supports all six tools
+  include install flags such as `--install-tools`, but the user makes that call. Supports all six tools
   (`opencode`, `claude-code`, `codex`, `openclaude`, `hermes`, `pi`) and `--json` output.
 
 ### Documentation
 
 - README adds a "30-Second Start" block at the top with the three commands a new user
   needs today (`doctor`, `pilot`, then follow the recipe).
-- `docs/wiki/Getting-Started.md` adds a "Smallest Useful Path" section that names the
+- `docs/docs/wiki/Getting-Started.md` adds a "Smallest Useful Path" section that names the
   same three commands and explicitly tells readers what to ignore for now.
 
 ## [0.4.2] — 2026-05-18
@@ -131,7 +131,7 @@ These changes affect the repo's tooling and the published docs site, not the
   files-changed. The session never auto-pushes, never deletes work without explicit
   confirmation, and the per-session `*.state.json` is git-ignored so it doesn't pollute
   checkpoint commits. See
-  [Team Rollout / Reversible Agentic Work](docs/wiki/Team-Rollout.md#reversible-agentic-work).
+  [Team Rollout / Reversible Agentic Work](docs/docs/wiki/Team-Rollout.md#reversible-agentic-work).
 - **Memory governance (`coding-scaffold memory capture` / `review` / `promote` / `expire` /
   `audit` / `init`).** Memory entries are reviewable Markdown files under
   `.coding-scaffold/memory/<class>/` with frontmatter (`class`, `owner`, `created`,
@@ -142,7 +142,7 @@ These changes affect the repo's tooling and the published docs site, not the
   PEM blocks). `audit` runs the same patterns over every existing entry plus PII heuristics
   (email, phone-shaped strings) and exits non-zero on `error` severity. Markdown is the v1
   backend; sqlite / mempalace / vector are reserved for future versions. See
-  [Team Rollout / Memory Governance](docs/wiki/Team-Rollout.md#memory-governance).
+  [Team Rollout / Memory Governance](docs/docs/wiki/Team-Rollout.md#memory-governance).
 
 ## [0.3.0] — 2026-05-18
 
@@ -153,7 +153,7 @@ These changes affect the repo's tooling and the published docs site, not the
   read/write/deny patterns, shell-command allowlist + approval-required list, network defaults,
   and MCP defaults. Idempotent; pass `--force` to regenerate. The `shell.allowed` list is
   lightly project-aware (Python projects get `pytest`/`ruff`, Node projects get `npm test`,
-  etc.). See [Security / Machine-Readable Permissions](docs/wiki/Security.md#machine-readable-permissions-artifact).
+  etc.). See [Security / Machine-Readable Permissions](docs/docs/wiki/Security.md#machine-readable-permissions-artifact).
 - **MCP governance (`coding-scaffold mcp policy init` / `scan` / `snapshot` / `diff`).**
   Reviewable team policy at `.coding-scaffold/mcp-policy.json`. The scanner inspects known
   MCP-config locations (`opencode.json`, `.claude/settings.json`) and flags remote servers,
@@ -161,7 +161,7 @@ These changes affect the repo's tooling and the published docs site, not the
   access (root / home), unapproved servers, denied servers, and review-required capabilities.
   `snapshot` + `diff` together let you commit a known-good state and detect drift in CI.
   `mcp diff` exits non-zero when anything changed. No commands are executed; no network
-  calls. See [Security / MCP Governance](docs/wiki/Security.md#mcp-governance).
+  calls. See [Security / MCP Governance](docs/docs/wiki/Security.md#mcp-governance).
 - **Reviewable skill packs (`coding-scaffold skills new` / `lint` / `approve` / `export`).**
   Each skill lives at `.coding-scaffold/skills/<name>/` with `SKILL.md`, `manifest.json`,
   optional `scripts/` and `tests/`, and a `CHECKSUM` file frozen at approval time.
@@ -169,7 +169,7 @@ These changes affect the repo's tooling and the published docs site, not the
   undeclared capabilities (network / shell / credential), missing required sections, invalid
   manifest fields, placeholder owners, and drift since the recorded checksum.
   `skills export` bundles a skill into a `tar.gz` for sharing. See
-  [Security / Skill Pack Governance](docs/wiki/Security.md#skill-pack-governance).
+  [Security / Skill Pack Governance](docs/docs/wiki/Security.md#skill-pack-governance).
 - **Readiness benchmark (`coding-scaffold eval init` / `run` / `report`).** Deterministic
   checks that score how prepared a repo is for safe agentic coding: detectable build/test/lint
   signals, agent instructions present, policy pack present, non-empty deny list, PR template
@@ -177,7 +177,7 @@ These changes affect the repo's tooling and the published docs site, not the
   lint clean, and context budget under the limit. No model-intelligence benchmark — purely
   observable artifacts. `eval run` writes `.coding-scaffold/eval-report.json` and exits
   non-zero when any check fails, so it can gate CI. See
-  [Team Rollout / Readiness Benchmark](docs/wiki/Team-Rollout.md#readiness-benchmark).
+  [Team Rollout / Readiness Benchmark](docs/docs/wiki/Team-Rollout.md#readiness-benchmark).
 - **Agent-context linter (`coding-scaffold context lint`).** Deterministic, heuristic-only
   checker for `AGENTS.md`, `CLAUDE.md`, `llms.txt`, and the `.coding-scaffold/` guidance
   docs. Flags vague rules without verifiers, dangerous shell recommendations
@@ -203,9 +203,9 @@ These changes affect the repo's tooling and the published docs site, not the
 
 ### Documentation
 
-- New section in [Context Hygiene](docs/wiki/Context-Hygiene.md#lint-agent-context-files)
+- New section in [Context Hygiene](docs/docs/wiki/Context-Hygiene.md#lint-agent-context-files)
   explaining what the linter catches.
-- New section in [Team Rollout](docs/wiki/Team-Rollout.md#reviewable-agentic-changes) showing
+- New section in [Team Rollout](docs/docs/wiki/Team-Rollout.md#reviewable-agentic-changes) showing
   the PR-template + session-trace flow end to end.
 
 ## [0.2.0] — 2026-05-18
@@ -218,7 +218,7 @@ These changes affect the repo's tooling and the published docs site, not the
   `.foam/templates/`, and a `FOAM.md` entry note. Foam is MIT-licensed and runs entirely in
   VS Code — a commercial-friendly alternative to Obsidian for organizations that don't want
   the paid Obsidian Commercial license. See
-  [Knowledge Base / Foam](docs/wiki/Knowledge-Base.md#foam).
+  [Knowledge Base / Foam](docs/docs/wiki/Knowledge-Base.md#foam).
 
 ### Fixed
 
@@ -236,7 +236,7 @@ These changes affect the repo's tooling and the published docs site, not the
 ### Changed
 
 - **Compatibility matrix dedup.** The README compatibility table was diverging from the
-  canonical 11-row capability matrix in `docs/wiki/Tool-Adapters.md`. Replaced with a quick-scan
+  canonical 11-row capability matrix in `docs/docs/wiki/Tool-Adapters.md`. Replaced with a quick-scan
   tool → support-depth strip that links to the canonical version, eliminating two-source drift.
 
 ### Documentation
@@ -247,13 +247,13 @@ These changes affect the repo's tooling and the published docs site, not the
   the outputs inventory; Claude Code and Codex added to the installer sentence;
   `INDEX.md` casing corrected throughout.
 - **Review-Backlog reorganized.** Twelve items delivered as of v0.1.0 moved into a
-  `Delivered as of v0.1.0` section at the top of `docs/wiki/Review-Backlog.md` so the priority
+  `Delivered as of v0.1.0` section at the top of `docs/docs/wiki/Review-Backlog.md` so the priority
   sections actually reflect remaining work.
-- **`--share` and `--relaxed-permissions` flags surfaced** in `docs/wiki/Policy-Packs.md` with
+- **`--share` and `--relaxed-permissions` flags surfaced** in `docs/docs/wiki/Policy-Packs.md` with
   an example and a one-line explanation of each option.
 - **Wiki-style `[[X]]` links converted to relative Markdown** in `Home.md`, `_Sidebar.md`,
   `Policy-Packs.md`, and `Knowledge-Base.md` so the docs render correctly when browsing
-  `docs/wiki/` in the repo on GitHub.
+  `docs/docs/wiki/` in the repo on GitHub.
 
 ### Housekeeping
 
@@ -263,7 +263,7 @@ These changes affect the repo's tooling and the published docs site, not the
 ## [0.1.0] — 2026-05-18
 
 First tagged release. The scaffold is positioned for a controlled team pilot, not yet for
-enterprise-wide governance. See [Team-Rollout / Persona Paths](docs/wiki/Team-Rollout.md#persona-paths)
+enterprise-wide governance. See [Team-Rollout / Persona Paths](docs/docs/wiki/Team-Rollout.md#persona-paths)
 for the supported entry points.
 
 ### Added — core scaffold
@@ -272,7 +272,7 @@ for the supported entry points.
   model-selection guidance via `tools select-model`.
 - Tool adapters for OpenCode (deep), Claude Code (native config), Codex (native config),
   OpenClaude / Hermes / Pi (guidance). Full capability matrix in
-  [docs/wiki/Tool-Adapters.md](docs/wiki/Tool-Adapters.md#compatibility-matrix).
+  [docs/docs/wiki/Tool-Adapters.md](docs/docs/wiki/Tool-Adapters.md#compatibility-matrix).
 - Optional add-ons: `llmfit`, `routellm`, `open-multi-agent`, `obsidian`,
   `caveman-compression`. Each is installed only on explicit `setup addon` invocation.
 - Policy packs (`policy --scope team|company`) that generate reviewable defaults for sharing,
@@ -311,7 +311,7 @@ for the supported entry points.
   the result as `opencode.json.new` when an existing `opencode.json` is present.
 - Context compression no longer strips articles (`the | a | an`) from prose, which previously
   corrupted identifiers inside inline code spans and link targets.
-- The threat model is documented in [docs/wiki/Security.md](docs/wiki/Security.md#threat-model).
+- The threat model is documented in [docs/docs/wiki/Security.md](docs/docs/wiki/Security.md#threat-model).
 
 ### Known limitations
 

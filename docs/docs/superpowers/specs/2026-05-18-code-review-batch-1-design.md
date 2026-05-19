@@ -137,7 +137,7 @@ sync`. Clones are kept as full git checkouts in a hidden
    are updated to pass `--allow-local` so they keep exercising the
    local-path code path; this is a one-line change per test.
 
-5. **Trust boundary doc** — `docs/wiki/Team-Onboarding.md` gets a short
+5. **Trust boundary doc** — `docs/docs/wiki/Team-Onboarding.md` gets a short
    "Trust model" section: team manifest content is third-party input; the
    user is responsible for review before linking it from their own knowledge
    tree.
