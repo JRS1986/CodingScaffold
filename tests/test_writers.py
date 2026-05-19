@@ -1,29 +1,16 @@
 import json
 
-from coding_scaffold.hardware import HardwareProfile
-from coding_scaffold.intake import IntakeAnswers
-from coding_scaffold.providers import Provider
-from coding_scaffold.router import RoutingPlan
 from coding_scaffold.writers import write_scaffold
 
 
-def test_write_scaffold_creates_expected_files(tmp_path) -> None:
+def test_write_scaffold_creates_expected_files(tmp_path, scaffold_inputs) -> None:
+    fixture = scaffold_inputs(tool=None)
     manifest = write_scaffold(
         tmp_path,
-        IntakeAnswers(language="python", project_target="CLI", existing_codebase=True, privacy="local-first"),
-        HardwareProfile("linux", False, 8, 32, None, None, True, ["ollama"]),
-        [Provider("ollama", "local", True, "CLI found", "http://127.0.0.1:11434/v1")],
-        RoutingPlan(
-            "local-first-router",
-            "qwen2.5-coder:14b-instruct",
-            "qwen2.5-coder:32b-instruct",
-            0.1,
-            "http://127.0.0.1:11434/v1",
-            None,
-            None,
-            ["route locally"],
-            {"selection_mode": "recommend"},
-        ),
+        fixture.intake,
+        fixture.hardware,
+        fixture.providers,
+        fixture.routing,
     )
 
     names = {path.name for path in manifest.files}
@@ -52,29 +39,20 @@ def test_write_scaffold_creates_expected_files(tmp_path) -> None:
     assert ".coding-scaffold/AGENTS.md" in version["files"]
 
 
-def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch) -> None:
+def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch, scaffold_inputs) -> None:
     from coding_scaffold.providers import detect_providers
 
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "k")
     monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://contoso.openai.azure.com/")
     monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "internal-gpt")
+    fixture = scaffold_inputs(tool=None)
 
     write_scaffold(
         tmp_path,
-        IntakeAnswers(language="python", project_target="CLI", existing_codebase=True, privacy="local-first"),
-        HardwareProfile("linux", False, 8, 32, None, None, True, ["ollama"]),
+        fixture.intake,
+        fixture.hardware,
         detect_providers(),
-        RoutingPlan(
-            "local-first-router",
-            "qwen2.5-coder:14b-instruct",
-            "qwen2.5-coder:32b-instruct",
-            0.1,
-            "http://127.0.0.1:11434/v1",
-            None,
-            None,
-            ["route locally"],
-            {"selection_mode": "recommend"},
-        ),
+        fixture.routing,
     )
 
     providers_json = (tmp_path / ".coding-scaffold" / "providers.json").read_text(encoding="utf-8")
@@ -82,23 +60,17 @@ def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch) -> None:
     assert "internal-gpt" not in providers_json
 
 
-def test_routellm_yaml_quotes_model_names_with_special_chars() -> None:
+def test_routellm_yaml_quotes_model_names_with_special_chars(routing_plan_factory) -> None:
     from coding_scaffold.writers import _routellm_yaml
 
-    plan = RoutingPlan(
-        strategy="local-first-router",
+    plan = routing_plan_factory(
         weak_model="weird: 'value with # hash'",
         strong_model="qwen2.5-coder:7b-instruct",
         route_threshold=0.1,
-        local_endpoint="http://127.0.0.1:11434/v1",
-        cloud_provider=None,
-        cloud_model_family=None,
-        route_rules=["route locally"],
-        model_policy={"selection_mode": "recommend"},
     )
 
     output = _routellm_yaml(plan)
-    assert '"weird: \'value with # hash\'"' in output
+    assert "\"weird: 'value with # hash'\"" in output
     assert '"qwen2.5-coder:7b-instruct"' in output
     assert '"http://127.0.0.1:11434/v1"' in output
 
