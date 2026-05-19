@@ -79,6 +79,6 @@ If a future PR adds any of those, document why in the PR description and update 
 | Test suite | `tests/`, run via `uv run pytest -q` |
 | Lint config | `[tool.ruff]` in `pyproject.toml` |
 | Source modules | `src/coding_scaffold/` |
-| Wiki | `docs/wiki/` (relative-link Markdown, renders on GitHub) |
+| Wiki | `docs/docs/wiki/` (Markdown source for rspress; also published to GitHub Pages) |
 | Release notes | `CHANGELOG.md` |
 | CI | `.github/workflows/ci.yml` — runs ruff + pytest on push to main and on every PR |

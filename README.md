@@ -27,9 +27,9 @@ ignore for now. `pilot` is a safe guided wrapper — it runs only read-only loca
 the exact commands to run next. Neither command installs anything or writes files; the
 recipe they print may include `--install` flags, but you make that call.
 
-> Looking for a specific entry point? See the [persona paths](docs/wiki/Team-Rollout.md#persona-paths)
+> Looking for a specific entry point? See the [persona paths](docs/docs/wiki/Team-Rollout.md#persona-paths)
 > (beginner / control-and-reproducibility / security review / team lead). For the threat model
-> and what the scaffold deliberately does not enforce, read [Security](docs/wiki/Security.md#threat-model).
+> and what the scaffold deliberately does not enforce, read [Security](docs/docs/wiki/Security.md#threat-model).
 > Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 CodingScaffold prepares an existing project for AI-assisted development without tying the team to
@@ -411,7 +411,7 @@ coding-scaffold tools adapt --target ~/dev/my-project --tool pi
 
 For the full capability-by-capability breakdown (install support, permissions, MCP, local models,
 cloud providers, static profiles, runtime routing, etc.) see the
-[compatibility matrix in Tool Adapters](docs/wiki/Tool-Adapters.md#compatibility-matrix) — that's
+[compatibility matrix in Tool Adapters](docs/docs/wiki/Tool-Adapters.md#compatibility-matrix) — that's
 the single source of truth; this table is a scannable summary.
 
 ## Knowledge Base
@@ -427,7 +427,7 @@ coding-scaffold knowledge create --target ~/dev/my-project
 
 New knowledge bases include raw inputs, a curated wiki, decision records, session notes, and
 optional hierarchical-sharing layers (`team` / `department` / `unit` / `company`). See
-[Knowledge Base](docs/wiki/Knowledge-Base.md) for the full tree. The shorthand:
+[Knowledge Base](docs/docs/wiki/Knowledge-Base.md) for the full tree. The shorthand:
 
 ```text
 .coding-scaffold/knowledge/
