@@ -751,8 +751,8 @@ def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
     )
     return f"""# Getting Started
 
-This scaffold is meant to be cloned, installed into a local venv, and run as guided setup inside
-the project you want to prepare for AI-assisted coding.
+CodingScaffold is meant to be installed once as a global command, then run inside whichever project
+you want to prepare for AI-assisted coding.
 
 The goal is not just "better autocomplete." The goal is a controlled workflow where agents inspect,
 plan, edit, verify, review, and preserve the best team habits as reusable skills.
@@ -760,16 +760,15 @@ plan, edit, verify, review, and preserve the best team habits as reusable skills
 ## Fast Path
 
 ```bash
-git clone <this-repo> coding-scaffold
-cd coding-scaffold
-uv venv
-source .venv/bin/activate
-uv sync --extra dev
+uv tool install git+https://github.com/JRS1986/CodingScaffold.git
 coding-scaffold setup run --target /path/to/your/project
 ```
 
-On WSL/Linux the flow is the same. On Windows PowerShell outside WSL, activate with
-`.venv\\Scripts\\Activate.ps1`.
+If you do not use `uv`, install the same isolated command with
+`pipx install git+https://github.com/JRS1986/CodingScaffold.git`.
+
+After installation, run `coding-scaffold` from the project you are preparing. You should not need
+to activate a virtual environment from the CodingScaffold source checkout.
 
 ## What Setup Did Here
 

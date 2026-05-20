@@ -39,6 +39,24 @@ def test_write_scaffold_creates_expected_files(tmp_path, scaffold_inputs) -> Non
     assert ".coding-scaffold/AGENTS.md" in version["files"]
 
 
+def test_generated_getting_started_uses_global_cli_install(tmp_path, scaffold_inputs) -> None:
+    fixture = scaffold_inputs(tool=None)
+    write_scaffold(
+        tmp_path,
+        fixture.intake,
+        fixture.hardware,
+        fixture.providers,
+        fixture.routing,
+    )
+
+    text = (tmp_path / ".coding-scaffold" / "GETTING_STARTED.md").read_text(encoding="utf-8")
+    assert "uv tool install git+https://github.com/JRS1986/CodingScaffold.git" in text
+    assert "pipx install git+https://github.com/JRS1986/CodingScaffold.git" in text
+    assert "source .venv/bin/activate" not in text
+    assert "should not need" in text
+    assert "activate a virtual environment" in text
+
+
 def test_providers_json_redacts_azure_endpoint(tmp_path, monkeypatch, scaffold_inputs) -> None:
     from coding_scaffold.providers import detect_providers
 

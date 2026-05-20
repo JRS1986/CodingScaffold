@@ -7,6 +7,13 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Install docs now default to an isolated global CLI.** README, Getting Started, and generated
+  project onboarding recommend `uv tool install` or `pipx install` from the GitHub repo so users can
+  run `coding-scaffold` from any project without activating the source checkout's virtual
+  environment. The clone + editable install path remains documented for contributors.
+
 ## [0.5.1] — 2026-05-19
 
 ### Fixed
