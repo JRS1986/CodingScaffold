@@ -50,7 +50,34 @@ runtime, an authenticated CLI, or a cloud/API provider.
 
 ## Install
 
-Recommended with uv:
+Recommended for using the CLI from any project:
+
+```bash
+uv tool install git+https://github.com/JRS1986/CodingScaffold.git
+```
+
+Then open the repo you want to prepare and run:
+
+```bash
+cd ~/dev/my-project
+coding-scaffold doctor --target .
+coding-scaffold pilot --target . --tool opencode
+```
+
+This installs `coding-scaffold` into an isolated tool environment and puts the command on your
+`PATH`, so you do not have to activate a virtual environment from the CodingScaffold source checkout
+before using it elsewhere.
+
+If you do not use `uv`, `pipx` gives the same global-command shape:
+
+```bash
+pipx install git+https://github.com/JRS1986/CodingScaffold.git
+```
+
+If your shell cannot find `coding-scaffold` after either command, follow the PATH prompt printed by
+`uv` or run `pipx ensurepath`, then restart the shell.
+
+For contributing to CodingScaffold itself, clone the repo and use the development environment:
 
 ```bash
 git clone https://github.com/JRS1986/CodingScaffold.git
@@ -76,7 +103,10 @@ On Windows PowerShell outside WSL:
 .venv\Scripts\Activate.ps1
 ```
 
-`uv.lock` is committed. Use `uv sync --extra dev` for reproducible development and CI parity.
+Optional RouteLLM dependencies can be installed with `uv sync --extra dev --extra routellm` or
+`python -m pip install -e ".[dev,routellm]"`.
+
+`uv.lock` is committed. Use `uv sync --extra dev` for reproducible local development and CI parity.
 
 ## Prepare A Project
 
