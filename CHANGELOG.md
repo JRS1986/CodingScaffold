@@ -13,6 +13,10 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   project onboarding recommend `uv tool install` or `pipx install` from the GitHub repo so users can
   run `coding-scaffold` from any project without activating the source checkout's virtual
   environment. The clone + editable install path remains documented for contributors.
+- **README now answers why CodingScaffold exists alongside one-command agent installers.** The intro
+  now highlights adaptive language/tool setup, shared reviewed knowledge, and repeatable team
+  workflows before the quick-start commands. Knowledge docs clarify that durable wiki pages should
+  be distilled and reviewed, not raw chat transcript dumps.
 
 ## [0.5.1] — 2026-05-19
 

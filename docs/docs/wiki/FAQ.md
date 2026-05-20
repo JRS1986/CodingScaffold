@@ -60,6 +60,20 @@ print, or collect secret values.
 Copilot is useful for completion and chat. CodingScaffold focuses on agentic workflows: inspect,
 plan, edit, verify, review, and preserve reusable team habits.
 
+## Why not just install a coding agent directly?
+
+You should install and use the coding agent your team likes. CodingScaffold is the repo layer around
+that agent: it generates language-aware and tool-specific guidance, points the agent at the right
+local context, names verification habits, and gives the team a shared knowledge structure. The agent
+does the coding work; CodingScaffold helps the project remember how that work should happen.
+
+## Does it automatically turn chats into wiki pages?
+
+No. Today it provides session traces, raw note folders, curated wiki pages, and
+`knowledge distill --review` proposals. Durable team knowledge should be compressed, abstracted,
+reviewed Markdown, not raw chat logs. If automatic ingestion is added later, it should summarize,
+redact, deduplicate, and propose updates for review before they become team wiki pages.
+
 ## Why Markdown for knowledge?
 
 Markdown works in Git, GitHub, GitLab, editors, Obsidian, and memory tools. It is easy to review

@@ -20,6 +20,10 @@ CodingScaffold helps a project use existing coding agents without turning day on
 migration. It writes reviewable project-local files for agent instructions, provider hints,
 knowledge, policies, and workflows.
 
+Agent installers give you a command to run. CodingScaffold gives that command repo-specific
+context: language-aware setup, tool-specific adapter files, model/provider guidance, verification
+habits, and a Markdown knowledge base where session findings can become reviewed team wiki pages.
+
 For a new repo or a small team pilot, use only this:
 
 ```bash
