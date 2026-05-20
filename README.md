@@ -6,6 +6,27 @@
 Local-first onboarding, configuration, and governance scaffolding for AI-assisted software
 development teams.
 
+## Why Use This If Agents Already Install In One Command?
+
+A coding-agent installer gives you a binary. CodingScaffold prepares the repo around that binary so
+the agent starts with the right project rules, context, model guidance, review flow, and team memory.
+
+The practical difference shows up after the first setup:
+
+- **Adaptive project setup:** `setup run` uses the programming language, project shape, privacy
+  preference, hardware/provider signals, and selected coding tool to generate different local files.
+  OpenCode gets native commands and agents; Claude Code and Codex get their own native project
+  guidance; other tools get focused adapter docs.
+- **A shared knowledge base:** session traces, decisions, useful prompts, project vocabulary, and
+  repeated agent patterns can be captured as Markdown, reviewed in Git, and promoted into a team
+  wiki instead of staying buried in one person's chat history.
+- **A repeatable team workflow:** the scaffold gives `doctor`, `pilot`, `session`, `eval`,
+  permissions, policy, skills, and onboarding manifests the same shape across projects, without
+  making the scaffold a runtime agent or sending prompts to a model.
+
+Use your preferred coding agent. Use CodingScaffold when you want that agent to behave consistently
+inside a real repo and when the useful lessons from each session should become reusable team context.
+
 ## 30-Second Start
 
 You need three commands today. The rest can wait.
@@ -492,6 +513,12 @@ the single source of truth; this table is a scannable summary.
 
 The knowledge base is Markdown-first so it works in GitHub, GitLab, local editors, OpenCode,
 Obsidian, and optional memory tools.
+
+It is deliberately not "dump every chat into the wiki." Session traces and raw notes are source
+material. The durable team wiki should contain compressed, abstracted, reviewed knowledge: decisions,
+project vocabulary, useful prompts, validated workflows, and links back to source notes when needed.
+If automatic chat ingestion is added later, it should create reviewable distilled proposals rather
+than saving raw transcripts as team truth.
 
 Plain Markdown:
 

@@ -136,6 +136,12 @@ coding-scaffold knowledge distill --target ~/dev/my-project --source raw --revie
 The first version is deterministic and review-first. It writes `.new` proposal files under
 `knowledge/wiki/` and never silently rewrites curated pages.
 
+Do not treat raw agent chats as durable team knowledge. If your workflow captures conversation
+output, distill it first: remove secrets and irrelevant history, compress repeated context, abstract
+the reusable decision or pattern, and review the proposal before promoting it into `wiki/`.
+Automatic chat ingestion, if added later, should follow that same proposal-first shape instead of
+writing raw transcripts into the shared wiki.
+
 ## Obsidian
 
 Obsidian mode keeps Markdown as the source of truth while adding vault structure, backlinks,
