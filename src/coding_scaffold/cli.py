@@ -161,6 +161,15 @@ def build_parser() -> argparse.ArgumentParser:
     setup_update = setup_sub.add_parser("update", help="Refresh generated scaffold files without losing edits.")
     setup_update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    setup_update.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Bypass the min_supported_scaffold_version compatibility check. "
+            "Use when the installed scaffold is older than the project's recorded floor "
+            "and you've read https://jrs1986.github.io/CodingScaffold/wiki/Upgrading."
+        ),
+    )
 
     # NOTE: The parsers below (init, wizard, knowledge-status, context-budget,
     # compress-context, orchestrate, setup-tool, setup-addon, setup-knowledge,
@@ -1817,6 +1826,35 @@ def _cmd_policy(args: argparse.Namespace) -> int:
 
 def _cmd_update(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
+
+    # Compatibility gate: refuse to update if the installed scaffold is older
+    # than the project's recorded `min_supported_scaffold_version`. The .new
+    # workflow assumes the project structure the writers produce matches what
+    # `setup update` knows how to compare against; a downgrade can write files
+    # in a shape the old code doesn't recognize and silently clobber edits.
+    from . import __version__
+    from .scaffold_version import compare_versions, read_min_supported_version
+
+    min_required = read_min_supported_version(target)
+    if min_required and not getattr(args, "force", False):
+        if compare_versions(__version__, min_required) < 0:
+            print(
+                f"error: this project was last updated with CodingScaffold {min_required}, "
+                f"but {__version__} is installed.",
+                file=sys.stderr,
+            )
+            print(
+                "  next: upgrade the scaffold "
+                "(`pip install -U coding-scaffold` or `uv tool upgrade coding-scaffold`), "
+                "or rerun with `--force` after reading the migration note.",
+                file=sys.stderr,
+            )
+            print(
+                "  see: https://jrs1986.github.io/CodingScaffold/wiki/Upgrading",
+                file=sys.stderr,
+            )
+            return 1
+
     intake = _load_project_intake(target)
     hardware = probe_hardware()
     providers = detect_providers(load_local_credentials(target))
@@ -1828,8 +1866,20 @@ def _cmd_update(args: argparse.Namespace) -> int:
         print(f"Updated {len(result.updated)} generated file(s).")
         print(f"Staged {len(result.staged)} edited file update(s) as .new.")
         print(f"Skipped {len(result.skipped)} already-current file(s).")
-        for path in result.staged:
-            print(f"Review staged update: {path}")
+        if result.staged:
+            print()
+            print("Reconcile .new files — copy-pasteable next steps:")
+            print("  1. Diff each pair so you can see what changed upstream:")
+            for path in result.staged:
+                original = str(path)[: -len(".new")] if str(path).endswith(".new") else str(path)
+                print(f"     diff -u {original} {path}")
+            print("  2. Merge the upstream changes into your edited file (resolve by hand).")
+            print("  3. Delete the .new sidecar once you're done:")
+            for path in result.staged:
+                print(f"     rm {path}")
+            print("  4. Re-run `coding-scaffold eval run --target .` to confirm the project is healthy.")
+            print()
+            print("Full upgrade guide: https://jrs1986.github.io/CodingScaffold/wiki/Upgrading")
         for warning in result.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
     return 0
