@@ -13,8 +13,6 @@ Each section is short on purpose — the deep coverage lives in
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -322,7 +320,7 @@ def test_issue_105_html_backend_is_a_valid_choice() -> None:
 
 
 def test_issue_105_html_backend_renders_pages(tmp_path: Path) -> None:
-    result = write_knowledge_base(tmp_path, "html", None, "none")
+    write_knowledge_base(tmp_path, "html", None, "none")
     site_dir = tmp_path / ".coding-scaffold" / "knowledge" / "site"
     assert site_dir.exists(), "#105: html backend must produce a site directory"
     html_files = list(site_dir.rglob("*.html"))
