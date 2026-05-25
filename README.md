@@ -520,6 +520,13 @@ project vocabulary, useful prompts, validated workflows, and links back to sourc
 If automatic chat ingestion is added later, it should create reviewable distilled proposals rather
 than saving raw transcripts as team truth.
 
+Generated adapters also include an agent-side **knowledge nudge**. The nudge asks the coding
+environment you are already using — OpenCode, Claude Code, Codex, or another configured tool — to
+notice durable lessons at the end of substantial chats. CodingScaffold does not call a model itself;
+it writes instructions and native `knowledge-propose` commands/skills so the active agent can add
+candidate bullets to `## Reusable Knowledge Discovered` or draft `.new` proposal files for human
+review.
+
 Plain Markdown:
 
 ```bash

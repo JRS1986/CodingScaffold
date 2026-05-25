@@ -27,6 +27,7 @@
 .opencode/agents/reviewer.md
 .opencode/commands/agentic-change.md
 .opencode/commands/first-session.md
+.opencode/commands/knowledge-propose.md
 .opencode/commands/recheck-route.md
 .opencode/commands/review.md
 opencode.json

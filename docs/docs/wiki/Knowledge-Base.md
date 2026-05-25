@@ -142,6 +142,24 @@ the reusable decision or pattern, and review the proposal before promoting it in
 Automatic chat ingestion, if added later, should follow that same proposal-first shape instead of
 writing raw transcripts into the shared wiki.
 
+## Knowledge Nudge
+
+CodingScaffold can ask the active coding environment to help the user remember useful lessons
+without adding model calls to CodingScaffold itself. Generated adapters include a native
+`knowledge-propose` command or skill. Run it near the end of a substantial chat, or let the generated
+agent instructions remind the agent to do a quick knowledge nudge during handoff.
+
+The agent should use its own configured model, local route, or credentials to identify candidates,
+then write only reviewable output:
+
+- bullets under `## Reusable Knowledge Discovered` in the active session trace
+- `.new` proposal files under `knowledge/wiki/` or `knowledge/decisions/`
+- short-lived Markdown entries under `.coding-scaffold/memory/session_lesson/` or
+  `.coding-scaffold/memory/failed_attempt/`
+
+The nudge must not store raw chat transcripts, secrets, personal data, customer data, or unverified
+speculation.
+
 ## Obsidian
 
 Obsidian mode keeps Markdown as the source of truth while adding vault structure, backlinks,

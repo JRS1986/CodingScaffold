@@ -45,3 +45,20 @@ Guidance mode: ${mode}
 - Change checkpoint: pause before migrations, dependency upgrades, or broad refactors.
 - Explicit handoff: state assumptions, commands, expected signals, and next steps.
 - Small change, fast test, clear rollback.
+
+## Knowledge Nudge
+
+At the end of each substantial chat or coding session, use the current coding environment's
+configured model to ask what reusable knowledge should be remembered. Capture only durable
+candidates: project facts, team preferences, decisions, failed attempts, useful commands, gotchas,
+or reusable prompts. Do not save raw chat transcripts, secrets, personal data, or transient
+conversation.
+
+Prefer reviewable outputs:
+
+- Add bullets to the active session trace under `## Reusable Knowledge Discovered`.
+- Use the native `knowledge-propose` command or skill when available.
+- Write proposals as `.new` files under `.coding-scaffold/knowledge/wiki/` or short-lived entries
+  under `.coding-scaffold/memory/session_lesson/` only when asked.
+- Keep source references back to the session trace, issue, PR, or raw note that justified the
+  proposal.

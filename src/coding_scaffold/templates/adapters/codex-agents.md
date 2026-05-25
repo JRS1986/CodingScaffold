@@ -23,3 +23,14 @@ team guidance for choosing routine versus heavy-lift work.
 
 Start with `.coding-scaffold/knowledge/INDEX.md` when it exists. Curated wiki pages are preferred
 over raw notes.
+
+## Knowledge Nudge
+
+At the end of each substantial chat, use Codex's currently configured model to identify reusable
+knowledge candidates. Capture only durable project facts, decisions, team preferences, failed
+attempts, useful commands, gotchas, or reusable prompts. Do not store raw transcripts, secrets,
+personal data, or irrelevant conversation.
+
+Prefer reviewable proposals: add bullets to `## Reusable Knowledge Discovered` in the active
+session trace, or use the `knowledge-propose` skill to draft `.new` knowledge proposals with source
+refs.

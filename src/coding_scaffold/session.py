@@ -221,8 +221,11 @@ counted. Free-form prose between sections is preserved.
 
 ## Reusable Knowledge Discovered
 
-<!-- If a skill, decision, or wiki page should be promoted from this session, name it here.
-Once promoted, link the promoted file from this bullet. -->
+<!-- Knowledge nudge: at handoff, ask the active coding agent to use its configured model to spot
+durable lessons worth remembering. Capture only reviewable candidates here: project facts, team
+preferences, decisions, failed attempts, useful commands, gotchas, or reusable prompts. Do not paste
+raw chat transcripts, secrets, personal data, or transient conversation. Once promoted, link the
+promoted file from the relevant bullet. -->
 
 -
 """

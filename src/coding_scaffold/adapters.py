@@ -91,6 +91,7 @@ def _write_opencode(root: Path, routing: dict[str, object]) -> AdapterResult:
     collect_text(files, skipped, agents / "implementer.md", _opencode_implementer(routing))
     collect_text(files, skipped, commands / "first-session.md", _opencode_first_session())
     collect_text(files, skipped, commands / "agentic-change.md", _opencode_agentic_change())
+    collect_text(files, skipped, commands / "knowledge-propose.md", _knowledge_propose_command())
     collect_text(files, skipped, commands / "review.md", _opencode_review_command())
     collect_text(files, skipped, commands / "recheck-route.md", _opencode_recheck_route())
     return AdapterResult(files, skipped)
@@ -113,6 +114,12 @@ def _write_claude_code(root: Path, routing: dict[str, object]) -> AdapterResult:
         root / ".claude" / "commands" / "agentic-change.md",
         _claude_agentic_change(),
     )
+    collect_text(
+        files,
+        skipped,
+        root / ".claude" / "commands" / "knowledge-propose.md",
+        _knowledge_propose_command(),
+    )
     collect_text(files, skipped, root / ".claude" / "agents" / "reviewer.md", _claude_reviewer(routing))
     return AdapterResult(files, skipped)
 
@@ -123,6 +130,7 @@ def _write_codex(root: Path, routing: dict[str, object]) -> AdapterResult:
     collect_text(files, skipped, root / "AGENTS.md", _codex_agents_md(routing))
     collect_text(files, skipped, root / ".codex" / "skills" / "README.md", _codex_skills_readme())
     collect_text(files, skipped, root / ".codex" / "skills" / "first-session.md", _codex_first_session_skill())
+    collect_text(files, skipped, root / ".codex" / "skills" / "knowledge-propose.md", _knowledge_propose_command())
     collect_text(files, skipped, root / ".codex" / "config.toml", _codex_config_toml())
     return AdapterResult(files, skipped)
 
@@ -187,6 +195,10 @@ def _opencode_review_command() -> str:
 
 def _opencode_recheck_route() -> str:
     return read_template("adapters/opencode-recheck-route.md")
+
+
+def _knowledge_propose_command() -> str:
+    return read_template("adapters/knowledge-propose.md")
 
 
 def _claude_md(routing: dict[str, object]) -> str:

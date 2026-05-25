@@ -74,6 +74,11 @@ No. Today it provides session traces, raw note folders, curated wiki pages, and
 reviewed Markdown, not raw chat logs. If automatic ingestion is added later, it should summarize,
 redact, deduplicate, and propose updates for review before they become team wiki pages.
 
+Generated tool adapters can still remind the active coding agent to run a "knowledge nudge" at the
+end of a substantial chat. That nudge uses the coding environment's configured model, not
+CodingScaffold, and writes reviewable candidates such as session-trace bullets or `.new` proposal
+files instead of silently updating curated knowledge.
+
 ## Why Markdown for knowledge?
 
 Markdown works in Git, GitHub, GitLab, editors, Obsidian, and memory tools. It is easy to review

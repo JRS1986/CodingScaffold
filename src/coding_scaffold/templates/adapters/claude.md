@@ -24,3 +24,13 @@ CodingScaffold only provides guidance and shared project context here.
 
 Run `/first-session` and wait for the repository map, test commands, risk areas, and one safe
 proposed improvement before making edits.
+
+## Knowledge Nudge
+
+At the end of each substantial chat, use Claude Code's currently configured model to identify
+reusable knowledge candidates. Capture only durable project facts, decisions, team preferences,
+failed attempts, useful commands, gotchas, or reusable prompts. Do not store raw transcripts,
+secrets, personal data, or irrelevant conversation.
+
+Prefer reviewable proposals: add bullets to `## Reusable Knowledge Discovered` in the active
+session trace, or run `/knowledge-propose` to draft `.new` knowledge proposals with source refs.

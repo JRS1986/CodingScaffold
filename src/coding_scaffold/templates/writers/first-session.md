@@ -15,7 +15,7 @@ Inside OpenCode:
 ```
 
 Expected result: the agent identifies the project shape, run command, test command, key files,
-risks, and one safe improvement. It should not edit yet.
+risks, reusable knowledge candidates, and one safe improvement. It should not edit yet.
 
 ## 2. Run One Small Agentic Loop
 
