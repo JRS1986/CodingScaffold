@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .hardware import probe_hardware
+from .personas import DEFAULT_PERSONA, PERSONAS, get_persona
 
 
 SUPPORTED_TOOLS: tuple[str, ...] = (
@@ -58,11 +59,13 @@ class PilotReport:
     steps: list[str]
     ignore_for_now: list[str]
     warnings: list[str] = field(default_factory=list)
+    persona: str = DEFAULT_PERSONA
 
     def to_dict(self) -> dict[str, object]:
         return {
             "target": self.target,
             "tool": self.tool,
+            "persona": self.persona,
             "environment_ok": self.environment_ok,
             "environment": dict(self.environment),
             "steps": list(self.steps),
@@ -71,7 +74,12 @@ class PilotReport:
         }
 
 
-def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport:
+def run_pilot(
+    target: Path | None = None,
+    tool: str = "opencode",
+    *,
+    persona: str = DEFAULT_PERSONA,
+) -> PilotReport:
     """Build a structured PilotReport. Read-only — no commands are executed beyond
     `probe_hardware()` (which itself is a local inspection)."""
 
@@ -79,6 +87,10 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
     if tool not in SUPPORTED_TOOLS:
         raise ValueError(
             f"Unknown tool {tool!r}. Choose from: {', '.join(SUPPORTED_TOOLS)}."
+        )
+    if persona not in PERSONAS:
+        raise ValueError(
+            f"Unknown persona {persona!r}. Choose from: {', '.join(PERSONAS)}."
         )
 
     warnings: list[str] = []
@@ -139,7 +151,16 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
     )
 
     # Build the printable recipe. Same shape regardless of tool, with the tool name woven in.
-    steps = _build_steps(root, tool=tool, tool_present=tool_present)
+    # Beginner persona uses the canonical 10-minute recipe; other personas substitute the
+    # focus-area commands so the user runs what matters for their job today.
+    if persona == DEFAULT_PERSONA:
+        steps = _build_steps(root, tool=tool, tool_present=tool_present)
+        ignore = list(IGNORE_FOR_NOW)
+    else:
+        focus = get_persona(persona)
+        steps = list(focus.next_commands)[:3]
+        ignore = list(focus.ignore_for_now)
+        warnings.insert(0, f"Persona: {focus.title} — {focus.focus}")
 
     return PilotReport(
         target=str(root),
@@ -147,8 +168,9 @@ def run_pilot(target: Path | None = None, tool: str = "opencode") -> PilotReport
         environment_ok=environment_ok,
         environment=env_info,
         steps=steps,
-        ignore_for_now=list(IGNORE_FOR_NOW),
+        ignore_for_now=ignore,
         warnings=warnings,
+        persona=persona,
     )
 
 

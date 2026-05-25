@@ -1,5 +1,6 @@
 [
   "Getting-Started",
+  "Glossary",
   "Core-Concepts",
   "Model-Selection-and-Providers",
   "Skills-and-Agents",
@@ -13,5 +14,6 @@
   "Team-Rollout",
   "Review-Backlog",
   "Errors-and-Recovery",
+  "Stability",
   "FAQ"
 ]

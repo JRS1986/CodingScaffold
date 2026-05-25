@@ -142,6 +142,13 @@ The rollout is working when:
 Pick the path that matches the developer you're onboarding. Each path lists who it's for, what
 "done" looks like for them, and the smallest command set that gets them there.
 
+The CLI also surfaces these paths directly: `coding-scaffold doctor --persona <name>` and
+`coding-scaffold pilot --persona <name>` (where `<name>` is one of `beginner`, `control`,
+`security`, `team-lead`) tailor the recommendations and the ignore-for-now list to the
+persona's focus area. The persona registry lives at
+[`src/coding_scaffold/personas.py`](https://github.com/JRS1986/CodingScaffold/blob/main/src/coding_scaffold/personas.py)
+so the wiki and CLI cannot drift apart.
+
 ### Beginner path — for a junior developer new to agentic coding
 
 **Who:** writes Python or web code, hasn't worked with an autonomous coding agent before. Wants
