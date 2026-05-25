@@ -136,7 +136,7 @@ def test_setup_update_runs_when_installed_matches_or_newer(
     _plant_min_supported(tmp_path, __version__)
     # We don't assert success of the full refresh (it needs an intake); only
     # that we don't get the compatibility refusal exit.
-    rc = main(["setup", "update", "--target", str(tmp_path)])
+    main(["setup", "update", "--target", str(tmp_path)])
     err = capsys.readouterr().err
     assert "but " + __version__ + " is installed" not in err
 
