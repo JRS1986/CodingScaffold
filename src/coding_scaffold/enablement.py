@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
 from .adapters import write_tool_adapter
+from .file_ops import write_json, write_text
 
 
 def write_skill_template(
@@ -20,7 +20,7 @@ def write_skill_template(
     path = skills_dir / f"{slug}.md"
     if path.exists():
         return path
-    path.write_text(_skill_template(name, description), encoding="utf-8")
+    write_text(path, _skill_template(name, description), overwrite=False)
     if adapter == "opencode":
         _write_opencode_command(target, slug, name, description)
     return path
@@ -31,7 +31,7 @@ def write_orchestration_plan(target: Path, profile: str, adapter: str | None = N
     scaffold.mkdir(parents=True, exist_ok=True)
     plan = _orchestration_profile(profile)
     path = scaffold / "orchestration.json"
-    path.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json(path, plan)
     if adapter == "opencode":
         write_tool_adapter(target, "opencode")
     return path
@@ -90,7 +90,8 @@ def _write_opencode_command(target: Path, slug: str, name: str, description: str
     path = commands / f"{slug}.md"
     if not path.exists():
         summary = description or f"Run the {name} project skill."
-        path.write_text(
+        write_text(
+            path,
             f"""Use the project skill `.coding-scaffold/skills/{slug}.md`.
 
 Goal: {summary}
@@ -98,7 +99,7 @@ Goal: {summary}
 Load the skill, inspect the required context, follow its workflow, and report changed files,
 verification, and residual risk.
 """,
-            encoding="utf-8",
+            overwrite=False,
         )
     return path
 

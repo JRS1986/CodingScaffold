@@ -1,0 +1,4 @@
+.env.local
+credentials.local.json
+*.secret.*
+team/

@@ -63,34 +63,34 @@ def write_knowledge_base(
 
     files: list[Path] = []
     skipped: list[Path] = []
-    _write(files, scaffold / "knowledge.json", _knowledge_json(backend, shared_remote), overwrite=True)
-    _write(files, scaffold / "KNOWLEDGE.md", _knowledge_guide(backend, shared_remote), overwrite=True)
-    _collect(files, skipped, knowledge / "README.md", _knowledge_readme(backend, shared_remote))
-    _collect(files, skipped, knowledge / "INDEX.md", _knowledge_index())
-    _collect(files, skipped, knowledge / "raw" / "README.md", _raw_readme())
-    _collect(files, skipped, knowledge / "raw" / "meetings" / "README.md", _raw_folder_readme("meetings"))
-    _collect(files, skipped, knowledge / "raw" / "decisions" / "README.md", _raw_folder_readme("decisions"))
-    _collect(files, skipped, knowledge / "raw" / "code-notes" / "README.md", _raw_folder_readme("code notes"))
-    _collect(files, skipped, knowledge / "raw" / "incidents" / "README.md", _raw_folder_readme("incidents"))
-    _collect(files, skipped, knowledge / "wiki" / "architecture.md", _curated_wiki_page("architecture"))
-    _collect(files, skipped, knowledge / "wiki" / "setup.md", _curated_wiki_page("setup"))
-    _collect(files, skipped, knowledge / "wiki" / "testing.md", _curated_wiki_page("testing"))
-    _collect(files, skipped, knowledge / "wiki" / "deployment.md", _curated_wiki_page("deployment"))
-    _collect(files, skipped, knowledge / "wiki" / "domain-language.md", _curated_wiki_page("domain language"))
-    _collect(files, skipped, knowledge / "wiki" / "decisions.md", _curated_wiki_page("decisions"))
-    _collect(files, skipped, knowledge / "decisions" / "README.md", _decisions_readme())
-    _collect(files, skipped, knowledge / "decisions" / "0001-decision-template.md", _decision_template())
-    _collect(files, skipped, knowledge / "sessions" / "session-template.md", _session_template())
-    _collect(files, skipped, knowledge / "skills" / "README.md", _shared_skills_readme())
-    _collect(files, skipped, knowledge / "agents" / "README.md", _shared_agents_readme())
-    _collect(files, skipped, knowledge / "sharing" / "README.md", _hierarchy_readme())
-    _collect(
+    files.append(write_text(scaffold / "knowledge.json", _knowledge_json(backend, shared_remote), overwrite=True))
+    files.append(write_text(scaffold / "KNOWLEDGE.md", _knowledge_guide(backend, shared_remote), overwrite=True))
+    collect_text(files, skipped, knowledge / "README.md", _knowledge_readme(backend, shared_remote))
+    collect_text(files, skipped, knowledge / "INDEX.md", _knowledge_index())
+    collect_text(files, skipped, knowledge / "raw" / "README.md", _raw_readme())
+    collect_text(files, skipped, knowledge / "raw" / "meetings" / "README.md", _raw_folder_readme("meetings"))
+    collect_text(files, skipped, knowledge / "raw" / "decisions" / "README.md", _raw_folder_readme("decisions"))
+    collect_text(files, skipped, knowledge / "raw" / "code-notes" / "README.md", _raw_folder_readme("code notes"))
+    collect_text(files, skipped, knowledge / "raw" / "incidents" / "README.md", _raw_folder_readme("incidents"))
+    collect_text(files, skipped, knowledge / "wiki" / "architecture.md", _curated_wiki_page("architecture"))
+    collect_text(files, skipped, knowledge / "wiki" / "setup.md", _curated_wiki_page("setup"))
+    collect_text(files, skipped, knowledge / "wiki" / "testing.md", _curated_wiki_page("testing"))
+    collect_text(files, skipped, knowledge / "wiki" / "deployment.md", _curated_wiki_page("deployment"))
+    collect_text(files, skipped, knowledge / "wiki" / "domain-language.md", _curated_wiki_page("domain language"))
+    collect_text(files, skipped, knowledge / "wiki" / "decisions.md", _curated_wiki_page("decisions"))
+    collect_text(files, skipped, knowledge / "decisions" / "README.md", _decisions_readme())
+    collect_text(files, skipped, knowledge / "decisions" / "0001-decision-template.md", _decision_template())
+    collect_text(files, skipped, knowledge / "sessions" / "session-template.md", _session_template())
+    collect_text(files, skipped, knowledge / "skills" / "README.md", _shared_skills_readme())
+    collect_text(files, skipped, knowledge / "agents" / "README.md", _shared_agents_readme())
+    collect_text(files, skipped, knowledge / "sharing" / "README.md", _hierarchy_readme())
+    collect_text(
         files,
         skipped,
         knowledge / "team" / "README.md",
         _layer_readme("team", ["project context", "local prompts", "first skill drafts", "session findings"]),
     )
-    _collect(
+    collect_text(
         files,
         skipped,
         knowledge / "department" / "README.md",
@@ -99,7 +99,7 @@ def write_knowledge_base(
             ["reusable runbooks", "system patterns", "validated agent roles", "department decisions"],
         ),
     )
-    _collect(
+    collect_text(
         files,
         skipped,
         knowledge / "unit" / "README.md",
@@ -108,7 +108,7 @@ def write_knowledge_base(
             ["domain vocabulary", "reference architecture", "shared provider policy", "tool defaults"],
         ),
     )
-    _collect(
+    collect_text(
         files,
         skipped,
         knowledge / "company" / "README.md",
@@ -117,23 +117,23 @@ def write_knowledge_base(
             ["approved standards", "approved skills", "approved agents", "security and privacy rules"],
         ),
     )
-    _collect(files, skipped, knowledge / "glossary.md", _glossary_template())
-    _collect(files, skipped, knowledge / "links.md", _links_template())
-    _collect(files, skipped, knowledge / "sync.md", _sync_template(shared_remote))
+    collect_text(files, skipped, knowledge / "glossary.md", _glossary_template())
+    collect_text(files, skipped, knowledge / "links.md", _links_template())
+    collect_text(files, skipped, knowledge / "sync.md", _sync_template(shared_remote))
     if backend == "obsidian":
         _collect_obsidian_files(files, skipped, knowledge)
     if backend == "foam":
         _collect_foam_files(files, skipped, knowledge)
     if backend == "mempalace":
-        _collect(files, skipped, knowledge / "mempalace.md", _mempalace_template())
+        collect_text(files, skipped, knowledge / "mempalace.md", _mempalace_template())
     if adapter == "opencode":
-        _collect(
+        collect_text(
             files,
             skipped,
             root / ".opencode" / "commands" / "capture-knowledge.md",
             _opencode_capture_knowledge(),
         )
-        _collect(
+        collect_text(
             files,
             skipped,
             root / ".opencode" / "commands" / "share-agent-pattern.md",
@@ -302,14 +302,6 @@ def _curated_metadata_warnings(path: Path, knowledge: Path, frontmatter: dict[st
                     f"{relative} has not been reviewed in more than {STALE_REVIEW_DAYS} days"
                 )
     return warnings
-
-
-def _write(files: list[Path], path: Path, payload: str, overwrite: bool) -> None:
-    files.append(write_text(path, payload, overwrite=overwrite))
-
-
-def _collect(files: list[Path], skipped: list[Path], path: Path, payload: str) -> None:
-    collect_text(files, skipped, path, payload)
 
 
 def _knowledge_json(backend: str, shared_remote: str | None) -> str:
@@ -583,19 +575,19 @@ expires: ""
 
 
 def _collect_obsidian_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
-    _collect(files, skipped, knowledge / "00 Start Here.md", _obsidian_start_here())
-    _collect(files, skipped, knowledge / "10 Decisions" / "README.md", _obsidian_decisions_readme())
-    _collect(files, skipped, knowledge / "20 Skills" / "README.md", _obsidian_skills_readme())
-    _collect(files, skipped, knowledge / "30 Agents" / "README.md", _obsidian_agents_readme())
-    _collect(files, skipped, knowledge / "40 Sessions" / "README.md", _obsidian_sessions_readme())
-    _collect(files, skipped, knowledge / "50 Glossary" / "README.md", _obsidian_glossary_readme())
-    _collect(files, skipped, knowledge / "90 Inbox" / "README.md", _obsidian_inbox_readme())
-    _collect(files, skipped, knowledge / "Templates" / "Decision.md", _obsidian_decision_template())
-    _collect(files, skipped, knowledge / "Templates" / "Skill.md", _obsidian_skill_template())
-    _collect(files, skipped, knowledge / "Templates" / "Agent.md", _obsidian_agent_template())
-    _collect(files, skipped, knowledge / ".obsidian" / "app.json", _obsidian_app_json())
-    _collect(files, skipped, knowledge / ".obsidian" / "graph.json", _obsidian_graph_json())
-    _collect(files, skipped, knowledge / ".obsidian" / "templates.json", _obsidian_templates_json())
+    collect_text(files, skipped, knowledge / "00 Start Here.md", _obsidian_start_here())
+    collect_text(files, skipped, knowledge / "10 Decisions" / "README.md", _obsidian_decisions_readme())
+    collect_text(files, skipped, knowledge / "20 Skills" / "README.md", _obsidian_skills_readme())
+    collect_text(files, skipped, knowledge / "30 Agents" / "README.md", _obsidian_agents_readme())
+    collect_text(files, skipped, knowledge / "40 Sessions" / "README.md", _obsidian_sessions_readme())
+    collect_text(files, skipped, knowledge / "50 Glossary" / "README.md", _obsidian_glossary_readme())
+    collect_text(files, skipped, knowledge / "90 Inbox" / "README.md", _obsidian_inbox_readme())
+    collect_text(files, skipped, knowledge / "Templates" / "Decision.md", _obsidian_decision_template())
+    collect_text(files, skipped, knowledge / "Templates" / "Skill.md", _obsidian_skill_template())
+    collect_text(files, skipped, knowledge / "Templates" / "Agent.md", _obsidian_agent_template())
+    collect_text(files, skipped, knowledge / ".obsidian" / "app.json", _obsidian_app_json())
+    collect_text(files, skipped, knowledge / ".obsidian" / "graph.json", _obsidian_graph_json())
+    collect_text(files, skipped, knowledge / ".obsidian" / "templates.json", _obsidian_templates_json())
 
 
 def _obsidian_start_here() -> str:
@@ -1004,12 +996,12 @@ what it may read or edit, verification expectations, and handoff rules.
 
 
 def _collect_foam_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
-    _collect(files, skipped, knowledge / "FOAM.md", _foam_start_here())
-    _collect(files, skipped, knowledge / ".vscode" / "extensions.json", _foam_extensions_json())
-    _collect(files, skipped, knowledge / ".vscode" / "settings.json", _foam_settings_json())
-    _collect(files, skipped, knowledge / ".foam" / "templates" / "decision.md", _foam_decision_template())
-    _collect(files, skipped, knowledge / ".foam" / "templates" / "skill.md", _foam_skill_template())
-    _collect(files, skipped, knowledge / ".foam" / "templates" / "agent.md", _foam_agent_template())
+    collect_text(files, skipped, knowledge / "FOAM.md", _foam_start_here())
+    collect_text(files, skipped, knowledge / ".vscode" / "extensions.json", _foam_extensions_json())
+    collect_text(files, skipped, knowledge / ".vscode" / "settings.json", _foam_settings_json())
+    collect_text(files, skipped, knowledge / ".foam" / "templates" / "decision.md", _foam_decision_template())
+    collect_text(files, skipped, knowledge / ".foam" / "templates" / "skill.md", _foam_skill_template())
+    collect_text(files, skipped, knowledge / ".foam" / "templates" / "agent.md", _foam_agent_template())
 
 
 def _foam_start_here() -> str:

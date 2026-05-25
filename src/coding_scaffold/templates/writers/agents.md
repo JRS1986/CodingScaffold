@@ -1,0 +1,47 @@
+# Coding Agent Notes
+
+Tone: efficient engineering toolset with clear, practical onboarding
+
+Project language: ${language}
+Project target: ${project_target}
+Existing codebase: ${existing_codebase}
+Privacy mode: ${privacy}
+Guidance mode: ${mode}
+
+## Operating Contract
+
+- Inspect the project before editing.
+- Keep changes small, tested, and reversible.
+- Do not collect or write API keys into this repository.
+- Prefer local inference unless the task explicitly needs cloud quality and credentials are available.
+- Keep generated guidance direct, neutral, and project-focused.
+
+## Model Routing
+
+- Routine model: `${weak_model}`
+- Heavy-lift model: `${strong_model}`
+- Route threshold: `${route_threshold}`
+- Cloud provider: `${cloud_provider}`
+- Cloud model family: `${cloud_model_family}`
+
+## Skill Habits
+
+- Context first: read the tree, README, tests, and config before asking an LLM for edits.
+- Prompt small: ask for one inspectable change or one bounded plan.
+- Verify locally: run the narrowest meaningful test before broad checks.
+- Review like a maintainer: ask what could break, what is untested, and what changed.
+- Route deliberately: local for routine work, stronger model for architecture or repeated failure.
+
+## Orchestration Habits
+
+- Solo for narrow changes.
+- Pair for normal implementation plus review.
+- Team for broad work with disjoint file ownership.
+- Never let multiple agents edit the same file without an explicit maintainer merge step.
+
+## Communication Habits
+
+- Routing recheck: pause and reassess when an answer feels off.
+- Change checkpoint: pause before migrations, dependency upgrades, or broad refactors.
+- Explicit handoff: state assumptions, commands, expected signals, and next steps.
+- Small change, fast test, clear rollback.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import json
 import sys
 from pathlib import Path
@@ -917,676 +918,779 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
         }[args.tools_action]
 
 
+def _cmd_probe(args: argparse.Namespace) -> int:
+    target = args.target.expanduser().resolve()
+    hardware = probe_hardware()
+    providers = detect_providers(load_local_credentials(target), include_copilot=True)
+    payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        _print_probe(payload)
+    return 0
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    target = getattr(args, "target", None) or Path.cwd()
+    report = run_doctor(target)
+    if getattr(args, "json", False):
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(format_doctor_text(report))
+        if getattr(args, "verbose", False):
+            print()
+            _print_doctor()
+    return 0
+
+
+def _cmd_pilot(args: argparse.Namespace) -> int:
+    try:
+        report = run_pilot(args.target, tool=args.tool)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(format_pilot_text(report))
+    return 0
+
+
+def _cmd_credentials(args: argparse.Namespace) -> int:
+    path = write_local_credential_file(args.target, args.format)
+    print(f"Wrote local credential template to {path}")
+    print("Fill values locally. Do not commit this file.")
+    return 0
+
+
+def _cmd_skill(args: argparse.Namespace) -> int:
+    adapter = None if args.adapter == "none" else args.adapter
+    path = write_skill_template(args.target, args.name, args.description, adapter)
+    print(f"Wrote project skill template to {path}")
+    return 0
+
+
+def _cmd_knowledge(args: argparse.Namespace) -> int:
+    adapter = None if args.adapter == "none" else args.adapter
+    result = write_knowledge_base(args.target, args.backend, args.shared_remote, adapter)
+    print(f"Wrote {len(result.files)} knowledge file(s).")
+    if result.skipped:
+        print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
+    return 0
+
+
+def _cmd_knowledge_status(args: argparse.Namespace) -> int:
+    status = inspect_knowledge_status(args.target)
+    if args.json:
+        print(json.dumps(status.to_dict(), indent=2, sort_keys=True))
+    else:
+        for scope, maturities in sorted(status.counts.items()):
+            summary = ", ".join(f"{maturity}: {count}" for maturity, count in sorted(maturities.items()))
+            print(f"{scope}: {summary}")
+        for warning in status.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if status.warnings and not status.counts else 0
+
+
+def _cmd_knowledge_distill(args: argparse.Namespace) -> int:
+    result = distill_knowledge(args.target, args.source, review=args.review)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Created {len(result.created)} knowledge proposal file(s).")
+        print(f"Updated {len(result.updated)} knowledge proposal file(s).")
+        print(f"Skipped {len(result.skipped)} raw note(s).")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if result.warnings and not (result.created or result.updated) else 0
+
+
+def _cmd_context_budget(args: argparse.Namespace) -> int:
+    budget = inspect_context_budget(
+        args.target,
+        source=args.source,
+        prefer=args.prefer,
+        max_tokens=args.max_tokens,
+        context_window=args.context_window,
+        max_ratio=args.max_ratio,
+    )
+    if args.json:
+        print(json.dumps(budget.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_context_budget(budget.to_dict())
+    return 1 if budget.warnings else 0
+
+
+def _cmd_compress_context(args: argparse.Namespace) -> int:
+    result = compress_context(
+        args.target,
+        source=args.source,
+        overwrite=args.overwrite,
+        engine=args.engine,
+    )
+    print(f"Wrote {len(result.files)} compressed context sidecar(s).")
+    if result.skipped:
+        print(f"Skipped {len(result.skipped)} existing sidecar(s).")
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_context_lint(args: argparse.Namespace) -> int:
+    report = lint_context(args.target, paths=args.path)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_context_lint(report)
+    for warning in report.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    # Exit non-zero on errors so the lint can gate CI.
+    return 1 if report.error_count else 0
+
+
+def _cmd_context_explain(args: argparse.Namespace) -> int:
+    payload = explain_context(args.target, paths=args.path)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        _print_context_explain(payload)
+    return 0
+
+
+def _cmd_session_init(args: argparse.Namespace) -> int:
+    result = init_session(args.target, slug=args.slug, task=args.task)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Wrote session trace: {result.path}")
+        print("Fill in the structured sections as you work; run `coding-scaffold session "
+              "summarize` to read them back.")
+    return 0
+
+
+def _cmd_session_summarize(args: argparse.Namespace) -> int:
+    summary = summarize_session(args.path)
+    if args.json:
+        print(json.dumps(summary.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_session_summary(summary)
+    for warning in summary.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if summary.warnings else 0
+
+
+def _cmd_session_start(args: argparse.Namespace) -> int:
+    try:
+        result = start_session(
+            args.target,
+            slug=args.slug,
+            task=args.task,
+            worktree=args.worktree,
+        )
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Branch:        {result.branch}")
+        print(f"Start commit:  {result.start_commit[:12]}")
+        if result.worktree_path:
+            print(f"Worktree:      {result.worktree_path}")
+        print(f"Trace:         {result.trace_path}")
+        print(f"State:         {result.state_path}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_session_checkpoint(args: argparse.Namespace) -> int:
+    try:
+        result = checkpoint_session(args.target, message=args.message)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        if result.commit:
+            print(f"Checkpoint: {result.commit[:12]} ({result.files_changed} file(s))")
+            print(f"Message:    {result.message}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0 if result.commit or not result.warnings else 1
+
+
+def _cmd_session_diff(args: argparse.Namespace) -> int:
+    try:
+        result = diff_session(args.target)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        head = result.head_commit[:12] if result.head_commit else "?"
+        start = result.start_commit[:12] if result.start_commit else "?"
+        print(f"Diff {start} .. {head}")
+        if result.diff_summary:
+            print(result.diff_summary)
+        else:
+            print("(no changes)")
+    return 0
+
+
+def _cmd_session_rollback(args: argparse.Namespace) -> int:
+    try:
+        result = rollback_session(args.target, confirm=args.confirm, hard=args.hard)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        if result.mode == "preview":
+            print(f"Preview: {len(result.files_at_risk)} file(s) would be touched.")
+            for path in result.files_at_risk[:20]:
+                print(f"  {path}")
+            if len(result.files_at_risk) > 20:
+                print(f"  ... and {len(result.files_at_risk) - 20} more")
+            for warning in result.warnings:
+                print(warning)
+        else:
+            print(f"Rolled back ({result.mode}). Start commit: {result.start_commit[:12] if result.start_commit else '?'}")
+    return 0
+
+
+def _cmd_session_summary(args: argparse.Namespace) -> int:
+    result = status_session(args.target)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_session_status(result)
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 0 if result.status != "unknown" else 1
+
+
+def _cmd_memory_init(args: argparse.Namespace) -> int:
+    outcome = write_memory_config(args.target, force=args.force)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        if outcome.get("created"):
+            print(f"Wrote memory config: {outcome['path']}")
+        elif outcome.get("skipped"):
+            print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
+    return 0
+
+
+def _cmd_memory_capture(args: argparse.Namespace) -> int:
+    try:
+        result = capture_memory(
+            args.target,
+            class_=args.memory_class,
+            content=args.content,
+            owner=args.owner,
+            source=args.source,
+            expires=args.expires,
+            allow_personal=args.allow_personal,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Captured memory: {result.entry.id}")
+        print(f"  class:   {result.entry.class_}")
+        print(f"  path:    {result.entry.path}")
+        print(f"  expires: {result.entry.expires or '(no expiry)'}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_memory_review(args: argparse.Namespace) -> int:
+    report = review_memory(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_memory_review(report)
+    return 0
+
+
+def _cmd_memory_promote(args: argparse.Namespace) -> int:
+    try:
+        result = promote_memory(
+            args.target,
+            entry_id=args.entry_id,
+            new_class=args.new_class,
+            new_owner=args.owner,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        if result.new_entry:
+            print(f"Promoted {result.source_entry.id if result.source_entry else '?'} "
+                  f"-> {result.new_entry.id} (class={result.new_entry.class_})")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_memory_expire(args: argparse.Namespace) -> int:
+    result = expire_memory(args.target)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Expired {len(result.expired_entries)} entry/entries.")
+        for entry_id in result.expired_entries:
+            print(f"  -> {result.moved_to.get(entry_id, '(moved)')}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_memory_audit(args: argparse.Namespace) -> int:
+    report = audit_memory(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_memory_audit(report)
+    # Audit findings of `error` severity gate CI.
+    return 1 if report.error_count else 0
+
+
+def _cmd_pr_template_init(args: argparse.Namespace) -> int:
+    result = write_pr_template(args.target)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        if result.files:
+            print(f"Wrote {len(result.files)} PR template file(s).")
+            for path in result.files:
+                print(f"  {path}")
+        if result.skipped:
+            print(f"Skipped {len(result.skipped)} existing file(s).")
+            for path in result.skipped:
+                print(f"  {path}")
+    return 0
+
+
+def _cmd_permissions_write(args: argparse.Namespace) -> int:
+    result = write_agent_permissions(args.target, force=args.force)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        for path in result.files:
+            print(f"Wrote {path}")
+        for path in result.skipped:
+            print(f"Skipped {path} (use --force to regenerate).")
+    return 0
+
+
+def _cmd_mcp_policy_init(args: argparse.Namespace) -> int:
+    outcome = write_mcp_policy(args.target, force=args.force)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        if outcome.get("created"):
+            print(f"Wrote MCP policy: {outcome['path']}")
+        elif outcome.get("skipped"):
+            print(f"Skipped existing MCP policy: {outcome['path']} (use --force to overwrite)")
+    return 0
+
+
+def _cmd_mcp_scan(args: argparse.Namespace) -> int:
+    report = scan_mcp(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_mcp_scan(report)
+    return 1 if report.error_count else 0
+
+
+def _cmd_mcp_snapshot(args: argparse.Namespace) -> int:
+    outcome = snapshot_mcp(args.target)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        print(f"Wrote MCP snapshot: {outcome['path']}")
+        print(f"Recorded {outcome['servers']} server(s) from {len(outcome['scanned_sources'])} config(s).")
+    return 0
+
+
+def _cmd_mcp_diff(args: argparse.Namespace) -> int:
+    diff = diff_mcp(args.target)
+    if args.json:
+        print(json.dumps(diff.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_mcp_diff(diff)
+    for warning in diff.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    # Non-zero when there's drift so this can gate CI.
+    return 1 if (diff.added or diff.removed or diff.changed) else 0
+
+
+def _cmd_skills_new(args: argparse.Namespace) -> int:
+    result = new_skill(args.target, args.name, owner=args.owner)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Skill scaffolded at: {result.path}")
+        for path in result.files:
+            print(f"  +{path.relative_to(args.target.expanduser().resolve())}")
+        for path in result.skipped:
+            print(f"  ={path.relative_to(args.target.expanduser().resolve())} (skipped)")
+    return 0
+
+
+def _cmd_skills_lint(args: argparse.Namespace) -> int:
+    report = lint_skills(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_skills_lint(report)
+    return 1 if report.error_count else 0
+
+
+def _cmd_skills_approve(args: argparse.Namespace) -> int:
+    outcome = approve_skill(args.target, args.name)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        if outcome.get("approved"):
+            print(f"Approved skill {outcome['skill']}: checksum {outcome['checksum'][:16]}…")
+        else:
+            print(f"Warning: {outcome.get('warning', 'approval failed')}", file=sys.stderr)
+    return 0 if outcome.get("approved") else 1
+
+
+def _cmd_skills_export(args: argparse.Namespace) -> int:
+    outcome = export_skill(args.target, args.name, output=args.output)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        if outcome.get("exported"):
+            print(f"Exported {outcome['skill']} -> {outcome['archive']}")
+        else:
+            print(f"Warning: {outcome.get('warning', 'export failed')}", file=sys.stderr)
+    return 0 if outcome.get("exported") else 1
+
+
+def _cmd_eval_init(args: argparse.Namespace) -> int:
+    outcome = write_eval_config(args.target, force=args.force)
+    if args.json:
+        print(json.dumps(outcome, indent=2, sort_keys=True))
+    else:
+        if outcome.get("created"):
+            print(f"Wrote eval config: {outcome['path']}")
+        elif outcome.get("skipped"):
+            print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
+    return 0
+
+
+def _cmd_eval_run(args: argparse.Namespace) -> int:
+    report = run_eval(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_eval_report(report)
+    return 0 if report.passed_count == report.total_count else 1
+
+
+def _cmd_eval_report(args: argparse.Namespace) -> int:
+    if args.cached:
+        cached = load_eval_report(args.target)
+        if cached is None:
+            print("No cached eval report found. Run `coding-scaffold eval run` first.",
+                  file=sys.stderr)
+            return 1
+        report = cached
+    else:
+        report = run_eval(args.target)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_eval_report(report)
+    return 0 if report.passed_count == report.total_count else 1
+
+
+def _cmd_orchestrate(args: argparse.Namespace) -> int:
+    adapter = None if args.adapter == "none" else args.adapter
+    path = write_orchestration_plan(args.target, args.profile, adapter)
+    print(f"Wrote agent orchestration plan to {path}")
+    return 0
+
+
+def _cmd_setup_tool(args: argparse.Namespace) -> int:
+    results = install_missing_tools(
+        args.tool,
+        interactive=sys.stdin.isatty(),
+        assume_yes=args.install,
+    )
+    for result in results:
+        print(f"{result.tool}: {result.status} - {result.message}")
+    return 1 if any(result.status == "failed" for result in results) else 0
+
+
+def _cmd_setup_addon(args: argparse.Namespace) -> int:
+    results = install_missing_addons(
+        args.addon,
+        interactive=sys.stdin.isatty(),
+        assume_yes=args.install,
+        target=args.target,
+    )
+    for result in results:
+        print(f"{result.tool}: {result.status} - {result.message}")
+    return 1 if any(result.status == "failed" for result in results) else 0
+
+
+def _cmd_setup_knowledge(args: argparse.Namespace) -> int:
+    shared_remote = args.shared_remote
+    if shared_remote is None and sys.stdin.isatty():
+        shared_remote = _prompt_optional(
+            "Shared knowledge Git remote URL (empty keeps knowledge project-local)"
+        )
+    adapter = None if args.adapter == "none" else args.adapter
+    result = write_knowledge_base(args.target, args.backend, shared_remote or None, adapter)
+    print(f"Wrote {len(result.files)} knowledge file(s).")
+    if shared_remote:
+        print(f"Configured shared knowledge remote: {shared_remote}")
+    if result.skipped:
+        print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
+    return 0
+
+
+def _cmd_team(args: argparse.Namespace) -> int:
+    if args.team_action == "init":
+        path = write_team_manifest(
+            args.target,
+            team=args.team,
+            knowledge_remote=args.knowledge_remote,
+            knowledge_backend=args.knowledge_backend,
+            default_tool=args.tool,
+        )
+        print(f"Wrote team onboarding manifest to {path}")
+        return 0
+    if args.team_action == "connect":
+        if args.dry_run:
+            result = preview_team(args.target, args.manifest, allow_local=args.allow_local)
+        elif not args.yes and not sys.stdin.isatty():
+            result = TeamResult([], ["Refusing non-interactive team connect without --yes. Run --dry-run first."])
+        elif not args.yes and not _confirm_team_import(
+            preview_team(args.target, args.manifest, allow_local=args.allow_local)
+        ):
+            result = TeamResult([], ["Skipped team connect."])
+        else:
+            result = connect_team(args.target, args.manifest, allow_local=args.allow_local)
+    elif args.team_action == "sync":
+        if args.dry_run:
+            result = sync_team(args.target, dry_run=True, allow_local=args.allow_local)
+        elif not args.yes and not sys.stdin.isatty():
+            result = TeamResult([], ["Refusing non-interactive team sync without --yes. Run --dry-run first."])
+        elif not args.yes and not _confirm_team_import(
+            sync_team(args.target, dry_run=True, allow_local=args.allow_local)
+        ):
+            result = TeamResult([], ["Skipped team sync."])
+        else:
+            result = sync_team(args.target, allow_local=args.allow_local)
+    elif args.team_action == "doctor":
+        result = doctor_team(args.target)
+    else:
+        raise AssertionError(f"Unknown team action: {args.team_action}")
+    for action in result.actions:
+        print(action)
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if result.warnings and not result.actions else 0
+
+
+def _cmd_policy(args: argparse.Namespace) -> int:
+    adapter = None if args.adapter == "none" else args.adapter
+    result = write_policy_pack(
+        target=args.target,
+        scope=args.scope,
+        adapter=adapter,
+        share=args.share,
+        mcp=args.mcp,
+        enabled_providers=args.enable_provider,
+        disabled_providers=args.disable_provider or None,
+        disabled_mcp_servers=args.disable_mcp_server,
+        strict_permissions=not args.relaxed_permissions,
+    )
+    print(f"Wrote {len(result.files)} policy file(s).")
+    for warning in result.warnings:
+        print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_update(args: argparse.Namespace) -> int:
+    target = args.target.expanduser().resolve()
+    intake = _load_project_intake(target)
+    hardware = probe_hardware()
+    providers = detect_providers(load_local_credentials(target))
+    routing = build_routing_plan(intake, hardware, providers)
+    result = refresh_scaffold(target, intake, hardware, providers, routing)
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        print(f"Updated {len(result.updated)} generated file(s).")
+        print(f"Staged {len(result.staged)} edited file update(s) as .new.")
+        print(f"Skipped {len(result.skipped)} already-current file(s).")
+        for path in result.staged:
+            print(f"Review staged update: {path}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 0
+
+
+def _cmd_adapt(args: argparse.Namespace) -> int:
+    result = write_tool_adapter(args.target, args.tool)
+    print(f"Wrote {len(result.files)} adapter file(s).")
+    if result.skipped:
+        print(f"Skipped {len(result.skipped)} existing file(s).")
+    return 0
+
+
+def _cmd_route(args: argparse.Namespace) -> int:
+    result = write_route_backend(args.target, args.backend)
+    print(f"Wrote {len(result.files)} routing backend file(s).")
+    return 0
+
+
+def _cmd_select_model(args: argparse.Namespace) -> int:
+    target = args.target.expanduser().resolve()
+    prompt = args.prompt
+    if prompt is None and not sys.stdin.isatty():
+        prompt = sys.stdin.read().strip()
+    if not prompt:
+        print("Provide --prompt or pipe a task description into stdin.", file=sys.stderr)
+        return 2
+    routing = _load_routing_or_probe(target)
+    providers = detect_providers(load_local_credentials(target))
+    selection = select_model_for_prompt(prompt, routing, providers, args.mode)
+    if args.json:
+        print(json.dumps(selection.to_dict(), indent=2, sort_keys=True))
+    else:
+        _print_model_selection(selection.to_dict())
+    return 0
+
+
+def _cmd_workflow(args: argparse.Namespace) -> int:
+    result = write_workflow_backend(args.target, args.backend)
+    print(f"Wrote {len(result.files)} workflow backend file(s).")
+    return 0
+
+
+def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
+    target = args.target.expanduser().resolve()
+    is_wizard = args.command == "wizard"
+    answers = collect_intake(
+        target=target,
+        provided=IntakeAnswers(
+            language=getattr(args, "language", None),
+            project_target=getattr(args, "project_target", None),
+            existing_codebase=getattr(args, "existing_codebase", False) or None,
+            privacy=getattr(args, "privacy", None),
+            tool=getattr(args, "tool", None),
+            preferred_local_model=getattr(args, "preferred_local_model", None),
+            mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
+        ),
+        interactive=(is_wizard or not getattr(args, "non_interactive", False)) and sys.stdin.isatty(),
+    )
+    hardware = probe_hardware()
+    providers = detect_providers(load_local_credentials(target))
+    routing = build_routing_plan(answers, hardware, providers)
+    manifest = write_scaffold(target, answers, hardware, providers, routing)
+    selected_tool = answers.tool or "opencode"
+    install_results = _maybe_install_tools(selected_tool, args, is_wizard)
+    addon_results = _maybe_install_addons(args, is_wizard, target)
+    knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
+    adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
+    if adapter:
+        write_scaffold_version(target, [*manifest.files, *adapter.files])
+    print(f"Wrote scaffold to {manifest.scaffold_dir}")
+    if adapter:
+        print(f"Wrote {len(adapter.files)} tool adapter file(s)")
+    else:
+        print("Skipped tool adapter generation.")
+    for result in install_results:
+        print(f"{result.tool}: {result.status} - {result.message}")
+    for result in addon_results:
+        print(f"{result.tool}: {result.status} - {result.message}")
+    if knowledge_result:
+        print(f"Wrote {len(knowledge_result.files)} knowledge file(s)")
+        if knowledge_result.skipped:
+            print(f"Skipped {len(knowledge_result.skipped)} existing knowledge file(s)")
+    print(f"Selected weak model: {routing.weak_model or 'none'}")
+    print(f"Selected strong model: {routing.strong_model or 'none'}")
+    print("Next: read .coding-scaffold/GETTING_STARTED.md")
+    return 0
+
+COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
+    "probe": _cmd_probe,
+    "doctor": _cmd_doctor,
+    "pilot": _cmd_pilot,
+    "credentials": _cmd_credentials,
+    "skill": _cmd_skill,
+    "knowledge": _cmd_knowledge,
+    "knowledge-status": _cmd_knowledge_status,
+    "knowledge-distill": _cmd_knowledge_distill,
+    "context-budget": _cmd_context_budget,
+    "compress-context": _cmd_compress_context,
+    "context-lint": _cmd_context_lint,
+    "context-explain": _cmd_context_explain,
+    "session-init": _cmd_session_init,
+    "session-summarize": _cmd_session_summarize,
+    "session-start": _cmd_session_start,
+    "session-checkpoint": _cmd_session_checkpoint,
+    "session-diff": _cmd_session_diff,
+    "session-rollback": _cmd_session_rollback,
+    "session-summary": _cmd_session_summary,
+    "memory-init": _cmd_memory_init,
+    "memory-capture": _cmd_memory_capture,
+    "memory-review": _cmd_memory_review,
+    "memory-promote": _cmd_memory_promote,
+    "memory-expire": _cmd_memory_expire,
+    "memory-audit": _cmd_memory_audit,
+    "pr-template-init": _cmd_pr_template_init,
+    "permissions-write": _cmd_permissions_write,
+    "mcp-policy-init": _cmd_mcp_policy_init,
+    "mcp-scan": _cmd_mcp_scan,
+    "mcp-snapshot": _cmd_mcp_snapshot,
+    "mcp-diff": _cmd_mcp_diff,
+    "skills-new": _cmd_skills_new,
+    "skills-lint": _cmd_skills_lint,
+    "skills-approve": _cmd_skills_approve,
+    "skills-export": _cmd_skills_export,
+    "eval-init": _cmd_eval_init,
+    "eval-run": _cmd_eval_run,
+    "eval-report": _cmd_eval_report,
+    "orchestrate": _cmd_orchestrate,
+    "setup-tool": _cmd_setup_tool,
+    "setup-addon": _cmd_setup_addon,
+    "setup-knowledge": _cmd_setup_knowledge,
+    "team": _cmd_team,
+    "policy": _cmd_policy,
+    "update": _cmd_update,
+    "adapt": _cmd_adapt,
+    "route": _cmd_route,
+    "select-model": _cmd_select_model,
+    "workflow": _cmd_workflow,
+    "init": _cmd_init_or_wizard,
+    "wizard": _cmd_init_or_wizard,
+}
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _normalize_grouped_command(args)
-
-    if args.command == "probe":
-        target = args.target.expanduser().resolve()
-        hardware = probe_hardware()
-        providers = detect_providers(load_local_credentials(target), include_copilot=True)
-        payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
-        if args.json:
-            print(json.dumps(payload, indent=2, sort_keys=True))
-        else:
-            _print_probe(payload)
-        return 0
-
-    if args.command == "doctor":
-        target = getattr(args, "target", None) or Path.cwd()
-        report = run_doctor(target)
-        if getattr(args, "json", False):
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(format_doctor_text(report))
-            if getattr(args, "verbose", False):
-                print()
-                _print_doctor()
-        return 0
-
-    if args.command == "pilot":
-        try:
-            report = run_pilot(args.target, tool=args.tool)
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(format_pilot_text(report))
-        return 0
-
-    if args.command == "credentials":
-        path = write_local_credential_file(args.target, args.format)
-        print(f"Wrote local credential template to {path}")
-        print("Fill values locally. Do not commit this file.")
-        return 0
-
-    if args.command == "skill":
-        adapter = None if args.adapter == "none" else args.adapter
-        path = write_skill_template(args.target, args.name, args.description, adapter)
-        print(f"Wrote project skill template to {path}")
-        return 0
-
-    if args.command == "knowledge":
-        adapter = None if args.adapter == "none" else args.adapter
-        result = write_knowledge_base(args.target, args.backend, args.shared_remote, adapter)
-        print(f"Wrote {len(result.files)} knowledge file(s).")
-        if result.skipped:
-            print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
-        return 0
-
-    if args.command == "knowledge-status":
-        status = inspect_knowledge_status(args.target)
-        if args.json:
-            print(json.dumps(status.to_dict(), indent=2, sort_keys=True))
-        else:
-            for scope, maturities in sorted(status.counts.items()):
-                summary = ", ".join(f"{maturity}: {count}" for maturity, count in sorted(maturities.items()))
-                print(f"{scope}: {summary}")
-            for warning in status.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 1 if status.warnings and not status.counts else 0
-
-    if args.command == "knowledge-distill":
-        result = distill_knowledge(args.target, args.source, review=args.review)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Created {len(result.created)} knowledge proposal file(s).")
-            print(f"Updated {len(result.updated)} knowledge proposal file(s).")
-            print(f"Skipped {len(result.skipped)} raw note(s).")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 1 if result.warnings and not (result.created or result.updated) else 0
-
-    if args.command == "context-budget":
-        budget = inspect_context_budget(
-            args.target,
-            source=args.source,
-            prefer=args.prefer,
-            max_tokens=args.max_tokens,
-            context_window=args.context_window,
-            max_ratio=args.max_ratio,
-        )
-        if args.json:
-            print(json.dumps(budget.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_context_budget(budget.to_dict())
-        return 1 if budget.warnings else 0
-
-    if args.command == "compress-context":
-        result = compress_context(
-            args.target,
-            source=args.source,
-            overwrite=args.overwrite,
-            engine=args.engine,
-        )
-        print(f"Wrote {len(result.files)} compressed context sidecar(s).")
-        if result.skipped:
-            print(f"Skipped {len(result.skipped)} existing sidecar(s).")
-        for warning in result.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "context-lint":
-        report = lint_context(args.target, paths=args.path)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_context_lint(report)
-        for warning in report.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        # Exit non-zero on errors so the lint can gate CI.
-        return 1 if report.error_count else 0
-
-    if args.command == "context-explain":
-        payload = explain_context(args.target, paths=args.path)
-        if args.json:
-            print(json.dumps(payload, indent=2, sort_keys=True))
-        else:
-            _print_context_explain(payload)
-        return 0
-
-    if args.command == "session-init":
-        result = init_session(args.target, slug=args.slug, task=args.task)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Wrote session trace: {result.path}")
-            print("Fill in the structured sections as you work; run `coding-scaffold session "
-                  "summarize` to read them back.")
-        return 0
-
-    if args.command == "session-summarize":
-        summary = summarize_session(args.path)
-        if args.json:
-            print(json.dumps(summary.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_session_summary(summary)
-        for warning in summary.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        return 1 if summary.warnings else 0
-
-    if args.command == "session-start":
-        try:
-            result = start_session(
-                args.target,
-                slug=args.slug,
-                task=args.task,
-                worktree=args.worktree,
-            )
-        except RuntimeError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Branch:        {result.branch}")
-            print(f"Start commit:  {result.start_commit[:12]}")
-            if result.worktree_path:
-                print(f"Worktree:      {result.worktree_path}")
-            print(f"Trace:         {result.trace_path}")
-            print(f"State:         {result.state_path}")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "session-checkpoint":
-        try:
-            result = checkpoint_session(args.target, message=args.message)
-        except RuntimeError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            if result.commit:
-                print(f"Checkpoint: {result.commit[:12]} ({result.files_changed} file(s))")
-                print(f"Message:    {result.message}")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0 if result.commit or not result.warnings else 1
-
-    if args.command == "session-diff":
-        try:
-            result = diff_session(args.target)
-        except RuntimeError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            head = result.head_commit[:12] if result.head_commit else "?"
-            start = result.start_commit[:12] if result.start_commit else "?"
-            print(f"Diff {start} .. {head}")
-            if result.diff_summary:
-                print(result.diff_summary)
-            else:
-                print("(no changes)")
-        return 0
-
-    if args.command == "session-rollback":
-        try:
-            result = rollback_session(args.target, confirm=args.confirm, hard=args.hard)
-        except RuntimeError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            if result.mode == "preview":
-                print(f"Preview: {len(result.files_at_risk)} file(s) would be touched.")
-                for path in result.files_at_risk[:20]:
-                    print(f"  {path}")
-                if len(result.files_at_risk) > 20:
-                    print(f"  ... and {len(result.files_at_risk) - 20} more")
-                for warning in result.warnings:
-                    print(warning)
-            else:
-                print(f"Rolled back ({result.mode}). Start commit: {result.start_commit[:12] if result.start_commit else '?'}")
-        return 0
-
-    if args.command == "session-summary":
-        result = status_session(args.target)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_session_status(result)
-        for warning in result.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        return 0 if result.status != "unknown" else 1
-
-    if args.command == "memory-init":
-        outcome = write_memory_config(args.target, force=args.force)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            if outcome.get("created"):
-                print(f"Wrote memory config: {outcome['path']}")
-            elif outcome.get("skipped"):
-                print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
-        return 0
-
-    if args.command == "memory-capture":
-        try:
-            result = capture_memory(
-                args.target,
-                class_=args.memory_class,
-                content=args.content,
-                owner=args.owner,
-                source=args.source,
-                expires=args.expires,
-                allow_personal=args.allow_personal,
-            )
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Captured memory: {result.entry.id}")
-            print(f"  class:   {result.entry.class_}")
-            print(f"  path:    {result.entry.path}")
-            print(f"  expires: {result.entry.expires or '(no expiry)'}")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "memory-review":
-        report = review_memory(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_memory_review(report)
-        return 0
-
-    if args.command == "memory-promote":
-        try:
-            result = promote_memory(
-                args.target,
-                entry_id=args.entry_id,
-                new_class=args.new_class,
-                new_owner=args.owner,
-            )
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            return 1
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            if result.new_entry:
-                print(f"Promoted {result.source_entry.id if result.source_entry else '?'} "
-                      f"-> {result.new_entry.id} (class={result.new_entry.class_})")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "memory-expire":
-        result = expire_memory(args.target)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Expired {len(result.expired_entries)} entry/entries.")
-            for entry_id in result.expired_entries:
-                print(f"  -> {result.moved_to.get(entry_id, '(moved)')}")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "memory-audit":
-        report = audit_memory(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_memory_audit(report)
-        # Audit findings of `error` severity gate CI.
-        return 1 if report.error_count else 0
-
-    if args.command == "pr-template-init":
-        result = write_pr_template(args.target)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            if result.files:
-                print(f"Wrote {len(result.files)} PR template file(s).")
-                for path in result.files:
-                    print(f"  {path}")
-            if result.skipped:
-                print(f"Skipped {len(result.skipped)} existing file(s).")
-                for path in result.skipped:
-                    print(f"  {path}")
-        return 0
-
-    if args.command == "permissions-write":
-        result = write_agent_permissions(args.target, force=args.force)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            for path in result.files:
-                print(f"Wrote {path}")
-            for path in result.skipped:
-                print(f"Skipped {path} (use --force to regenerate).")
-        return 0
-
-    if args.command == "mcp-policy-init":
-        outcome = write_mcp_policy(args.target, force=args.force)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            if outcome.get("created"):
-                print(f"Wrote MCP policy: {outcome['path']}")
-            elif outcome.get("skipped"):
-                print(f"Skipped existing MCP policy: {outcome['path']} (use --force to overwrite)")
-        return 0
-
-    if args.command == "mcp-scan":
-        report = scan_mcp(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_mcp_scan(report)
-        return 1 if report.error_count else 0
-
-    if args.command == "mcp-snapshot":
-        outcome = snapshot_mcp(args.target)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            print(f"Wrote MCP snapshot: {outcome['path']}")
-            print(f"Recorded {outcome['servers']} server(s) from {len(outcome['scanned_sources'])} config(s).")
-        return 0
-
-    if args.command == "mcp-diff":
-        diff = diff_mcp(args.target)
-        if args.json:
-            print(json.dumps(diff.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_mcp_diff(diff)
-        for warning in diff.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        # Non-zero when there's drift so this can gate CI.
-        return 1 if (diff.added or diff.removed or diff.changed) else 0
-
-    if args.command == "skills-new":
-        result = new_skill(args.target, args.name, owner=args.owner)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Skill scaffolded at: {result.path}")
-            for path in result.files:
-                print(f"  +{path.relative_to(args.target.expanduser().resolve())}")
-            for path in result.skipped:
-                print(f"  ={path.relative_to(args.target.expanduser().resolve())} (skipped)")
-        return 0
-
-    if args.command == "skills-lint":
-        report = lint_skills(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_skills_lint(report)
-        return 1 if report.error_count else 0
-
-    if args.command == "skills-approve":
-        outcome = approve_skill(args.target, args.name)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            if outcome.get("approved"):
-                print(f"Approved skill {outcome['skill']}: checksum {outcome['checksum'][:16]}…")
-            else:
-                print(f"Warning: {outcome.get('warning', 'approval failed')}", file=sys.stderr)
-        return 0 if outcome.get("approved") else 1
-
-    if args.command == "skills-export":
-        outcome = export_skill(args.target, args.name, output=args.output)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            if outcome.get("exported"):
-                print(f"Exported {outcome['skill']} -> {outcome['archive']}")
-            else:
-                print(f"Warning: {outcome.get('warning', 'export failed')}", file=sys.stderr)
-        return 0 if outcome.get("exported") else 1
-
-    if args.command == "eval-init":
-        outcome = write_eval_config(args.target, force=args.force)
-        if args.json:
-            print(json.dumps(outcome, indent=2, sort_keys=True))
-        else:
-            if outcome.get("created"):
-                print(f"Wrote eval config: {outcome['path']}")
-            elif outcome.get("skipped"):
-                print(f"Skipped existing config: {outcome['path']} (use --force to overwrite)")
-        return 0
-
-    if args.command == "eval-run":
-        report = run_eval(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_eval_report(report)
-        return 0 if report.passed_count == report.total_count else 1
-
-    if args.command == "eval-report":
-        if args.cached:
-            cached = load_eval_report(args.target)
-            if cached is None:
-                print("No cached eval report found. Run `coding-scaffold eval run` first.",
-                      file=sys.stderr)
-                return 1
-            report = cached
-        else:
-            report = run_eval(args.target)
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_eval_report(report)
-        return 0 if report.passed_count == report.total_count else 1
-
-    if args.command == "orchestrate":
-        adapter = None if args.adapter == "none" else args.adapter
-        path = write_orchestration_plan(args.target, args.profile, adapter)
-        print(f"Wrote agent orchestration plan to {path}")
-        return 0
-
-    if args.command == "setup-tool":
-        results = install_missing_tools(
-            args.tool,
-            interactive=sys.stdin.isatty(),
-            assume_yes=args.install,
-        )
-        for result in results:
-            print(f"{result.tool}: {result.status} - {result.message}")
-        return 1 if any(result.status == "failed" for result in results) else 0
-
-    if args.command == "setup-addon":
-        results = install_missing_addons(
-            args.addon,
-            interactive=sys.stdin.isatty(),
-            assume_yes=args.install,
-            target=args.target,
-        )
-        for result in results:
-            print(f"{result.tool}: {result.status} - {result.message}")
-        return 1 if any(result.status == "failed" for result in results) else 0
-
-    if args.command == "setup-knowledge":
-        shared_remote = args.shared_remote
-        if shared_remote is None and sys.stdin.isatty():
-            shared_remote = _prompt_optional(
-                "Shared knowledge Git remote URL (empty keeps knowledge project-local)"
-            )
-        adapter = None if args.adapter == "none" else args.adapter
-        result = write_knowledge_base(args.target, args.backend, shared_remote or None, adapter)
-        print(f"Wrote {len(result.files)} knowledge file(s).")
-        if shared_remote:
-            print(f"Configured shared knowledge remote: {shared_remote}")
-        if result.skipped:
-            print(f"Skipped {len(result.skipped)} existing knowledge file(s).")
-        return 0
-
-    if args.command == "team":
-        if args.team_action == "init":
-            path = write_team_manifest(
-                args.target,
-                team=args.team,
-                knowledge_remote=args.knowledge_remote,
-                knowledge_backend=args.knowledge_backend,
-                default_tool=args.tool,
-            )
-            print(f"Wrote team onboarding manifest to {path}")
-            return 0
-        if args.team_action == "connect":
-            if args.dry_run:
-                result = preview_team(args.target, args.manifest, allow_local=args.allow_local)
-            elif not args.yes and not sys.stdin.isatty():
-                result = TeamResult([], ["Refusing non-interactive team connect without --yes. Run --dry-run first."])
-            elif not args.yes and not _confirm_team_import(
-                preview_team(args.target, args.manifest, allow_local=args.allow_local)
-            ):
-                result = TeamResult([], ["Skipped team connect."])
-            else:
-                result = connect_team(args.target, args.manifest, allow_local=args.allow_local)
-        elif args.team_action == "sync":
-            if args.dry_run:
-                result = sync_team(args.target, dry_run=True, allow_local=args.allow_local)
-            elif not args.yes and not sys.stdin.isatty():
-                result = TeamResult([], ["Refusing non-interactive team sync without --yes. Run --dry-run first."])
-            elif not args.yes and not _confirm_team_import(
-                sync_team(args.target, dry_run=True, allow_local=args.allow_local)
-            ):
-                result = TeamResult([], ["Skipped team sync."])
-            else:
-                result = sync_team(args.target, allow_local=args.allow_local)
-        elif args.team_action == "doctor":
-            result = doctor_team(args.target)
-        else:
-            raise AssertionError(f"Unknown team action: {args.team_action}")
-        for action in result.actions:
-            print(action)
-        for warning in result.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        return 1 if result.warnings and not result.actions else 0
-
-    if args.command == "policy":
-        adapter = None if args.adapter == "none" else args.adapter
-        result = write_policy_pack(
-            target=args.target,
-            scope=args.scope,
-            adapter=adapter,
-            share=args.share,
-            mcp=args.mcp,
-            enabled_providers=args.enable_provider,
-            disabled_providers=args.disable_provider or None,
-            disabled_mcp_servers=args.disable_mcp_server,
-            strict_permissions=not args.relaxed_permissions,
-        )
-        print(f"Wrote {len(result.files)} policy file(s).")
-        for warning in result.warnings:
-            print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "update":
-        target = args.target.expanduser().resolve()
-        intake = _load_project_intake(target)
-        hardware = probe_hardware()
-        providers = detect_providers(load_local_credentials(target))
-        routing = build_routing_plan(intake, hardware, providers)
-        result = refresh_scaffold(target, intake, hardware, providers, routing)
-        if args.json:
-            print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-        else:
-            print(f"Updated {len(result.updated)} generated file(s).")
-            print(f"Staged {len(result.staged)} edited file update(s) as .new.")
-            print(f"Skipped {len(result.skipped)} already-current file(s).")
-            for path in result.staged:
-                print(f"Review staged update: {path}")
-            for warning in result.warnings:
-                print(f"Warning: {warning}", file=sys.stderr)
-        return 0
-
-    if args.command == "adapt":
-        result = write_tool_adapter(args.target, args.tool)
-        print(f"Wrote {len(result.files)} adapter file(s).")
-        if result.skipped:
-            print(f"Skipped {len(result.skipped)} existing file(s).")
-        return 0
-
-    if args.command == "route":
-        result = write_route_backend(args.target, args.backend)
-        print(f"Wrote {len(result.files)} routing backend file(s).")
-        return 0
-
-    if args.command == "select-model":
-        target = args.target.expanduser().resolve()
-        prompt = args.prompt
-        if prompt is None and not sys.stdin.isatty():
-            prompt = sys.stdin.read().strip()
-        if not prompt:
-            print("Provide --prompt or pipe a task description into stdin.", file=sys.stderr)
-            return 2
-        routing = _load_routing_or_probe(target)
-        providers = detect_providers(load_local_credentials(target))
-        selection = select_model_for_prompt(prompt, routing, providers, args.mode)
-        if args.json:
-            print(json.dumps(selection.to_dict(), indent=2, sort_keys=True))
-        else:
-            _print_model_selection(selection.to_dict())
-        return 0
-
-    if args.command == "workflow":
-        result = write_workflow_backend(args.target, args.backend)
-        print(f"Wrote {len(result.files)} workflow backend file(s).")
-        return 0
-
-    if args.command in {"init", "wizard"}:
-        target = args.target.expanduser().resolve()
-        is_wizard = args.command == "wizard"
-        answers = collect_intake(
-            target=target,
-            provided=IntakeAnswers(
-                language=getattr(args, "language", None),
-                project_target=getattr(args, "project_target", None),
-                existing_codebase=getattr(args, "existing_codebase", False) or None,
-                privacy=getattr(args, "privacy", None),
-                tool=getattr(args, "tool", None),
-                preferred_local_model=getattr(args, "preferred_local_model", None),
-                mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
-            ),
-            interactive=(is_wizard or not getattr(args, "non_interactive", False)) and sys.stdin.isatty(),
-        )
-        hardware = probe_hardware()
-        providers = detect_providers(load_local_credentials(target))
-        routing = build_routing_plan(answers, hardware, providers)
-        manifest = write_scaffold(target, answers, hardware, providers, routing)
-        selected_tool = answers.tool or "opencode"
-        install_results = _maybe_install_tools(selected_tool, args, is_wizard)
-        addon_results = _maybe_install_addons(args, is_wizard, target)
-        knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
-        adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
-        if adapter:
-            write_scaffold_version(target, [*manifest.files, *adapter.files])
-        print(f"Wrote scaffold to {manifest.scaffold_dir}")
-        if adapter:
-            print(f"Wrote {len(adapter.files)} tool adapter file(s)")
-        else:
-            print("Skipped tool adapter generation.")
-        for result in install_results:
-            print(f"{result.tool}: {result.status} - {result.message}")
-        for result in addon_results:
-            print(f"{result.tool}: {result.status} - {result.message}")
-        if knowledge_result:
-            print(f"Wrote {len(knowledge_result.files)} knowledge file(s)")
-            if knowledge_result.skipped:
-                print(f"Skipped {len(knowledge_result.skipped)} existing knowledge file(s)")
-        print(f"Selected weak model: {routing.weak_model or 'none'}")
-        print(f"Selected strong model: {routing.strong_model or 'none'}")
-        print("Next: read .coding-scaffold/GETTING_STARTED.md")
-        return 0
-
-    return 2
+    handler = COMMANDS.get(args.command)
+    return handler(args) if handler else 2
 
 
 def _maybe_install_tools(
