@@ -357,7 +357,8 @@ def inspect_team_doctor(target: Path) -> TeamDoctorReport:
     for failure in stale_pulls:
         warnings.append(
             f"Recent team source update failed for {failure.get('remote', 'unknown')}: "
-            f"{failure.get('error', 'git pull failed')}"
+            f"{failure.get('error', 'git pull failed')} "
+            f"(first seen {failure.get('first_seen', 'unknown')}, last seen {failure.get('last_seen', 'unknown')})"
         )
     for nomination in inbound_nominations:
         actions.append(
@@ -411,6 +412,7 @@ def push_team(target: Path, *, dry_run: bool = False, open_pr: bool = False) -> 
         shutil.copy2(path, destination)
         lines.append(f"- `{kind}/{relative.as_posix()}` from `{path.relative_to(root).as_posix()}`")
         actions.append(f"Nominated {kind}: {relative}")
+    nominated_at = datetime.now(UTC).isoformat()
     lines.extend(
         [
             "",
@@ -424,6 +426,7 @@ def push_team(target: Path, *, dry_run: bool = False, open_pr: bool = False) -> 
         ]
     )
     (outbox / "nomination.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _write_inbound_nomination_metadata(root, outbox, candidates, nominated_at)
     _record_nomination(root, outbox, actions)
     result_actions = [f"Wrote nomination bundle: {outbox}", *actions]
     warnings: list[str] = []
@@ -798,6 +801,8 @@ def _write_provenance(
 ) -> None:
     path = root / ".coding-scaffold" / "team-provenance.json"
     path.parent.mkdir(parents=True, exist_ok=True)
+    previous = _read_provenance(root)
+    new_stale_pulls = _stale_pulls_from_actions(actions)
     payload = {
         "team": manifest.get("team", "unknown"),
         "manifest_version": manifest.get("manifest_version", "legacy"),
@@ -807,7 +812,7 @@ def _write_provenance(
         "source_ref": manifest_source.source_ref if manifest_source else "",
         "layers": layers,
         "field_provenance": field_provenance,
-        "stale_pulls": _stale_pulls_from_actions(actions),
+        "stale_pulls": _merge_stale_pulls(previous.get("stale_pulls"), new_stale_pulls),
         "inbound_nominations": _collect_inbound_nominations(root, manifest_source),
         "last_sync": datetime.now(UTC).isoformat(),
         "mode": "copy",
@@ -1107,10 +1112,44 @@ def _stale_pulls_from_actions(actions: list[str]) -> list[dict[str, object]]:
             {
                 "remote": remote,
                 "error": error,
-                "recorded_at": datetime.now(UTC).isoformat(),
+                "last_seen": datetime.now(UTC).isoformat(),
             }
         )
     return failures
+
+
+def _merge_stale_pulls(
+    existing: object,
+    new_failures: list[dict[str, object]],
+    *,
+    per_remote_limit: int = 10,
+) -> list[dict[str, object]]:
+    by_remote: dict[str, list[dict[str, object]]] = {}
+    if isinstance(existing, list):
+        for item in existing:
+            if not isinstance(item, dict):
+                continue
+            remote = str(item.get("remote") or "unknown")
+            by_remote.setdefault(remote, []).append(dict(item))
+    for failure in new_failures:
+        remote = str(failure.get("remote") or "unknown")
+        now = str(failure.get("last_seen") or datetime.now(UTC).isoformat())
+        error = str(failure.get("error") or "git pull failed")
+        previous = by_remote.get(remote, [])
+        first_seen = str(previous[0].get("first_seen") or previous[0].get("last_seen") or now) if previous else now
+        previous.append(
+            {
+                "remote": remote,
+                "error": error,
+                "first_seen": first_seen,
+                "last_seen": now,
+            }
+        )
+        by_remote[remote] = previous[-per_remote_limit:]
+    merged: list[dict[str, object]] = []
+    for remote in sorted(by_remote):
+        merged.extend(by_remote[remote][-per_remote_limit:])
+    return merged
 
 
 def _list_recent_stale_pulls(provenance: dict[str, object]) -> list[dict[str, object]]:
@@ -1121,6 +1160,58 @@ def _list_recent_stale_pulls(provenance: dict[str, object]) -> list[dict[str, ob
 def _list_inbound_nominations(provenance: dict[str, object]) -> list[dict[str, object]]:
     values = provenance.get("inbound_nominations")
     return [value for value in values if isinstance(value, dict)] if isinstance(values, list) else []
+
+
+def _write_inbound_nomination_metadata(
+    root: Path,
+    outbox: Path,
+    candidates: list[tuple[str, Path, Path]],
+    nominated_at: str,
+) -> None:
+    manifest = root / ".coding-scaffold" / "team-onboarding.json"
+    payload = _read_manifest(manifest) if manifest.exists() else {}
+    entries = []
+    for kind, relative, _path in candidates:
+        entries.append(
+            {
+                "slug": relative.with_suffix("").as_posix(),
+                "source_team": str(payload.get("team") or root.name),
+                "source_scope": _nomination_source_scope(kind, relative),
+                "nominated_at": nominated_at,
+                "accepted_at": "",
+                "manifest_target": _manifest_target(payload),
+                "manifest_ref": "",
+                "rationale_ref": "nomination.md",
+            }
+        )
+    metadata = {"inbound_nominations": entries}
+    (outbox / "inbound-nominations.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _nomination_source_scope(kind: str, relative: Path) -> str:
+    if kind == "knowledge":
+        parts = relative.parts
+        if parts and parts[0] in {"team", "department", "unit", "company"}:
+            return parts[0]
+        return "team"
+    if kind == "skills":
+        return "team"
+    if kind == "policy":
+        return "policy"
+    return kind
+
+
+def _manifest_target(payload: dict[str, object]) -> str:
+    sync_source = _dict(payload.get("_sync_source"))
+    if sync_source.get("manifest"):
+        return str(sync_source["manifest"])
+    knowledge = _dict(payload.get("knowledge"))
+    if knowledge.get("remote"):
+        return str(knowledge["remote"])
+    return ""
 
 
 def _collect_inbound_nominations(
@@ -1151,7 +1242,10 @@ def _collect_inbound_nominations(
                     "slug": str(entry.get("slug", "")),
                     "source_team": str(entry.get("source_team", "")),
                     "source_scope": str(entry.get("source_scope", "")),
-                    "accepted_at": str(entry.get("accepted_at", "")),
+                    "accepted_at": str(entry.get("accepted_at") or entry.get("nominated_at", "")),
+                    "nominated_at": str(entry.get("nominated_at", "")),
+                    "manifest_target": str(entry.get("manifest_target", "")),
+                    "rationale_ref": str(entry.get("rationale_ref", "")),
                     "manifest_ref": str(manifest_ref or ""),
                 }
                 nominations.append(normalized)

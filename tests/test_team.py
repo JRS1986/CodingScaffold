@@ -1,5 +1,7 @@
 import json
+import shutil
 import subprocess
+from pathlib import Path
 
 from coding_scaffold.team import (
     connect_team,
@@ -427,8 +429,51 @@ def test_team_sync_warns_and_doctor_reports_failed_pull(tmp_path, monkeypatch) -
     assert any("git pull failed: permission denied" in warning for warning in result.warnings)
     provenance = json.loads((tmp_path / ".coding-scaffold" / "team-provenance.json").read_text())
     assert provenance["stale_pulls"][0]["error"] == "permission denied"
+    assert provenance["stale_pulls"][0]["first_seen"]
+    assert provenance["stale_pulls"][0]["last_seen"]
     doctor = doctor_team(tmp_path)
     assert any("Recent team source update failed" in warning for warning in doctor.warnings)
+
+
+def test_team_sync_preserves_stale_pull_history_after_success(tmp_path, monkeypatch) -> None:
+    from coding_scaffold import team as team_module
+
+    destination = tmp_path / ".coding-scaffold" / "team" / "sources" / "knowledge" / "team-knowledge-git"
+    repo = destination / "_repo" / ".git"
+    repo.mkdir(parents=True)
+    manifest = tmp_path / ".coding-scaffold" / "team-onboarding.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(
+        json.dumps(
+            {
+                "team": "t",
+                "knowledge": {"backend": "markdown", "remote": "https://example.test/team-knowledge.git"},
+                "security": {"secrets_allowed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(team_module.shutil, "which", lambda name: "/usr/bin/git")
+    pull_results = [1, 0]
+
+    def fake_run(cmd, *args, **kwargs):
+        if isinstance(cmd, list) and cmd[:2] == ["git", "-C"] and "pull" in cmd:
+            code = pull_results.pop(0)
+            return subprocess.CompletedProcess(cmd, code, stdout="", stderr="temporary outage" if code else "")
+        if isinstance(cmd, list) and cmd[:2] == ["git", "-C"] and "rev-parse" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc123\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(team_module.subprocess, "run", fake_run)
+
+    failed = sync_team(tmp_path)
+    succeeded = sync_team(tmp_path)
+
+    assert any("git pull failed" in warning for warning in failed.warnings)
+    assert succeeded.warnings == []
+    provenance = json.loads((tmp_path / ".coding-scaffold" / "team-provenance.json").read_text())
+    assert provenance["stale_pulls"][0]["remote"] == "https://example.test/team-knowledge.git"
+    assert provenance["stale_pulls"][0]["error"] == "temporary outage"
 
 
 def test_team_doctor_reports_field_provenance_for_overrides(tmp_path) -> None:
@@ -608,23 +653,38 @@ def test_cascade_rejects_each_tighten_only_field_family(tmp_path) -> None:
         assert field in result.warnings[0]
 
 
-def test_team_sync_records_inbound_nominations(tmp_path) -> None:
-    remote = tmp_path / "org-knowledge"
-    remote.mkdir()
-    (remote / "inbound-nominations.json").write_text(
+def test_team_push_bundle_round_trips_inbound_nomination_metadata(tmp_path) -> None:
+    producer = tmp_path / "producer"
+    skill = producer / ".coding-scaffold" / "skills" / "debug.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# Debug\n", encoding="utf-8")
+    producer_manifest = producer / ".coding-scaffold" / "team-onboarding.json"
+    producer_manifest.write_text(
         json.dumps(
-            [
-                {
-                    "slug": "api-runbook",
-                    "source_team": "platform",
-                    "source_scope": "team",
-                    "accepted_at": "2026-05-25T16:00:00Z",
-                    "manifest_ref": "org-commit",
-                }
-            ]
+            {
+                "team": "platform",
+                "_sync_source": {"manifest": "https://github.com/acme/manifest.git"},
+                "security": {"secrets_allowed": False},
+            }
         ),
         encoding="utf-8",
     )
+
+    result = push_team(producer)
+
+    bundle = next(
+        Path(action.split(": ", 1)[1])
+        for action in result.actions
+        if action.startswith("Wrote nomination bundle:")
+    )
+    metadata = json.loads((bundle / "inbound-nominations.json").read_text(encoding="utf-8"))
+    assert metadata["inbound_nominations"][0]["slug"] == "debug"
+    assert metadata["inbound_nominations"][0]["source_team"] == "platform"
+    assert metadata["inbound_nominations"][0]["manifest_target"] == "https://github.com/acme/manifest.git"
+
+    remote = tmp_path / "org-knowledge"
+    remote.mkdir()
+    shutil.copy2(bundle / "inbound-nominations.json", remote / "inbound-nominations.json")
     manifest = tmp_path / ".coding-scaffold" / "team-onboarding.json"
     manifest.parent.mkdir(parents=True)
     manifest.write_text(
@@ -641,9 +701,9 @@ def test_team_sync_records_inbound_nominations(tmp_path) -> None:
     sync_team(tmp_path, allow_local=True)
 
     provenance = json.loads((tmp_path / ".coding-scaffold" / "team-provenance.json").read_text())
-    assert provenance["inbound_nominations"][0]["slug"] == "api-runbook"
+    assert provenance["inbound_nominations"][0]["slug"] == "debug"
     doctor = doctor_team(tmp_path)
-    assert any("Inbound nomination: api-runbook from platform" in action for action in doctor.actions)
+    assert any("Inbound nomination: debug from platform" in action for action in doctor.actions)
 
 
 def test_team_push_open_pr_falls_back_when_gh_missing(tmp_path, monkeypatch) -> None:
@@ -668,3 +728,9 @@ def test_team_push_open_pr_falls_back_when_gh_missing(tmp_path, monkeypatch) -> 
 
     assert any("Wrote nomination bundle" in action for action in result.actions)
     assert result.warnings == ["team push --open-pr requires gh on PATH; kept the outbox bundle."]
+    bundle = next(
+        Path(action.split(": ", 1)[1])
+        for action in result.actions
+        if action.startswith("Wrote nomination bundle:")
+    )
+    assert (bundle / "inbound-nominations.json").exists()
