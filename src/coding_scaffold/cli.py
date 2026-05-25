@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
+from .cli_help import doc_for
 from .cli_stability import marker_for
 from .context import (
     DEFAULT_CONTEXT_WINDOW,
@@ -779,6 +780,7 @@ def build_parser() -> argparse.ArgumentParser:
     tour.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     _hide_suppressed_subcommands(sub)
     _annotate_stability(sub)
+    _apply_help_registry(parser)
     return parser
 
 
@@ -786,6 +788,66 @@ def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None
     subparsers._choices_actions = [  # noqa: SLF001 - argparse has no public hook for this.
         action for action in subparsers._choices_actions if action.help is not argparse.SUPPRESS
     ]
+
+
+def _apply_help_registry(parser: argparse.ArgumentParser) -> None:
+    """Walk the subparser tree and apply description/epilog from cli_help.HELP_REGISTRY.
+
+    Subparsers are defined inline as ``add_parser("name", help=...)`` for readability;
+    the longer-form ``description=`` (what the command does) and ``epilog=`` (examples)
+    come from this single registry so the cli.py file stays scannable. Hidden flat
+    aliases (``init``, ``wizard``, …) inherit the canonical command's documentation.
+
+    Tests assert every visible subcommand has a non-empty description after this pass.
+    """
+
+    for path, sub_action in _iter_subparser_actions(parser, ()):
+        for name, subparser in sub_action.choices.items():
+            full_path = path + (name,)
+            doc = doc_for(full_path) or _fallback_doc(full_path)
+            if doc is not None:
+                if not getattr(subparser, "description", None):
+                    subparser.description = doc.description
+                if not getattr(subparser, "epilog", None):
+                    subparser.epilog = doc.epilog()
+                    if subparser.epilog:
+                        subparser.formatter_class = argparse.RawDescriptionHelpFormatter
+
+
+def _iter_subparser_actions(parser: argparse.ArgumentParser, path: tuple[str, ...]):
+    for action in parser._actions:  # noqa: SLF001 — argparse has no public hook
+        if isinstance(action, argparse._SubParsersAction):  # noqa: SLF001
+            yield path, action
+            for name, subparser in action.choices.items():
+                yield from _iter_subparser_actions(subparser, path + (name,))
+
+
+# Map hidden flat aliases to the canonical command path so they reuse the
+# canonical documentation.
+_FLAT_ALIAS_CANONICAL: dict[str, tuple[str, ...]] = {
+    "init": ("setup", "run"),
+    "wizard": ("setup", "run"),
+    "knowledge-status": ("knowledge", "status"),
+    "context-budget": ("context", "budget"),
+    "compress-context": ("context", "compress"),
+    "orchestrate": ("tools", "orchestrate"),
+    "setup-tool": ("setup", "tool"),
+    "setup-addon": ("setup", "addon"),
+    "setup-knowledge": ("setup", "knowledge"),
+    "adapt": ("tools", "adapt"),
+    "route": ("tools", "route"),
+    "select-model": ("tools", "select-model"),
+    "workflow": ("tools", "workflow"),
+    "update": ("setup", "update"),
+}
+
+
+def _fallback_doc(path: tuple[str, ...]):
+    """Look up documentation for hidden flat aliases by their canonical path."""
+
+    if len(path) == 1 and path[0] in _FLAT_ALIAS_CANONICAL:
+        return doc_for(_FLAT_ALIAS_CANONICAL[path[0]])
+    return None
 
 
 def _annotate_stability(subparsers: argparse._SubParsersAction) -> None:
