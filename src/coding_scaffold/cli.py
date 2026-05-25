@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
-from .cli_help import HELP_REGISTRY, doc_for
+from .cli_help import doc_for
 from .context import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_CONTEXT_RATIO,
