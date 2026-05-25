@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
+from .cli_stability import marker_for
 from .context import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_CONTEXT_RATIO,
@@ -126,6 +127,9 @@ ADVANCED / GOVERNANCE (safe to ignore until your team needs them)
   policy, mcp, skills, memory, team, permissions, tools, knowledge distill
 
 The full command list is below. Every command supports --help.
+Markers next to each command name: [stable] [preview] [experimental].
+  See https://jrs1986.github.io/CodingScaffold/wiki/Stability for what they promise.
+Glossary of terms: https://jrs1986.github.io/CodingScaffold/wiki/Glossary
 """
 
 
@@ -741,6 +745,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     _hide_suppressed_subcommands(sub)
+    _annotate_stability(sub)
     return parser
 
 
@@ -748,6 +753,23 @@ def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None
     subparsers._choices_actions = [  # noqa: SLF001 - argparse has no public hook for this.
         action for action in subparsers._choices_actions if action.help is not argparse.SUPPRESS
     ]
+
+
+def _annotate_stability(subparsers: argparse._SubParsersAction) -> None:
+    """Prefix each visible top-level command's help text with its stability marker.
+
+    Only operates on the help-display objects (`_choices_actions`); the actual
+    subparser objects in `choices` keep their original help so behavior, argument
+    parsing, and `help=argparse.SUPPRESS` filtering all stay unchanged.
+    """
+
+    for action in subparsers._choices_actions:  # noqa: SLF001 - argparse has no public hook.
+        if action.help is argparse.SUPPRESS:
+            continue
+        command = action.dest
+        if not command:
+            continue
+        action.help = f"{marker_for(command)} {action.help or ''}".rstrip()
 
 
 def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
