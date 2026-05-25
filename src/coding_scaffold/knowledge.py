@@ -572,6 +572,8 @@ def _lintable_note(path: Path, knowledge: Path) -> bool:
         return False
     if path.name in {"README.md", "INDEX.md", "CHANGELOG.md"}:
         return False
+    if path.name.endswith("-template.md") or "templates" in {part.lower() for part in relative.parts}:
+        return False
     if any(part.startswith(".") for part in relative.parts):
         return False
     if "nominations" in relative.parts:

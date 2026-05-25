@@ -293,6 +293,15 @@ def test_knowledge_lint_reports_layered_notes_missing_scope(tmp_path) -> None:
     )
 
 
+def test_knowledge_lint_fresh_base_is_clean(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+
+    result = lint_knowledge(tmp_path)
+
+    assert result.warnings == []
+    assert result.violations == []
+
+
 def test_knowledge_lint_reports_broken_link_and_orphan(tmp_path) -> None:
     write_knowledge_base(tmp_path)
     (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").write_text("# Index\n", encoding="utf-8")

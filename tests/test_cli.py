@@ -379,6 +379,10 @@ def test_team_init_and_doctor_commands(tmp_path, capsys) -> None:
     assert "team-onboarding.json" in output
     assert main(["team", "doctor", "--target", str(tmp_path)]) == 0
     assert "Team: platform-api" in capsys.readouterr().out
+    assert main(["team", "doctor", "--target", str(tmp_path), "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["manifest"]["team"] == "platform-api"
+    assert "field_provenance" in payload
 
 
 def test_team_init_rejects_connect_flags(tmp_path) -> None:

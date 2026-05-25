@@ -138,7 +138,9 @@ coding-scaffold team init --target .
 coding-scaffold team connect --target . --manifest <file-or-git-repo>
 coding-scaffold team sync --target . --to-version 1.2.0
 coding-scaffold team doctor --target .
+coding-scaffold team doctor --target . --format json
 coding-scaffold team push --target . --dry-run
+coding-scaffold team push --target . --open-pr
 ```
 
 Use `team sync` after team knowledge, agents, skills, or policy changes. Use `team doctor` before a
@@ -146,7 +148,9 @@ first agentic coding session to confirm the local project sees the shared assets
 
 Use `team push --dry-run` to see local skills, team knowledge, or policy files that differ from the
 imported manifest. Running `team push` writes a reviewable nomination bundle under
-`.coding-scaffold/team/outbox/`; it does not commit or push upstream.
+`.coding-scaffold/team/outbox/`; it does not commit or push upstream. Pass `--open-pr` to attempt a
+draft PR against a GitHub-hosted manifest repo. If GitHub, `gh`, auth, clone, push, or PR creation is
+unavailable, the command keeps the outbox bundle and prints a warning.
 
 ## Trust model
 
