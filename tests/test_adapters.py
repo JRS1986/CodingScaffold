@@ -17,8 +17,12 @@ def test_write_opencode_adapter_creates_native_files(tmp_path) -> None:
     assert "reviewer.md" in names
     assert "first-session.md" in names
     assert "agentic-change.md" in names
+    assert "knowledge-propose.md" in names
     assert "recheck-route.md" in names
     assert (tmp_path / ".opencode" / "agents" / "reviewer.md").exists()
+    knowledge_propose = (tmp_path / ".opencode" / "commands" / "knowledge-propose.md").read_text()
+    assert "configured model" in knowledge_propose
+    assert "Do not write raw chat transcripts" in knowledge_propose
 
 
 def test_write_claude_code_adapter_creates_native_files(tmp_path) -> None:
@@ -35,8 +39,10 @@ def test_write_claude_code_adapter_creates_native_files(tmp_path) -> None:
     assert "settings.json" in names
     assert "first-session.md" in names
     assert "agentic-change.md" in names
+    assert "knowledge-propose.md" in names
     assert "reviewer.md" in names
     assert "claude-heavy" in (tmp_path / ".claude" / "agents" / "reviewer.md").read_text()
+    assert "Knowledge Nudge" in (tmp_path / "CLAUDE.md").read_text()
     assert "defaultMode" in (tmp_path / ".claude" / "settings.json").read_text()
 
 
@@ -48,8 +54,11 @@ def test_write_codex_adapter_creates_native_files(tmp_path) -> None:
     assert "config.toml" in names
     assert "README.md" in names
     assert "first-session.md" in names
+    assert "knowledge-propose.md" in names
     assert "approval_mode" in (tmp_path / ".codex" / "config.toml").read_text()
-    assert "does not replace Codex" in (tmp_path / "AGENTS.md").read_text()
+    agents = (tmp_path / "AGENTS.md").read_text()
+    assert "does not replace Codex" in agents
+    assert "Knowledge Nudge" in agents
 
 
 def test_write_new_adapters_preserve_existing_files(tmp_path) -> None:

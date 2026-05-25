@@ -25,5 +25,7 @@ def test_docs_do_not_claim_raw_chat_ingestion_as_team_wiki() -> None:
     combined = "\n".join([readme, faq, knowledge])
     assert "not raw chat" in combined
     assert "reviewable distilled proposals" in combined
+    assert "knowledge nudge" in combined.lower()
+    assert "CodingScaffold does not call a model itself" in combined
     for verb in ("summarize", "redact", "deduplicate"):
         assert verb in combined

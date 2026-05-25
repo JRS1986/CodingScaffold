@@ -25,6 +25,8 @@ def test_session_init_writes_template_under_sessions_dir(tmp_path: Path) -> None
     assert "Demo task" in contents
     assert "## Task" in contents
     assert "## Commands Run" in contents
+    assert "Knowledge nudge" in contents
+    assert "raw chat transcripts" in contents
 
 
 def test_session_init_appends_counter_on_collision(tmp_path: Path) -> None:
