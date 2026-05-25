@@ -45,6 +45,38 @@ def test_write_mempalace_knowledge_base_adds_optional_index_guide(tmp_path) -> N
     assert "capture-knowledge.md" not in names
 
 
+def test_write_html_knowledge_base_renders_static_site(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    testing = knowledge / "wiki" / "testing.md"
+    testing.write_text(
+        "---\nscope: team\nmaturity: draft\nowner: qa\nlast_reviewed: "
+        f"{date.today().isoformat()}\nsource_refs: []\n---\n# Testing\n\nSee [setup](setup.md).\n",
+        encoding="utf-8",
+    )
+
+    result = write_knowledge_base(tmp_path, backend="html", adapter=None)
+
+    site = knowledge / "site"
+    assert (site / "index.html").exists()
+    assert (site / "assets" / "style.css").exists()
+    assert (site / ".gitignore").exists()
+    assert (site / "wiki" / "testing.html").exists()
+    testing_html = (site / "wiki" / "testing.html").read_text(encoding="utf-8")
+    assert 'href="setup.html"' in testing_html
+    assert "<strong>owner:</strong> qa" in testing_html
+    assert "${unresolved}" not in "\n".join(
+        path.read_text(encoding="utf-8") for path in site.rglob("*.html")
+    )
+    for markdown in knowledge.rglob("*.md"):
+        if "site" in markdown.relative_to(knowledge).parts or markdown.name.endswith(".new"):
+            continue
+        relative = markdown.relative_to(knowledge)
+        expected = site / ("index.html" if relative.name == "INDEX.md" else relative.with_suffix(".html"))
+        assert expected.exists(), f"missing rendered page for {relative}"
+    assert any(path.name == "testing.html" for path in result.files)
+
+
 def test_write_obsidian_knowledge_base_adds_vault_files(tmp_path) -> None:
     result = write_knowledge_base(tmp_path, backend="obsidian", adapter=None)
 

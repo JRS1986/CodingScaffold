@@ -18,6 +18,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 
 - Add manifest versioning, compatibility checks, cascade merging, conflict sidecars, provenance, and team nominations.
 - Add scoped knowledge listing, linting, promotion, and nomination flows.
+- Add the HTML knowledge backend requested in issue #105.
 - Update CLI, docs, adapter guidance, and tests.
 - Run repo-required verification.
 
@@ -26,6 +27,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 <!-- Bulleted list of files the agent read but did not modify. -->
 
 - `.github` issue bodies #97, #98, #99, #100, #101, #102, #103, #104 via `gh issue view`
+- `.github` issue body #105 via `gh issue view`
 
 ## Files Changed
 
@@ -33,6 +35,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 
 - `src/coding_scaffold/team.py` — manifest schema/version checks, cascade merge, conflict sidecars, provenance, and `team push`.
 - `src/coding_scaffold/knowledge.py` — scoped listing, lint, promote, nominate, and supporting frontmatter/link helpers.
+- `src/coding_scaffold/knowledge.py` — HTML static-site generation for the knowledge backend.
 - `src/coding_scaffold/cli.py` — CLI wiring for new team and knowledge commands.
 - `src/coding_scaffold/templates/adapters/claude.md` — scope-aware retrieval guidance.
 - `src/coding_scaffold/templates/adapters/codex-agents.md` — scope-aware retrieval guidance.
@@ -42,6 +45,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 - `docs/docs/wiki/index.md` — link to Team Sync.
 - `tests/test_team.py` — coverage for versioning, incompatibility, conflicts, cascade refusal, and nominations.
 - `tests/test_knowledge.py` — coverage for list, lint, promote, and nominate.
+- `tests/test_knowledge.py` — coverage for HTML rendering, internal link rewriting, and audit chips.
 - `.coding-scaffold/sessions/2026-05-25-agentic-change-3.md` — session trace.
 
 ## Commands Run
@@ -75,6 +79,13 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 - `coding-scaffold eval run --target .`
 - `git status --short`
 - `git diff --stat`
+- `gh issue list --state open --limit 5 --json number,title,createdAt,updatedAt,labels,url`
+- `gh issue view 105 --json number,title,body,labels,comments,url`
+- `uv run pytest tests/test_knowledge.py -q`
+- `uv run ruff check`
+- `uv run pytest -q`
+- `coding-scaffold context lint --target .`
+- `coding-scaffold eval run --target .`
 
 ## Test Result
 
@@ -84,7 +95,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 - Skipped: 1
 -->
 
-- Passed: 342
+- Passed: 343
 - Failed: 0
 - Skipped: 0
 
@@ -94,6 +105,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 
 - `team sync` conflict behavior now preserves differing local files and writes `.conflict` sidecars instead of overwriting; reviewers should confirm this is the intended migration behavior for existing users.
 - Manifest cascade currently enforces the tightening/loosening rule for `mcp.allowlist`; other policy types still use deterministic child-overrides-parent merge rules.
+- The HTML renderer intentionally supports a small deterministic Markdown subset for v1; richer Markdown constructs can be added without changing the backend contract.
 
 ## Follow-up Recommendations
 
@@ -101,6 +113,7 @@ Address review issues for team sync governance, knowledge workflows, and contrib
 
 - Consider adding an actual PR-opening integration for nomination bundles after the file-based flow has settled.
 - Consider expanding cascade constraints beyond `mcp.allowlist` once policy schema fields become more formal.
+- Track single-file HTML export and live preview as separate follow-up issues if the static site backend is accepted.
 
 ## Reusable Knowledge Discovered
 

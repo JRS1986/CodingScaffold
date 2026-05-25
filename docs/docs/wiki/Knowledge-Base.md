@@ -5,7 +5,7 @@ project vocabulary, skill notes, agent patterns, and source-of-truth links.
 
 ## Markdown First
 
-Plain Markdown is the default:
+Plain Markdown is the default source of truth:
 
 ```bash
 coding-scaffold knowledge create --target ~/dev/my-project
@@ -270,6 +270,29 @@ coding-scaffold knowledge create --target ~/dev/my-project --backend mempalace
 ```
 
 Use this when the Markdown corpus grows large enough that search and semantic retrieval matter.
+
+## HTML
+
+HTML mode renders the Markdown knowledge base into a static browser-readable site:
+
+```bash
+coding-scaffold knowledge create --target ~/dev/my-project --backend html
+```
+
+This generates `.coding-scaffold/knowledge/site/` with:
+
+- `index.html` from `knowledge/INDEX.md`
+- one `.html` page for each Markdown note
+- `assets/style.css`
+- a `site/.gitignore` example that ignores generated pages by default
+
+Use this when non-engineers need to read playbooks, when a team wants to host knowledge on an
+internal static site, or when a browser-readable copy should be attached to a ticket or sent for
+review. Markdown remains the source of truth. Regenerate the HTML after editing notes, and remove
+`site/.gitignore` only if your team deliberately chooses to commit rendered HTML.
+
+The renderer rewrites internal `.md` links to `.html` links and shows audit frontmatter such as
+`scope`, `maturity`, `owner`, and `last_reviewed` as chips at the top of each page.
 
 ## What To Capture
 

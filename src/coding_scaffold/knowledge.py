@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from dataclasses import dataclass
 from datetime import date, datetime
+from html import escape
 from pathlib import Path
 
 from .file_ops import collect_text, write_text
@@ -191,6 +193,8 @@ def write_knowledge_base(
         _collect_foam_files(files, skipped, knowledge)
     if backend == "mempalace":
         collect_text(files, skipped, knowledge / "mempalace.md", _mempalace_template())
+    if backend == "html":
+        _collect_html_files(files, skipped, knowledge)
     if adapter == "opencode":
         collect_text(
             files,
@@ -814,6 +818,12 @@ def _knowledge_json(backend: str, shared_remote: str | None) -> str:
                 "the Foam extension recommends itself on first open."
             ),
         },
+        "html": {
+            "optional": False,
+            "site_path": ".coding-scaffold/knowledge/site",
+            "open": "Open .coding-scaffold/knowledge/site/index.html in a browser.",
+            "source_of_truth": "Markdown files under .coding-scaffold/knowledge.",
+        },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
@@ -838,6 +848,11 @@ def _knowledge_guide(backend: str, shared_remote: str | None) -> str:
             "Run `coding-scaffold knowledge --backend foam` later if you want a Foam workspace "
             "(MIT-licensed VS Code extension)."
         )
+    )
+    html_line = (
+        "This scaffold also generated a static HTML site under `knowledge/site/`."
+        if backend == "html"
+        else "Run `coding-scaffold knowledge --backend html` later if you want browser-readable HTML."
     )
     return f"""# Team Knowledge Base
 
@@ -912,6 +927,14 @@ organizations of more than two people).
 
 MemPalace is useful when the Markdown corpus gets large enough that semantic retrieval matters.
 Keep Markdown as the source of truth; use memory tooling as an index, not as the only copy.
+
+## Static HTML
+
+{html_line}
+
+The HTML backend renders Markdown notes into `knowledge/site/` for browser reading, intranet
+hosting, or review by teammates who do not use Markdown tools. Markdown remains the source of
+truth; regenerate the HTML site after editing notes.
 """
 
 
@@ -1473,6 +1496,369 @@ def _collect_foam_files(files: list[Path], skipped: list[Path], knowledge: Path)
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "decision.md", _foam_decision_template())
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "skill.md", _foam_skill_template())
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "agent.md", _foam_agent_template())
+
+
+def _collect_html_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
+    del skipped  # HTML files are generated artifacts and are refreshed on each html backend run.
+    site = knowledge / "site"
+    markdown_files = [
+        path
+        for path in sorted(knowledge.rglob("*.md"))
+        if "site" not in path.relative_to(knowledge).parts and not path.name.endswith(".new")
+    ]
+    pages = {_html_output_relative(path, knowledge): path for path in markdown_files}
+    nav = _html_nav_items(knowledge, markdown_files)
+    files.append(write_text(site / ".gitignore", _html_site_gitignore(), overwrite=True))
+    files.append(write_text(site / "assets" / "style.css", _html_site_css(), overwrite=True))
+    for source in markdown_files:
+        frontmatter, _warning = _frontmatter(source)
+        title = _html_title(source, frontmatter)
+        html = _html_page(source, knowledge, title, frontmatter, nav, pages)
+        files.append(write_text(site / _html_output_relative(source, knowledge), html, overwrite=True))
+
+
+def _html_output_relative(path: Path, knowledge: Path) -> Path:
+    relative = path.relative_to(knowledge)
+    if relative.name == "INDEX.md":
+        return relative.with_name("index.html")
+    return relative.with_suffix(".html")
+
+
+def _html_nav_items(knowledge: Path, markdown_files: list[Path]) -> list[tuple[str, Path]]:
+    index = knowledge / "INDEX.md"
+    items: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    if index.exists():
+        try:
+            text = index.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            text = ""
+        for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
+            raw = match.group(2).split()[0].strip("<>").split("#", 1)[0]
+            if not raw or raw.startswith(("http://", "https://", "mailto:")):
+                continue
+            target = (index.parent / raw).resolve()
+            if target.is_dir():
+                target = target / "README.md"
+            if target.exists() and target.suffix == ".md":
+                items.append((match.group(1), _html_output_relative(target, knowledge)))
+                seen.add(target)
+    for path in markdown_files:
+        if path in seen:
+            continue
+        items.append((_html_title(path, _frontmatter(path)[0]), _html_output_relative(path, knowledge)))
+    return items
+
+
+def _html_title(path: Path, frontmatter: dict[str, str]) -> str:
+    if frontmatter.get("title"):
+        return frontmatter["title"]
+    try:
+        for line in _strip_frontmatter_block(path.read_text(encoding="utf-8")).splitlines():
+            if line.startswith("# "):
+                return line[2:].strip()
+    except UnicodeDecodeError:
+        pass
+    return path.stem.replace("-", " ").replace("_", " ").title()
+
+
+def _html_page(
+    source: Path,
+    knowledge: Path,
+    title: str,
+    frontmatter: dict[str, str],
+    nav: list[tuple[str, Path]],
+    pages: dict[Path, Path],
+) -> str:
+    output_relative = _html_output_relative(source, knowledge)
+    nav_html = "\n".join(
+        f'      <a href="{escape(_relative_html_href(output_relative, href), quote=True)}">{escape(label)}</a>'
+        for label, href in nav
+    )
+    source_path = source.relative_to(knowledge).as_posix()
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <link rel="stylesheet" href="{escape(_relative_html_href(output_relative, Path("assets") / "style.css"), quote=True)}">
+</head>
+<body>
+  <aside class="site-nav">
+    <a class="brand" href="{escape(_relative_html_href(output_relative, Path("index.html")), quote=True)}">Knowledge</a>
+    <nav>
+{nav_html}
+    </nav>
+  </aside>
+  <main>
+    <header class="page-header">
+      <p class="source-path">{escape(source_path)}</p>
+      <h1>{escape(title)}</h1>
+      {_frontmatter_chips(frontmatter)}
+    </header>
+    <article>
+{_markdown_to_html(source, knowledge, pages)}
+    </article>
+  </main>
+</body>
+</html>
+"""
+
+
+def _frontmatter_chips(frontmatter: dict[str, str]) -> str:
+    fields = ["scope", "maturity", "owner", "last_reviewed"]
+    chips = [
+        f'<span class="chip"><strong>{escape(field)}:</strong> {escape(frontmatter[field])}</span>'
+        for field in fields
+        if frontmatter.get(field)
+    ]
+    if not chips:
+        return '<div class="chips muted">No audit frontmatter found.</div>'
+    return '<div class="chips">' + "".join(chips) + "</div>"
+
+
+def _markdown_to_html(source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    try:
+        text = _strip_frontmatter_block(source.read_text(encoding="utf-8"))
+    except UnicodeDecodeError:
+        return "      <p>Unable to render non-UTF-8 Markdown file.</p>"
+    rendered: list[str] = []
+    paragraph: list[str] = []
+    in_code = False
+    code_lines: list[str] = []
+    in_list = False
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            rendered.append(
+                "      <p>"
+                + _render_inline(" ".join(line.strip() for line in paragraph), source, knowledge, pages)
+                + "</p>"
+            )
+            paragraph.clear()
+
+    def close_list() -> None:
+        nonlocal in_list
+        if in_list:
+            rendered.append("      </ul>")
+            in_list = False
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            flush_paragraph()
+            close_list()
+            if in_code:
+                rendered.append("      <pre><code>" + escape("\n".join(code_lines)) + "</code></pre>")
+                code_lines.clear()
+                in_code = False
+            else:
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+        if not stripped:
+            flush_paragraph()
+            close_list()
+            continue
+        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading:
+            flush_paragraph()
+            close_list()
+            level = len(heading.group(1))
+            rendered.append(
+                f"      <h{level}>{_render_inline(heading.group(2), source, knowledge, pages)}</h{level}>"
+            )
+            continue
+        item = re.match(r"^[-*]\s+(.+)$", stripped)
+        if item:
+            flush_paragraph()
+            if not in_list:
+                rendered.append("      <ul>")
+                in_list = True
+            rendered.append(f"        <li>{_render_inline(item.group(1), source, knowledge, pages)}</li>")
+            continue
+        paragraph.append(line)
+    flush_paragraph()
+    close_list()
+    if in_code:
+        rendered.append("      <pre><code>" + escape("\n".join(code_lines)) + "</code></pre>")
+    return "\n".join(rendered)
+
+
+def _render_inline(text: str, source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    rendered: list[str] = []
+    position = 0
+    for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
+        rendered.append(_render_code_spans(text[position : match.start()]))
+        href = _html_rewrite_link(match.group(2), source, knowledge, pages)
+        rendered.append(f'<a href="{escape(href, quote=True)}">{_render_code_spans(match.group(1))}</a>')
+        position = match.end()
+    rendered.append(_render_code_spans(text[position:]))
+    return "".join(rendered)
+
+
+def _render_code_spans(text: str) -> str:
+    parts: list[str] = []
+    position = 0
+    for match in re.finditer(r"`([^`]+)`", text):
+        parts.append(escape(text[position : match.start()]))
+        parts.append(f"<code>{escape(match.group(1))}</code>")
+        position = match.end()
+    parts.append(escape(text[position:]))
+    return "".join(parts)
+
+
+def _html_rewrite_link(raw: str, source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    href = raw.strip()
+    if href.startswith(("http://", "https://", "mailto:", "#")):
+        return href
+    target_part, separator, fragment = href.partition("#")
+    target = (source.parent / target_part).resolve()
+    if target.is_dir():
+        target = target / "README.md"
+    try:
+        target.relative_to(knowledge.resolve())
+    except ValueError:
+        return href
+    output = _html_output_relative(target, knowledge)
+    if output not in pages and not target.exists():
+        return href
+    rewritten = _relative_html_href(_html_output_relative(source, knowledge), output)
+    if separator:
+        return f"{rewritten}#{fragment}"
+    return rewritten
+
+
+def _relative_html_href(from_page: Path, to_page: Path) -> str:
+    return Path(os.path.relpath(to_page, start=from_page.parent)).as_posix()
+
+
+def _html_site_gitignore() -> str:
+    return """# Generated by `coding-scaffold knowledge --backend html`.
+# Remove this file if your team chooses to commit the rendered site.
+*
+!.gitignore
+"""
+
+
+def _html_site_css() -> str:
+    return """body {
+  margin: 0;
+  color: #18202a;
+  background: #f6f7f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+.site-nav {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 260px;
+  overflow: auto;
+  border-right: 1px solid #d8dde5;
+  background: #ffffff;
+  padding: 24px 20px;
+}
+
+.brand {
+  display: block;
+  margin-bottom: 18px;
+  color: #0f1720;
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-nav nav a {
+  display: block;
+  padding: 6px 0;
+  color: #405064;
+  text-decoration: none;
+}
+
+.site-nav nav a:hover {
+  color: #005ea8;
+}
+
+main {
+  max-width: 880px;
+  margin-left: 300px;
+  padding: 42px 48px 72px;
+}
+
+.page-header {
+  border-bottom: 1px solid #d8dde5;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+}
+
+.source-path {
+  color: #6d7786;
+  font-size: 13px;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+}
+
+a {
+  color: #005ea8;
+}
+
+pre {
+  overflow: auto;
+  padding: 16px;
+  background: #111827;
+  color: #f9fafb;
+}
+
+code {
+  border-radius: 4px;
+  background: #e9edf3;
+  padding: 2px 4px;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.muted {
+  color: #6d7786;
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    position: static;
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid #d8dde5;
+  }
+
+  main {
+    margin-left: 0;
+    padding: 28px 22px 48px;
+  }
+}
+"""
 
 
 def _foam_start_here() -> str:
