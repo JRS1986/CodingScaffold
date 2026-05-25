@@ -114,7 +114,6 @@ See [artifact](#artifact).
 A SHA256 snapshot of every generated file written by setup, stored in
 `.coding-scaffold/scaffold-version.json`. `setup update` uses it to tell unchanged
 files (safe to rewrite) from user-edited files (write a `.new` sidecar instead).
-See [Upgrading](./Upgrading.md).
 
 ## session trace
 
