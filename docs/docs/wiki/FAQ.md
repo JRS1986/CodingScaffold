@@ -18,6 +18,39 @@ Run `coding-scaffold doctor --target .`. It surveys the repo and recommends the 
 If you want the smallest useful demo, run `coding-scaffold pilot --target . --tool opencode` next
 and follow the printed recipe.
 
+If the CLI vocabulary is unfamiliar, run `coding-scaffold tour` first — a read-only five-screen
+walkthrough of what the tool does, the artifact families, and where to go next. Definitions for
+every term live in the [Glossary](./Glossary.md).
+
+## Can I get a focused recipe for my job (security, team lead, …)?
+
+Yes. Pass `--persona {beginner,control,security,team-lead}` to `doctor` or `pilot`. A security
+reviewer running `doctor --persona security` sees policy / MCP / permissions surfaced first
+instead of the full firehose; a team lead gets a manifest / knowledge / skills recipe. The four
+persona paths are documented in [Team Rollout](./Team-Rollout.md#persona-paths).
+
+## A command failed and I don't know what to do — where do I look?
+
+Every CLI failure path prints a three-line block: `error: <cause>` / `next: <one concrete
+recovery step>` / `see: <optional wiki link>`. Read the `next:` line first. If you want to
+understand the recurring failure modes (missing tool, untouched .env, eval on empty repo,
+manifest version mismatch), the [Errors and Recovery](./Errors-and-Recovery.md) page
+enumerates them.
+
+## How do I know what I can build automation on?
+
+Every top-level command in `coding-scaffold --help` carries a `[stable]` / `[preview]` /
+`[experimental]` marker. The [Stability](./Stability.md) page defines the deprecation and
+breaking-change contract for each marker — depend on `[stable]` freely; pin a version
+when depending on `[preview]`; treat `[experimental]` as exploratory only.
+
+## How do I upgrade a project after a new release?
+
+`coding-scaffold setup update --target .` refreshes generated files without losing your edits.
+Unchanged files are rewritten in place; edited files get a `.new` sidecar so you can merge.
+The full upgrade contract — `.new` reconciliation recipe, rollback, version pinning, how to
+read the CHANGELOG's Breaking section — is in [Upgrading](./Upgrading.md).
+
 ## Does setup install tools?
 
 Yes, when it is running interactively and the selected coding environment is missing. It asks before

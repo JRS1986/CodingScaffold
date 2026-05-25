@@ -137,8 +137,7 @@ The CHANGELOG groups changes by release. Look for these sections:
 - **Deprecated** — features that still work but are scheduled for removal.
   Plan to migrate before the next major bump.
 - **Stability** — commands moved between `stable`/`preview`/`experimental`
-  markers. The Stability wiki page (shipped alongside this one) defines what
-  each marker promises.
+  markers. See [Stability](./Stability.md) for what each marker promises.
 
 A worked example: if 0.6.0's CHANGELOG says "Renamed `policy.network.allow`
 to `policy.network.allowlist`", and your update produced

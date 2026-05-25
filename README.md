@@ -66,8 +66,13 @@ Everything else (`policy`, `mcp`, `skills`, `memory`, `team`, routing, and workf
 is useful later, but it should not be day-one cognitive load.
 
 > Looking for a specific entry point? See the [persona paths](docs/docs/wiki/Team-Rollout.md#persona-paths)
-> (beginner / control-and-reproducibility / security review / team lead). For the threat model
+> (beginner / control-and-reproducibility / security review / team lead), surfaced directly via
+> `coding-scaffold doctor --persona <name>` / `pilot --persona <name>`. For the threat model
 > and what the scaffold deliberately does not enforce, read [Security](docs/docs/wiki/Security.md#threat-model).
+> Cold-start? Run `coding-scaffold tour` for a five-screen walkthrough, or skim the
+> [Glossary](docs/docs/wiki/Glossary.md). Hit a CLI error? See
+> [Errors and Recovery](docs/docs/wiki/Errors-and-Recovery.md). Wondering what's safe to depend on?
+> See [Stability](docs/docs/wiki/Stability.md). Upgrading? See [Upgrading](docs/docs/wiki/Upgrading.md).
 > Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 CodingScaffold prepares an existing project for AI-assisted development without tying the team to

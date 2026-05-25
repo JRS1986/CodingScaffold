@@ -7,8 +7,71 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`coding-scaffold tour`** — read-only five-screen walkthrough explaining what the
+  tool does, the scaffold artifact families, the doctor/pilot/setup loop, the daily
+  session/eval/team workflow, and where to go next. Never writes files; safe right
+  after install. Closes [#91](https://github.com/JRS1986/CodingScaffold/issues/91).
+- **`--persona` flag on `doctor` and `pilot`** — choose from `beginner` (default),
+  `control`, `security`, `team-lead`. Each persona reorders the artifact survey and
+  swaps the recommended-commands list for a focused recipe matching the persona's job.
+  Persona registry lives at `src/coding_scaffold/personas.py` and is kept in sync
+  with the [Team-Rollout](docs/docs/wiki/Team-Rollout.md#persona-paths) wiki page.
+  Closes [#90](https://github.com/JRS1986/CodingScaffold/issues/90).
+- **Stability markers in `--help`.** Every top-level command now renders a
+  `[stable]` / `[preview]` / `[experimental]` marker so teams know what they can
+  build on. Contract per marker documented in
+  [Stability](docs/docs/wiki/Stability.md). Registry at
+  `src/coding_scaffold/cli_stability.py`. Closes
+  [#95](https://github.com/JRS1986/CodingScaffold/issues/95).
+- **Per-subcommand `--help` descriptions and examples.** Every subcommand
+  (`setup run`, `knowledge lint`, `team push`, ...) now prints a one-paragraph
+  description, when-to-run guidance, and 1-3 worked examples instead of bare
+  argparse output. Registry at `src/coding_scaffold/cli_help.py`. Closes
+  [#89](https://github.com/JRS1986/CodingScaffold/issues/89).
+- **Doctor rationale lines.** Every artifact `doctor` surveys is rendered with a
+  one-line `→ why this matters` rationale, sourced from the shared
+  `src/coding_scaffold/artifacts.py` registry so `doctor`, `pilot`, and any future
+  onboarding command stay in sync. Closes
+  [#87](https://github.com/JRS1986/CodingScaffold/issues/87).
+- **`setup update --force` + `min_supported_scaffold_version` field.**
+  `.coding-scaffold/scaffold-version.json` now records the minimum scaffold
+  version required to safely update the project. `setup update` refuses to run
+  when the installed scaffold is older (use `--force` to override after reading
+  the migration note). Closes
+  [#96](https://github.com/JRS1986/CodingScaffold/issues/96).
+- **`setup update` prints a copy-pasteable `.new` reconciliation recipe.** When
+  staged `.new` sidecars are produced, the command now prints the `diff -u` /
+  merge / delete / `eval` steps inline, plus a link to the upgrade guide.
+
+### Fixed
+
+- **Template renderer no longer leaks `${undefined}` into user files.** Missing
+  keys raise `UnresolvedTemplateError` naming the template + key; any
+  `${...}` token surviving substitution raises before the file is written.
+  `$$` is preserved as the documented escape for a literal `$`. A parametrized
+  test renders every template under `templates/{writers,adapters}/` with a
+  default context. Fixes [#94](https://github.com/JRS1986/CodingScaffold/issues/94).
+
+### Changed
+
+- **Unified error message style.** New `src/coding_scaffold/errors.py` exposes
+  `fail_with(cause, next_step, link=None)` so CLI failure paths share a
+  three-line shape (`error: ... / next: ... / see: ...`). Documented in
+  [Errors and Recovery](docs/docs/wiki/Errors-and-Recovery.md). Closes
+  [#92](https://github.com/JRS1986/CodingScaffold/issues/92).
+
 ### Documentation
 
+- **New wiki pages**: [Glossary](docs/docs/wiki/Glossary.md) (cold-readable
+  vocabulary; linked from `doctor` and `--help` footers — closes
+  [#88](https://github.com/JRS1986/CodingScaffold/issues/88));
+  [Stability](docs/docs/wiki/Stability.md);
+  [Upgrading](docs/docs/wiki/Upgrading.md) (the full upgrade contract:
+  `.new` recipe, rollback, version pinning, reading CHANGELOG Breaking notes);
+  [Errors and Recovery](docs/docs/wiki/Errors-and-Recovery.md). Wiki index +
+  README updated to route to the new pages.
 - **Install docs now default to an isolated global CLI.** README, Getting Started, and generated
   project onboarding recommend `uv tool install` or `pipx install` from the GitHub repo so users can
   run `coding-scaffold` from any project without activating the source checkout's virtual
@@ -17,6 +80,17 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now highlights adaptive language/tool setup, shared reviewed knowledge, and repeatable team
   workflows before the quick-start commands. Knowledge docs clarify that durable wiki pages should
   be distilled and reviewed, not raw chat transcript dumps.
+
+### Tests
+
+- **Test coverage gap filled** for `file_ops`, `scaffold_version`, `doctor`,
+  `pilot`, `session` (full init → start → checkpoint → diff → rollback
+  round-trip), and `pr_template`. Test count grew from 351 to 590. Closes
+  [#93](https://github.com/JRS1986/CodingScaffold/issues/93).
+- **Acceptance-criteria audit** for the team / knowledge / HTML-backend issues
+  (#97 – #105) — one test per acceptance bullet, with failure messages naming
+  the issue so regressions surface the affected ticket. The deeper mechanics
+  coverage stays in `tests/test_team.py` and `tests/test_knowledge.py`.
 
 ## [0.5.1] — 2026-05-19
 

@@ -8,16 +8,30 @@ backend immediately; the goal is to make one small, inspected, verified change.
 After installing CodingScaffold in your environment, your first three commands are:
 
 ```bash
+coding-scaffold tour                                    # optional five-screen orientation
 coding-scaffold doctor --target .
 coding-scaffold pilot --target . --tool opencode
 # follow the printed steps
 ```
+
+`tour` is a read-only five-screen walkthrough (artifacts → doctor loop → daily workflow →
+where to go next). It's stateless — never writes files — so it's safe to run on a fresh
+checkout. Skip it if you already know the model.
 
 That's it for day one. Everything else on this page is reference material you can come back
 to when you actually need it. The other commands (`policy`, `mcp`, `skills`, `memory`,
 `team`, `permissions`, `tools route`) are deliberately out of the first-run mental model —
 `doctor` lists them under "Ignore for now (advanced)" so you don't have to track them
 yourself.
+
+### Persona-targeted output
+
+`doctor` and `pilot` accept `--persona {beginner,control,security,team-lead}` to scope the
+recommendations and ignore-for-now list to a specific job. A security reviewer running
+`coding-scaffold doctor --persona security --target .` sees policy / MCP / permissions
+surfaced first instead of the full firehose. The four personas are documented in
+[Team Rollout](./Team-Rollout.md#persona-paths); the registry lives at
+`src/coding_scaffold/personas.py` so the CLI and wiki stay in sync.
 
 ### What `doctor` does
 
