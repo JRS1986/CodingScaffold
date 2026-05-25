@@ -42,11 +42,15 @@ Start with the smallest path that matches your job today:
 
 | Need | Page | What you get |
 | --- | --- | --- |
+| Define a term you saw in `--help` | [Glossary](./Glossary.md) | One paragraph per term (artifact, persona, MCP, manifest, scope, ...). |
 | First useful session | [Getting Started](./Getting-Started.md) | The `doctor` + `pilot` path and the first bounded agentic change. |
-| Small-team pilot | [Team Rollout](./Team-Rollout.md) | A two-person rollout plan for teams under 20 people. |
+| Small-team pilot | [Team Rollout](./Team-Rollout.md) | A two-person rollout plan + the four persona paths surfaced by `--persona`. |
 | Security/compliance review | [Security](./Security.md) | Credential, provider, MCP, policy, and trust-boundary notes. |
 | Tool comparison | [Tool Adapters](./Tool-Adapters.md) | Capability matrix for OpenCode, Claude Code, Codex, OpenClaude, Hermes, and Pi. |
 | Shared memory | [Knowledge Base](./Knowledge-Base.md) | Markdown, HTML, Obsidian, Foam, MemPalace, and shared Git workflows. |
+| Upgrade a project | [Upgrading](./Upgrading.md) | What `setup update` does, the `.new` recipe, rollback, version pinning. |
+| Decide what to depend on | [Stability](./Stability.md) | What `[stable]` / `[preview]` / `[experimental]` markers in `--help` promise. |
+| Recover from a CLI failure | [Errors and Recovery](./Errors-and-Recovery.md) | The three-line error format and the recurring failure modes. |
 
 Then use the reference pages when the need appears:
 
