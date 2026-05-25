@@ -43,7 +43,9 @@ from .memory import (
     write_memory_config,
 )
 from .doctor import format_doctor_text, run_doctor
+from .personas import PERSONAS as _PERSONAS, DEFAULT_PERSONA
 from .pilot import SUPPORTED_TOOLS as PILOT_SUPPORTED_TOOLS, format_pilot_text, run_pilot
+from .tour import format_tour
 from .pr_template import write_pr_template
 from .session import (
     SessionStatusResult,
@@ -731,6 +733,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also print the legacy hardware/provider recommendation snapshot.",
     )
+    doctor.add_argument(
+        "--persona",
+        choices=list(_PERSONAS),
+        default=DEFAULT_PERSONA,
+        help="Tailor the recommendations and ignore-list to a persona's focus area.",
+    )
 
     pilot = sub.add_parser(
         "pilot",
@@ -744,6 +752,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Coding tool to weave into the recipe (default: opencode).",
     )
     pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    pilot.add_argument(
+        "--persona",
+        choices=list(_PERSONAS),
+        default=DEFAULT_PERSONA,
+        help="Tailor the printed recipe to a persona's focus area.",
+    )
+
+    tour = sub.add_parser(
+        "tour",
+        help="Read-only walkthrough of the tool: artifacts, the doctor loop, daily workflow.",
+        description=(
+            "Print a five-screen walkthrough explaining what CodingScaffold does, the "
+            "scaffold artifact families, the doctor/pilot/setup loop, the daily "
+            "session/eval/team workflow, and where to go next. Read-only and "
+            "stateless: no files are written and no commands are executed. Designed "
+            "to be the first thing a user runs right after install."
+        ),
+        epilog=(
+            "Examples:\n"
+            "  coding-scaffold tour\n"
+            "  coding-scaffold tour --target .\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    tour.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     _hide_suppressed_subcommands(sub)
     _annotate_stability(sub)
     return parser
@@ -1013,7 +1046,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
     target = getattr(args, "target", None) or Path.cwd()
-    report = run_doctor(target)
+    persona = getattr(args, "persona", DEFAULT_PERSONA)
+    report = run_doctor(target, persona=persona)
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
@@ -1026,7 +1060,11 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
 def _cmd_pilot(args: argparse.Namespace) -> int:
     try:
-        report = run_pilot(args.target, tool=args.tool)
+        report = run_pilot(
+            args.target,
+            tool=args.tool,
+            persona=getattr(args, "persona", DEFAULT_PERSONA),
+        )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -1034,6 +1072,11 @@ def _cmd_pilot(args: argparse.Namespace) -> int:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
         print(format_pilot_text(report))
+    return 0
+
+
+def _cmd_tour(args: argparse.Namespace) -> int:
+    print(format_tour(getattr(args, "target", None)))
     return 0
 
 
@@ -1817,6 +1860,7 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "probe": _cmd_probe,
     "doctor": _cmd_doctor,
     "pilot": _cmd_pilot,
+    "tour": _cmd_tour,
     "credentials": _cmd_credentials,
     "skill": _cmd_skill,
     "knowledge": _cmd_knowledge,

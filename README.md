@@ -32,8 +32,12 @@ inside a real repo and when the useful lessons from each session should become r
 You need three commands today. The rest can wait.
 
 ```bash
+# 0. (optional) Five-screen tour explaining the tool — read-only.
+coding-scaffold tour
+
 # 1. See what's set up and what's next.
 coding-scaffold doctor --target .
+# Or pick a persona path: --persona {beginner,control,security,team-lead}
 
 # 2. Print the safe 10-minute happy path for this repo.
 coding-scaffold pilot --target . --tool opencode
