@@ -228,7 +228,9 @@ coding-scaffold setup update --target .
 ```
 
 Files that still match their generated checksum are updated in place. Files you edited are preserved
-and the new generated version is staged next to them as `.new`.
+and the new generated version is staged next to them as `.new`. The full upgrade contract —
+`.new` reconciliation recipe, rollback, version pinning, and how to read the CHANGELOG's
+breaking-changes — is in [`Upgrading`](docs/docs/wiki/Upgrading.md).
 
 If you join an experienced team, connect to its onboarding manifest instead. This pulls the common
 knowledge base and exposes approved skills, agents, policy, and config locally:
