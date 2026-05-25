@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -9,6 +10,8 @@ from pathlib import Path
 from .file_ops import collect_text, write_text
 
 STALE_REVIEW_DAYS = 180
+KNOWLEDGE_SCOPES = ("team", "department", "unit", "company")
+MATURITY_LEVELS = ("draft", "validated", "recommended", "standard")
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,68 @@ class KnowledgeDistillResult:
             "created": [str(path) for path in self.created],
             "updated": [str(path) for path in self.updated],
             "skipped": [str(path) for path in self.skipped],
+            "warnings": self.warnings,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeListEntry:
+    path: Path
+    scope: str
+    maturity: str
+    owner: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "path": str(self.path),
+            "scope": self.scope,
+            "maturity": self.maturity,
+            "owner": self.owner,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeLintViolation:
+    path: Path
+    code: str
+    message: str
+    severity: str = "error"
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "path": str(self.path),
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeLintResult:
+    violations: list[KnowledgeLintViolation]
+    fixed: list[Path]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "violations": [violation.to_dict() for violation in self.violations],
+            "fixed": [str(path) for path in self.fixed],
+            "warnings": self.warnings,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgePromotionResult:
+    source: Path | None
+    destination: Path | None
+    actions: list[str]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source": str(self.source) if self.source else None,
+            "destination": str(self.destination) if self.destination else None,
+            "actions": self.actions,
             "warnings": self.warnings,
         }
 
@@ -207,6 +272,196 @@ def distill_knowledge(target: Path, source: str = "raw", review: bool = True) ->
     return KnowledgeDistillResult(created, updated, skipped, warnings)
 
 
+def list_knowledge(
+    target: Path,
+    *,
+    scope: str | None = None,
+    maturity: str | None = None,
+) -> list[KnowledgeListEntry]:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    if not knowledge.exists():
+        return []
+    entries: list[KnowledgeListEntry] = []
+    for path in sorted(knowledge.rglob("*.md")):
+        if not _lintable_note(path, knowledge) or path.name.endswith(".new"):
+            continue
+        frontmatter, _warning = _frontmatter(path)
+        note_scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
+        note_maturity = frontmatter.get("maturity") or "unspecified"
+        if scope and note_scope != scope:
+            continue
+        if maturity and note_maturity != maturity:
+            continue
+        entries.append(
+            KnowledgeListEntry(
+                path=path,
+                scope=note_scope,
+                maturity=note_maturity,
+                owner=frontmatter.get("owner", ""),
+            )
+        )
+    return entries
+
+
+def lint_knowledge(
+    target: Path,
+    *,
+    scope: str | None = None,
+    format: str = "text",
+    fix: bool = False,
+) -> KnowledgeLintResult:
+    del format  # The CLI owns rendering; the result is always structured.
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    if not knowledge.exists():
+        return KnowledgeLintResult([], [], ["No knowledge base found. Run `coding-scaffold knowledge create`."])
+    violations: list[KnowledgeLintViolation] = []
+    fixed: list[Path] = []
+    markdown = [
+        path
+        for path in sorted(knowledge.rglob("*.md"))
+        if not path.name.endswith(".new") and _lintable_note(path, knowledge)
+    ]
+    covered = _linked_knowledge_paths(markdown, knowledge)
+    today = date.today().isoformat()
+    for path in markdown:
+        frontmatter, warning = _frontmatter(path)
+        if warning:
+            violations.append(_violation(path, knowledge, "decode_error", warning))
+            continue
+        note_scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
+        if scope and note_scope != scope:
+            continue
+        if _is_layered_note(path, knowledge) or _is_curated_wiki_page(path, knowledge):
+            for field in ("scope", "maturity", "owner", "last_reviewed", "source_refs"):
+                if not frontmatter.get(field):
+                    if fix and field == "last_reviewed" and _add_frontmatter_field(path, "last_reviewed", today):
+                        fixed.append(path)
+                        frontmatter["last_reviewed"] = today
+                        continue
+                    violations.append(
+                        _violation(
+                            path,
+                            knowledge,
+                            "missing_frontmatter",
+                            f"Missing required frontmatter field: {field}",
+                        )
+                    )
+        if note_scope in KNOWLEDGE_SCOPES and frontmatter.get("scope") and frontmatter["scope"] != note_scope:
+            violations.append(
+                _violation(
+                    path,
+                    knowledge,
+                    "scope_mismatch",
+                    f"Frontmatter scope {frontmatter['scope']!r} does not match layer {note_scope!r}",
+                )
+            )
+        reviewed = frontmatter.get("last_reviewed")
+        if reviewed:
+            violations.extend(_review_violations(path, knowledge, reviewed))
+        violations.extend(_broken_link_violations(path, knowledge))
+        if path not in covered:
+            violations.append(
+                _violation(path, knowledge, "orphan", "Note is not linked from INDEX.md or another note.")
+            )
+        if _is_stub_note(path):
+            violations.append(_violation(path, knowledge, "stub", "Note appears to be empty or only headings."))
+    return KnowledgeLintResult(violations, fixed, [])
+
+
+def promote_knowledge(
+    target: Path,
+    slug: str,
+    *,
+    from_layer: str,
+    to_layer: str,
+    owner: str | None = None,
+) -> KnowledgePromotionResult:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    source = _find_knowledge_note(knowledge, slug, from_layer)
+    if source is None:
+        return KnowledgePromotionResult(None, None, [], [f"No knowledge note found for {slug!r} in {from_layer}."])
+    try:
+        destination = _promotion_destination(knowledge, source, from_layer, to_layer)
+    except ValueError as exc:
+        return KnowledgePromotionResult(source, None, [], [str(exc)])
+    frontmatter, warning = _frontmatter(source)
+    if warning:
+        return KnowledgePromotionResult(source, None, [], [warning])
+    if owner:
+        frontmatter["owner"] = owner
+    if not frontmatter.get("owner"):
+        return KnowledgePromotionResult(source, None, [], ["Promotion requires owner frontmatter or --owner."])
+    _apply_promotion_frontmatter(frontmatter, source, knowledge, to_layer)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(_replace_frontmatter(source.read_text(encoding="utf-8"), frontmatter), encoding="utf-8")
+    source.unlink()
+    _record_knowledge_changelog(knowledge, source, destination)
+    _append_index_link(knowledge, destination)
+    return KnowledgePromotionResult(
+        source,
+        destination,
+        [
+            f"Promoted {source.relative_to(knowledge)} -> {destination.relative_to(knowledge)}",
+            "Recorded promotion in knowledge/CHANGELOG.md",
+            "Updated knowledge/INDEX.md",
+        ],
+        [],
+    )
+
+
+def nominate_knowledge(
+    target: Path,
+    slug: str,
+    *,
+    to_scope: str,
+    rationale: str = "",
+) -> KnowledgePromotionResult:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    source = _find_knowledge_note(knowledge, slug, None)
+    if source is None:
+        return KnowledgePromotionResult(None, None, [], [f"No knowledge note found for {slug!r}."])
+    if to_scope not in KNOWLEDGE_SCOPES:
+        return KnowledgePromotionResult(source, None, [], [f"Unknown destination scope: {to_scope}"])
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    bundle = knowledge / "nominations" / f"{stamp}-{_slugify(source.stem)}-to-{to_scope}"
+    bundle.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, bundle / source.name)
+    nomination = bundle / "nomination.md"
+    nomination.write_text(
+        "\n".join(
+            [
+                "# Knowledge Nomination",
+                "",
+                f"Source note: `{source.relative_to(knowledge).as_posix()}`",
+                f"Requested scope: `{to_scope}`",
+                f"Created: {datetime.now().isoformat()}",
+                "",
+                "## Rationale",
+                "",
+                rationale or "Explain why this knowledge should move to the parent scope before review.",
+                "",
+                "## Review Bar",
+                "",
+                "- Confirm the note is useful beyond the source team.",
+                "- Confirm ownership, source_refs, and last_reviewed are present.",
+                "- Accept by adding the note to the parent manifest repository.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return KnowledgePromotionResult(
+        source,
+        bundle,
+        [f"Wrote knowledge nomination bundle: {bundle}"],
+        [],
+    )
+
+
 def _frontmatter(path: Path) -> tuple[dict[str, str], str | None]:
     # Supported subset: `---` fenced YAML-style block, one `key: value` per line.
     # Splits on the first unquoted `:`; preserves the raw value (including quotes,
@@ -302,6 +557,218 @@ def _curated_metadata_warnings(path: Path, knowledge: Path, frontmatter: dict[st
                     f"{relative} has not been reviewed in more than {STALE_REVIEW_DAYS} days"
                 )
     return warnings
+
+
+def _lintable_note(path: Path, knowledge: Path) -> bool:
+    try:
+        relative = path.relative_to(knowledge)
+    except ValueError:
+        return False
+    if not relative.parts:
+        return False
+    if path.name in {"README.md", "INDEX.md", "CHANGELOG.md"}:
+        return False
+    if any(part.startswith(".") for part in relative.parts):
+        return False
+    if "nominations" in relative.parts:
+        return False
+    return True
+
+
+def _violation(path: Path, knowledge: Path, code: str, message: str) -> KnowledgeLintViolation:
+    return KnowledgeLintViolation(path.relative_to(knowledge), code, message)
+
+
+def _review_violations(path: Path, knowledge: Path, reviewed: str) -> list[KnowledgeLintViolation]:
+    try:
+        reviewed_date = datetime.strptime(reviewed, "%Y-%m-%d").date()
+    except ValueError:
+        return [_violation(path, knowledge, "invalid_last_reviewed", f"Invalid last_reviewed date: {reviewed}")]
+    if (date.today() - reviewed_date).days > STALE_REVIEW_DAYS:
+        return [
+            _violation(
+                path,
+                knowledge,
+                "stale_last_reviewed",
+                f"Note has not been reviewed in more than {STALE_REVIEW_DAYS} days",
+            )
+        ]
+    return []
+
+
+def _linked_knowledge_paths(markdown: list[Path], knowledge: Path) -> set[Path]:
+    covered: set[Path] = set()
+    all_notes = set(markdown)
+    for source in [knowledge / "INDEX.md", *markdown]:
+        if not source.exists():
+            continue
+        for target in _markdown_links(source, knowledge):
+            if target.is_dir():
+                covered.update(path for path in all_notes if target in path.parents)
+            elif target in all_notes:
+                covered.add(target)
+    return covered
+
+
+def _markdown_links(path: Path, knowledge: Path) -> list[Path]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    targets: list[Path] = []
+    for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        raw = match.group(1).split()[0].strip("<>")
+        if not raw or raw.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        raw = raw.split("#", 1)[0]
+        target = (path.parent / raw).resolve()
+        try:
+            target.relative_to(knowledge.resolve())
+        except ValueError:
+            continue
+        targets.append(target)
+    return targets
+
+
+def _broken_link_violations(path: Path, knowledge: Path) -> list[KnowledgeLintViolation]:
+    violations: list[KnowledgeLintViolation] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return violations
+    for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        raw = match.group(1).split()[0].strip("<>")
+        if not raw or raw.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        raw = raw.split("#", 1)[0]
+        target = (path.parent / raw).resolve()
+        if not target.exists():
+            violations.append(_violation(path, knowledge, "broken_link", f"Broken relative link: {raw}"))
+    return violations
+
+
+def _is_stub_note(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return False
+    body = _strip_frontmatter_block(text)
+    non_heading = [
+        line.strip()
+        for line in body.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    return len(" ".join(non_heading)) < 24
+
+
+def _strip_frontmatter_block(text: str) -> str:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return text
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[index + 1 :])
+    return text
+
+
+def _add_frontmatter_field(path: Path, field: str, value: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return False
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            lines.insert(index, f"{field}: {value}")
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            return True
+    return False
+
+
+def _find_knowledge_note(knowledge: Path, slug: str, layer: str | None) -> Path | None:
+    slug_path = Path(slug)
+    candidates: list[Path]
+    if layer and layer in {"raw", "wiki", *KNOWLEDGE_SCOPES}:
+        base = knowledge / layer
+        if slug_path.suffix == ".md":
+            candidates = [base / slug_path]
+        else:
+            candidates = [base / f"{slug}.md", *base.rglob(f"{slug}.md")]
+    else:
+        candidates = [knowledge / f"{slug}.md", *knowledge.rglob(f"{slug}.md")]
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file() and not candidate.name.endswith(".new"):
+            return candidate
+    return None
+
+
+def _promotion_destination(knowledge: Path, source: Path, from_layer: str, to_layer: str) -> Path:
+    if from_layer == to_layer:
+        raise ValueError("Promotion source and destination must differ.")
+    if from_layer == "raw" and to_layer == "wiki":
+        return knowledge / "wiki" / f"{_slugify(source.stem)}.md"
+    if from_layer in KNOWLEDGE_SCOPES and to_layer in KNOWLEDGE_SCOPES:
+        from_index = KNOWLEDGE_SCOPES.index(from_layer)
+        to_index = KNOWLEDGE_SCOPES.index(to_layer)
+        if to_index != from_index + 1:
+            raise ValueError("Scope promotion must move to the next broader layer.")
+        return knowledge / to_layer / source.name
+    if from_layer in MATURITY_LEVELS and to_layer in MATURITY_LEVELS:
+        from_index = MATURITY_LEVELS.index(from_layer)
+        to_index = MATURITY_LEVELS.index(to_layer)
+        if to_index != from_index + 1:
+            raise ValueError("Maturity promotion must move to the next maturity level.")
+        return source
+    raise ValueError(f"Unsupported knowledge promotion: {from_layer} -> {to_layer}")
+
+
+def _apply_promotion_frontmatter(
+    frontmatter: dict[str, str],
+    source: Path,
+    knowledge: Path,
+    to_layer: str,
+) -> None:
+    frontmatter["last_reviewed"] = date.today().isoformat()
+    if to_layer == "wiki":
+        frontmatter["scope"] = frontmatter.get("scope") or "team"
+        frontmatter["maturity"] = frontmatter.get("maturity") or "draft"
+    elif to_layer in KNOWLEDGE_SCOPES:
+        frontmatter["scope"] = to_layer
+        frontmatter["maturity"] = frontmatter.get("maturity") or "validated"
+    elif to_layer in MATURITY_LEVELS:
+        frontmatter["maturity"] = to_layer
+        frontmatter["scope"] = frontmatter.get("scope") or _scope_from_path(source, knowledge)
+    frontmatter.setdefault("source_refs", f"[{source.relative_to(knowledge).as_posix()}]")
+
+
+def _replace_frontmatter(text: str, frontmatter: dict[str, str]) -> str:
+    block = ["---", *[f"{key}: {value}" for key, value in sorted(frontmatter.items())], "---"]
+    body = _strip_frontmatter_block(text).lstrip("\n")
+    return "\n".join(block) + "\n" + body
+
+
+def _record_knowledge_changelog(knowledge: Path, source: Path, destination: Path) -> None:
+    changelog = knowledge / "CHANGELOG.md"
+    if changelog.exists():
+        text = changelog.read_text(encoding="utf-8")
+    else:
+        text = "# Knowledge Changelog\n\n"
+    entry = (
+        f"- {date.today().isoformat()}: promoted `{source.relative_to(knowledge).as_posix()}` "
+        f"to `{destination.relative_to(knowledge).as_posix()}`.\n"
+    )
+    changelog.write_text(text.rstrip() + "\n\n" + entry, encoding="utf-8")
+
+
+def _append_index_link(knowledge: Path, destination: Path) -> None:
+    index = knowledge / "INDEX.md"
+    if not index.exists():
+        return
+    text = index.read_text(encoding="utf-8")
+    relative = destination.relative_to(knowledge).as_posix()
+    if relative in text:
+        return
+    line = f"- [{destination.stem.replace('-', ' ').title()}]({relative})"
+    index.write_text(text.rstrip() + "\n" + line + "\n", encoding="utf-8")
 
 
 def _knowledge_json(backend: str, shared_remote: str | None) -> str:
@@ -475,6 +942,10 @@ def _knowledge_index() -> str:
 - [Shared skills](skills/README.md)
 - [Shared agents](agents/README.md)
 - [Hierarchical sharing](sharing/README.md)
+- [Team layer](team/)
+- [Department layer](department/)
+- [Unit layer](unit/)
+- [Company layer](company/)
 - [Glossary](glossary.md)
 - [Links](links.md)
 - [Sync guide](sync.md)

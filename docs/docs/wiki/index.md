@@ -52,6 +52,7 @@ Then use the reference pages when the need appears:
 - [Skills and Agents](./Skills-and-Agents.md): reusable playbooks and agent definitions.
 - [Context Hygiene](./Context-Hygiene.md): context budgets, linting, and compression sidecars.
 - [Team Onboarding](./Team-Onboarding.md): manifests for teams that already have shared assets.
+- [Team Sync](./Team-Sync.md): sync precedence, cascade, versioning, and nomination pointers.
 - [Policy Packs](./Policy-Packs.md): reviewable provider, sharing, permission, and MCP defaults.
 
 ## Design Posture

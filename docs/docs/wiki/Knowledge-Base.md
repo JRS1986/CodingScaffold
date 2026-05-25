@@ -118,14 +118,47 @@ Check the current state:
 
 ```bash
 coding-scaffold knowledge status --target ~/dev/my-project
+coding-scaffold knowledge list --target ~/dev/my-project --scope company --maturity standard
+coding-scaffold knowledge lint --target ~/dev/my-project --scope team
 coding-scaffold context budget --target ~/dev/my-project --source knowledge
 ```
 
 The status command counts notes by scope and maturity, and flags missing frontmatter on layered
 notes. It also distinguishes raw notes from curated wiki pages, flags missing `owner`,
 `last_reviewed`, and `source_refs`, and warns when curated pages have not been reviewed recently.
-The budget command estimates whether the knowledge base is still a healthy size for an agent
-session. See [Context Hygiene](Context-Hygiene.md) before compressing or loading large shared notes.
+Use `knowledge list` for scoped retrieval and audits. Use `knowledge lint` in CI when owners,
+review dates, broken links, or orphaned notes should block a change. The budget command estimates
+whether the knowledge base is still a healthy size for an agent session. See
+[Context Hygiene](Context-Hygiene.md) before compressing or loading large shared notes.
+
+Machine-readable lint output is stable enough for CI:
+
+```bash
+coding-scaffold knowledge lint --target . --format json
+```
+
+The JSON shape is:
+
+```json
+{
+  "fixed": [],
+  "violations": [
+    {
+      "code": "missing_frontmatter",
+      "message": "Missing required frontmatter field: owner",
+      "path": "team/runbook.md",
+      "severity": "error"
+    }
+  ],
+  "warnings": []
+}
+```
+
+A simple CI gate can run:
+
+```yaml
+- run: uv run coding-scaffold knowledge lint --target . --format json
+```
 
 Create reviewable curated proposals from raw notes:
 
@@ -135,6 +168,29 @@ coding-scaffold knowledge distill --target ~/dev/my-project --source raw --revie
 
 The first version is deterministic and review-first. It writes `.new` proposal files under
 `knowledge/wiki/` and never silently rewrites curated pages.
+
+Promote a reviewed note once it has an owner and source references:
+
+```bash
+coding-scaffold knowledge promote release-checklist --target . --from raw --to wiki --owner platform-ai
+coding-scaffold knowledge promote api-runbook --target . --from team --to department
+```
+
+Promotion moves the Markdown file, updates frontmatter, records the move in
+`knowledge/CHANGELOG.md`, and appends the destination to `knowledge/INDEX.md`. Use adjacent scope
+steps (`team` -> `department` -> `unit` -> `company`) so reviewers can see where the knowledge was
+validated.
+
+For cross-team reuse, write a nomination bundle instead of editing an org manifest directly:
+
+```bash
+coding-scaffold knowledge nominate api-runbook --target . --to-scope company \
+  --rationale "Used successfully by platform and billing teams."
+```
+
+The bundle lands under `knowledge/nominations/` with the source note and a review checklist. After
+human review, accepted notes should be added to the parent manifest repository and flow back down
+through the next `team sync`.
 
 Do not treat raw agent chats as durable team knowledge. If your workflow captures conversation
 output, distill it first: remove secrets and irrelevant history, compress repeated context, abstract

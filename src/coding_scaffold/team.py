@@ -10,15 +10,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import __version__
+
 ALLOWED_REMOTE_SCHEMES = ("https", "http", "ssh")
 SOURCES_SUBDIR = Path(".coding-scaffold") / "team" / "sources"
 KNOWLEDGE_FORBIDDEN_PREFIX = Path(".coding-scaffold") / "knowledge"
+MANIFEST_SCHEMA_VERSION = 1
+DEFAULT_MANIFEST_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True)
 class TeamResult:
     actions: list[str]
     warnings: list[str]
+
+
+@dataclass(frozen=True)
+class ManifestSource:
+    path: Path
+    source: str
+    source_ref: str | None = None
 
 
 def write_team_manifest(
@@ -33,6 +44,9 @@ def write_team_manifest(
     scaffold.mkdir(parents=True, exist_ok=True)
     path = scaffold / "team-onboarding.json"
     payload = {
+        "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
+        "manifest_version": DEFAULT_MANIFEST_VERSION,
+        "min_scaffold_version": "0.5.0",
         "team": team,
         "knowledge": {
             "backend": knowledge_backend,
@@ -62,17 +76,27 @@ def connect_team(
     manifest: str | None = None,
     *,
     allow_local: bool = False,
+    to_version: str | None = None,
+    to_ref: str | None = None,
 ) -> TeamResult:
     root = target.expanduser().resolve()
     try:
-        source = _resolve_manifest(root, manifest)
-        payload = _read_manifest(source)
+        source = _resolve_manifest(root, manifest, to_ref=to_ref)
+        payload = _read_manifest(source.path, to_version=to_version)
+        if manifest:
+            payload.setdefault(
+                "_sync_source",
+                {
+                    "manifest": manifest,
+                    "source_ref": source.source_ref or "",
+                },
+            )
         local_manifest = root / ".coding-scaffold" / "team-onboarding.json"
         local_manifest.parent.mkdir(parents=True, exist_ok=True)
         local_manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        result = sync_team(target, allow_local=allow_local)
+        result = sync_team(target, allow_local=allow_local, to_version=to_version)
         return TeamResult(
-            [f"Connected team manifest: {source}", *result.actions],
+            [f"Connected team manifest: {source.path}", *result.actions],
             result.warnings,
         )
     except (OSError, RuntimeError, ValueError) as exc:
@@ -84,18 +108,34 @@ def preview_team(
     manifest: str | None = None,
     *,
     allow_local: bool = False,
+    to_version: str | None = None,
+    to_ref: str | None = None,
 ) -> TeamResult:
     root = target.expanduser().resolve()
     try:
         if manifest:
             with tempfile.TemporaryDirectory() as temp:
-                source = _resolve_manifest(Path(temp), manifest)
-                payload = _read_manifest(source)
-                result = _sync_team_payload(root, payload, dry_run=True, allow_local=allow_local)
-                return TeamResult([f"Preview team manifest: {source}", *result.actions], result.warnings)
+                source = _resolve_manifest(Path(temp), manifest, to_ref=to_ref)
+                payload = _read_manifest(source.path, to_version=to_version)
+                result = _sync_team_payload(
+                    root,
+                    payload,
+                    dry_run=True,
+                    allow_local=allow_local,
+                    to_version=to_version,
+                    manifest_source=source,
+                )
+                return TeamResult([f"Preview team manifest: {source.path}", *result.actions], result.warnings)
         local = root / ".coding-scaffold" / "team-onboarding.json"
-        payload = _read_manifest(local)
-        return _sync_team_payload(root, payload, dry_run=True, allow_local=allow_local)
+        payload = _read_manifest(local, to_version=to_version)
+        return _sync_team_payload(
+            root,
+            payload,
+            dry_run=True,
+            allow_local=allow_local,
+            to_version=to_version,
+            manifest_source=ManifestSource(local, str(local), _source_ref(local)),
+        )
     except (OSError, RuntimeError, ValueError) as exc:
         return TeamResult([], [str(exc)])
 
@@ -105,14 +145,31 @@ def sync_team(
     *,
     dry_run: bool = False,
     allow_local: bool = False,
+    to_version: str | None = None,
+    to_ref: str | None = None,
 ) -> TeamResult:
     root = target.expanduser().resolve()
     manifest = root / ".coding-scaffold" / "team-onboarding.json"
     if not manifest.exists():
         return TeamResult([], ["No team manifest found. Run `coding-scaffold team init` or `team connect`."])
     try:
-        payload = _read_manifest(manifest)
-        return _sync_team_payload(root, payload, dry_run=dry_run, allow_local=allow_local)
+        payload = _read_manifest(manifest, to_version=to_version)
+        sync_source = _dict(payload.get("_sync_source"))
+        if to_ref:
+            if not sync_source.get("manifest"):
+                return TeamResult([], ["team sync --to-ref requires a manifest previously connected from a source."])
+            source = _resolve_manifest(root, str(sync_source["manifest"]), to_ref=to_ref)
+            payload = _read_manifest(source.path, to_version=to_version)
+        else:
+            source = ManifestSource(manifest, str(manifest), _source_ref(manifest))
+        return _sync_team_payload(
+            root,
+            payload,
+            dry_run=dry_run,
+            allow_local=allow_local,
+            to_version=to_version,
+            manifest_source=source,
+        )
     except (OSError, RuntimeError, ValueError) as exc:
         return TeamResult([], [str(exc)])
 
@@ -123,9 +180,13 @@ def _sync_team_payload(
     *,
     dry_run: bool,
     allow_local: bool,
+    to_version: str | None = None,
+    manifest_source: ManifestSource | None = None,
 ) -> TeamResult:
     actions: list[str] = []
     warnings: list[str] = []
+    payload, layers = _effective_manifest(root, payload, allow_local=allow_local)
+    _validate_manifest_payload(payload, to_version=to_version)
 
     knowledge = _dict(payload.get("knowledge"))
     knowledge_remote = str(knowledge.get("remote") or "")
@@ -200,10 +261,11 @@ def _sync_team_payload(
                 actions,
                 "policy",
                 dry_run=dry_run,
+                local_override_base=root / ".coding-scaffold" / "policy",
             )
 
     if not dry_run:
-        _write_provenance(root, payload, actions)
+        _write_provenance(root, payload, actions, layers=layers, manifest_source=manifest_source)
     return TeamResult(actions, warnings)
 
 
@@ -215,7 +277,14 @@ def doctor_team(target: Path) -> TeamResult:
     if not manifest.exists():
         return TeamResult([], ["No team manifest found."])
     payload = _read_manifest(manifest)
+    payload, layers = _effective_manifest(root, payload, allow_local=True)
     actions.append(f"Team: {payload.get('team', 'unknown')}")
+    actions.append(f"Manifest version: {payload.get('manifest_version', 'legacy')}")
+    if payload.get("min_scaffold_version"):
+        actions.append(f"Minimum scaffold version: {payload['min_scaffold_version']}")
+    for layer in layers:
+        layer_name = layer.get("team") or layer.get("source") or "unknown"
+        actions.append(f"Manifest layer: {layer_name} ({layer.get('manifest_version', 'legacy')})")
     knowledge = _dict(payload.get("knowledge"))
     knowledge_path = root / str(knowledge.get("path") or ".coding-scaffold/knowledge")
     actions.append(f"Knowledge path: {'present' if knowledge_path.exists() else 'missing'}")
@@ -223,36 +292,109 @@ def doctor_team(target: Path) -> TeamResult:
     agents = root / ".opencode" / "agents"
     actions.append(f"Skills available: {len(list(skills.glob('*.md'))) if skills.exists() else 0}")
     actions.append(f"Agents available: {len(list(agents.glob('*.md'))) if agents.exists() else 0}")
+    actions.extend(_effective_artifact_lines(root))
     if not (root / ".coding-scaffold" / "team-provenance.json").exists():
         warnings.append("No team provenance found. Run `coding-scaffold team sync`.")
     return TeamResult(actions, warnings)
 
 
-def _resolve_manifest(root: Path, manifest: str | None) -> Path:
+def push_team(target: Path, *, dry_run: bool = False) -> TeamResult:
+    root = target.expanduser().resolve()
+    candidates = _nomination_candidates(root)
+    if dry_run:
+        if not candidates:
+            return TeamResult(["No local artifacts differ from imported team sources."], [])
+        return TeamResult([f"Would nominate {kind}: {relative}" for kind, relative, _ in candidates], [])
+    if not candidates:
+        return TeamResult(["No local artifacts differ from imported team sources."], [])
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    outbox = root / ".coding-scaffold" / "team" / "outbox" / stamp
+    outbox.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Team Nomination",
+        "",
+        f"Created: {datetime.now(UTC).isoformat()}",
+        f"Source repository: {root.name}",
+        "",
+        "## Candidates",
+        "",
+    ]
+    actions: list[str] = []
+    for kind, relative, path in candidates:
+        destination = outbox / kind / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, destination)
+        lines.append(f"- `{kind}/{relative.as_posix()}` from `{path.relative_to(root).as_posix()}`")
+        actions.append(f"Nominated {kind}: {relative}")
+    lines.extend(
+        [
+            "",
+            "## Rationale",
+            "",
+            "Explain why these local artifacts should become team defaults before opening review.",
+            "",
+            "## Proposed Manifest Changes",
+            "",
+            "Update the team manifest after human review accepts the nomination.",
+        ]
+    )
+    (outbox / "nomination.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _record_nomination(root, outbox, actions)
+    return TeamResult([f"Wrote nomination bundle: {outbox}", *actions], [])
+
+
+def _resolve_manifest(root: Path, manifest: str | None, *, to_ref: str | None = None) -> ManifestSource:
     if not manifest:
-        return root / ".coding-scaffold" / "team-onboarding.json"
+        path = root / ".coding-scaffold" / "team-onboarding.json"
+        return ManifestSource(path, str(path), _source_ref(path))
     candidate = Path(manifest).expanduser()
     if candidate.exists():
-        return candidate.resolve()
+        resolved = candidate.resolve()
+        if resolved.is_dir():
+            resolved = resolved / "team-onboarding.json"
+        return ManifestSource(resolved, str(candidate), _source_ref(resolved))
     source_dir = root / ".coding-scaffold" / "team" / "manifest-source"
-    _clone_or_pull(manifest, source_dir)
+    _clone_or_pull(manifest, source_dir, ref=to_ref)
     repo_dir = source_dir / "_repo"
     for candidate_path in (repo_dir / "team-onboarding.json", source_dir / "team-onboarding.json"):
         if candidate_path.exists():
-            return candidate_path
+            return ManifestSource(candidate_path, manifest, _source_ref(candidate_path))
     raise FileNotFoundError(f"No team-onboarding manifest found in {manifest}")
 
 
-def _read_manifest(path: Path) -> dict[str, object]:
+def _read_manifest(path: Path, *, to_version: str | None = None) -> dict[str, object]:
     text = path.read_text(encoding="utf-8")
     if path.suffix != ".json":
         raise ValueError("Team onboarding manifests must be JSON. Use team-onboarding.json.")
     payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ValueError("Team manifest must be an object.")
+    _validate_manifest_payload(payload, to_version=to_version)
+    return payload
+
+
+def _validate_manifest_payload(payload: dict[str, object], *, to_version: str | None = None) -> None:
+    schema_version = payload.get("manifest_schema_version")
+    if schema_version is not None and schema_version != MANIFEST_SCHEMA_VERSION:
+        raise ValueError(
+            f"Unsupported team manifest schema version {schema_version!r}; "
+            f"this scaffold supports {MANIFEST_SCHEMA_VERSION}."
+        )
+    manifest_version = payload.get("manifest_version")
+    if manifest_version is not None and not _valid_semver(str(manifest_version)):
+        raise ValueError(f"Invalid team manifest version {manifest_version!r}; expected MAJOR.MINOR.PATCH.")
+    if to_version and str(manifest_version or "") != to_version:
+        raise ValueError(
+            f"Requested manifest version {to_version}, but manifest is {manifest_version or 'legacy'}."
+        )
+    minimum = payload.get("min_scaffold_version")
+    if minimum and _compare_semver(str(minimum), __version__) > 0:
+        raise ValueError(
+            f"Team manifest requires coding-scaffold >= {minimum}; installed version is {__version__}. "
+            "Upgrade coding-scaffold or sync an older manifest version."
+        )
     if _dict(payload.get("security")).get("secrets_allowed") is True:
         raise ValueError("Team manifest cannot allow secrets.")
-    return payload
 
 
 def _remotes(payload: dict[str, object], key: str) -> list[str]:
@@ -369,7 +511,13 @@ def _sync_source(
     return _clone_or_pull(remote, destination, dry_run=dry_run), None
 
 
-def _clone_or_pull(remote: str, destination: Path, *, dry_run: bool = False) -> str:
+def _clone_or_pull(
+    remote: str,
+    destination: Path,
+    *,
+    dry_run: bool = False,
+    ref: str | None = None,
+) -> str:
     if shutil.which("git") is None:
         raise RuntimeError(
             "git is required for team manifests pointing to a remote URL. "
@@ -388,8 +536,11 @@ def _clone_or_pull(remote: str, destination: Path, *, dry_run: bool = False) -> 
             timeout=300,
         )
         if completed.returncode == 0:
+            if ref:
+                _checkout_ref(repo_dir, ref)
             _publish_repo_contents(repo_dir, destination)
-            return f"updated {remote}"
+            suffix = f" at {ref}" if ref else ""
+            return f"updated {remote}{suffix}"
         return f"kept existing checkout for {remote}; git pull failed"
     # Fresh clone (or recovery from a stale partial checkout)
     if destination.exists() and any(destination.iterdir()):
@@ -407,8 +558,23 @@ def _clone_or_pull(remote: str, destination: Path, *, dry_run: bool = False) -> 
     )
     if completed.returncode != 0:
         raise RuntimeError(f"Could not clone {remote}: {completed.stderr.strip()}")
+    if ref:
+        _checkout_ref(repo_dir, ref)
     _publish_repo_contents(repo_dir, destination)
-    return f"cloned {remote}"
+    suffix = f" at {ref}" if ref else ""
+    return f"cloned {remote}{suffix}"
+
+
+def _checkout_ref(repo_dir: Path, ref: str) -> None:
+    completed = subprocess.run(
+        ["git", "-C", str(repo_dir), "checkout", "--detach", ref],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(f"Could not checkout manifest ref {ref}: {completed.stderr.strip()}")
 
 
 def _publish_repo_contents(repo_dir: Path, destination: Path) -> None:
@@ -454,9 +620,7 @@ def _copy_markdown(
             actions.append(f"Would import {label}: {relative} -> {destination / relative}")
             continue
         target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
-        actions.append(f"Imported {label}: {relative}")
+        _copy_with_conflict(path, target, actions, label, relative, dry_run=dry_run)
 
 
 def _copy_tree(
@@ -466,6 +630,7 @@ def _copy_tree(
     label: str,
     *,
     dry_run: bool,
+    local_override_base: Path | None = None,
 ) -> None:
     if not dry_run:
         destination.mkdir(parents=True, exist_ok=True)
@@ -477,16 +642,72 @@ def _copy_tree(
             actions.append(f"Would import {label}: {relative} -> {destination / relative}")
             continue
         target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
-        actions.append(f"Imported {label}: {relative}")
+        _copy_with_conflict(path, target, actions, label, relative, dry_run=dry_run)
+        if local_override_base is not None:
+            local_override = local_override_base / relative
+            if local_override.exists() and not _same_file(path, local_override):
+                conflict = local_override.with_name(local_override.name + ".conflict")
+                if dry_run:
+                    actions.append(f"Would flag {label} override conflict: {relative} -> {conflict}")
+                else:
+                    shutil.copy2(path, conflict)
+                    actions.append(f"Flagged {label} override conflict: {relative}")
 
 
-def _write_provenance(root: Path, manifest: dict[str, object], actions: list[str]) -> None:
+def _copy_with_conflict(
+    source: Path,
+    target: Path,
+    actions: list[str],
+    label: str,
+    relative: Path,
+    *,
+    dry_run: bool,
+) -> None:
+    if target.exists():
+        if _same_file(source, target):
+            actions.append(f"{label.title()} unchanged: {relative}")
+            return
+        conflict = target.with_name(target.name + ".conflict")
+        if dry_run:
+            actions.append(f"Would write {label} conflict: {relative} -> {conflict}")
+            return
+        conflict.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, conflict)
+        actions.append(f"Conflict for {label}: kept local {relative}; wrote {conflict.name}")
+        return
+    if dry_run:
+        actions.append(f"Would import {label}: {relative} -> {target}")
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    actions.append(f"Imported {label}: {relative}")
+
+
+def _same_file(left: Path, right: Path) -> bool:
+    try:
+        return left.read_bytes() == right.read_bytes()
+    except OSError:
+        return False
+
+
+def _write_provenance(
+    root: Path,
+    manifest: dict[str, object],
+    actions: list[str],
+    *,
+    layers: list[dict[str, object]],
+    manifest_source: ManifestSource | None,
+) -> None:
     path = root / ".coding-scaffold" / "team-provenance.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "team": manifest.get("team", "unknown"),
+        "manifest_version": manifest.get("manifest_version", "legacy"),
+        "manifest_schema_version": manifest.get("manifest_schema_version", "legacy"),
+        "min_scaffold_version": manifest.get("min_scaffold_version", ""),
+        "manifest_source": manifest_source.source if manifest_source else "",
+        "source_ref": manifest_source.source_ref if manifest_source else "",
+        "layers": layers,
         "last_sync": datetime.now(UTC).isoformat(),
         "mode": "copy",
         "secrets_allowed": False,
@@ -500,3 +721,234 @@ def _slug(value: str) -> str:
     base = parsed.path or value
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", base.strip("/").lower()).strip("-")
     return slug or "source"
+
+
+def _effective_manifest(
+    root: Path,
+    payload: dict[str, object],
+    *,
+    allow_local: bool,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
+    return _effective_manifest_inner(root, payload, allow_local=allow_local, seen=set(), current_source=None)
+
+
+def _effective_manifest_inner(
+    root: Path,
+    payload: dict[str, object],
+    *,
+    allow_local: bool,
+    seen: set[str],
+    current_source: ManifestSource | None,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
+    parents = _manifest_parents(payload)
+    effective: dict[str, object] = {}
+    layers: list[dict[str, object]] = []
+    for parent in parents:
+        if not allow_local and _classify_remote(parent) == "local":
+            raise ValueError(f"Local parent manifest {parent!r} requires --allow-local.")
+        source = _resolve_manifest(root, parent)
+        key = str(source.path)
+        if key in seen:
+            raise ValueError(f"Manifest cascade cycle detected at {source.path}.")
+        seen.add(key)
+        parent_payload = _read_manifest(source.path)
+        parent_effective, parent_layers = _effective_manifest_inner(
+            root,
+            parent_payload,
+            allow_local=allow_local,
+            seen=seen,
+            current_source=source,
+        )
+        effective = _merge_manifest(effective, parent_effective)
+        layers.extend(parent_layers)
+    effective = _merge_manifest(effective, payload)
+    layers.append(_layer_summary(payload, current_source))
+    return effective, layers
+
+
+def _manifest_parents(payload: dict[str, object]) -> list[str]:
+    value = payload.get("extends") or payload.get("parent")
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        remote = value.get("manifest") or value.get("remote") or value.get("path")
+        return [str(remote)] if remote else []
+    if isinstance(value, list):
+        parents: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                parents.append(item)
+            elif isinstance(item, dict):
+                remote = item.get("manifest") or item.get("remote") or item.get("path")
+                if remote:
+                    parents.append(str(remote))
+        return parents
+    return []
+
+
+def _merge_manifest(parent: dict[str, object], child: dict[str, object]) -> dict[str, object]:
+    merged = dict(parent)
+    for key, value in child.items():
+        if key in {"extends", "parent", "_sync_source"}:
+            continue
+        if key == "mcp":
+            merged[key] = _merge_mcp(_dict(merged.get(key)), _dict(value))
+            continue
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            merged[key] = _merge_dict(existing, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _merge_dict(parent: dict[str, object], child: dict[str, object]) -> dict[str, object]:
+    merged = dict(parent)
+    for key, value in child.items():
+        existing = merged.get(key)
+        if key == "remotes" and isinstance(existing, list) and isinstance(value, list):
+            merged[key] = _unique_strings([*existing, *value])
+        elif isinstance(existing, dict) and isinstance(value, dict):
+            merged[key] = _merge_dict(existing, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _merge_mcp(parent: dict[str, object], child: dict[str, object]) -> dict[str, object]:
+    merged = _merge_dict(parent, child)
+    parent_allowlist = _string_list(parent.get("allowlist"))
+    child_allowlist = _string_list(child.get("allowlist"))
+    if parent_allowlist and child_allowlist:
+        parent_set = set(parent_allowlist)
+        child_set = set(child_allowlist)
+        relax = _dict(parent.get("inheritable")).get("allowlist") == "relax"
+        if not relax and not child_set.issubset(parent_set):
+            extra = ", ".join(sorted(child_set - parent_set))
+            raise ValueError(f"Child manifest cannot loosen parent MCP allowlist: {extra}")
+        merged["allowlist"] = child_allowlist
+    return merged
+
+
+def _string_list(value: object) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _unique_strings(values: list[object]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _layer_summary(payload: dict[str, object], source: ManifestSource | None) -> dict[str, object]:
+    return {
+        "team": payload.get("team", "unknown"),
+        "manifest_version": payload.get("manifest_version", "legacy"),
+        "min_scaffold_version": payload.get("min_scaffold_version", ""),
+        "source": source.source if source else "local",
+        "source_ref": source.source_ref if source else "",
+    }
+
+
+def _source_ref(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    directory = path if path.is_dir() else path.parent
+    completed = subprocess.run(
+        ["git", "-C", str(directory), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if completed.returncode == 0:
+        return completed.stdout.strip()
+    return str(path)
+
+
+def _valid_semver(value: str) -> bool:
+    return re.fullmatch(r"\d+\.\d+\.\d+", value) is not None
+
+
+def _compare_semver(left: str, right: str) -> int:
+    left_parts = _parse_semver(left)
+    right_parts = _parse_semver(right)
+    return (left_parts > right_parts) - (left_parts < right_parts)
+
+
+def _parse_semver(value: str) -> tuple[int, int, int]:
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", value)
+    if not match:
+        return (0, 0, 0)
+    return tuple(int(part) for part in match.groups())
+
+
+def _effective_artifact_lines(root: Path) -> list[str]:
+    lines: list[str] = []
+    for label, local in [
+        ("skill", root / ".coding-scaffold" / "skills"),
+        ("agent", root / ".opencode" / "agents"),
+        ("policy", root / ".coding-scaffold" / "policy"),
+    ]:
+        if not local.exists():
+            continue
+        for path in sorted(local.rglob("*.conflict")):
+            try:
+                relative = path.relative_to(local)
+            except ValueError:
+                relative = path
+            lines.append(f"{label.title()} deviates from team: {relative}")
+    return lines
+
+
+def _nomination_candidates(root: Path) -> list[tuple[str, Path, Path]]:
+    checks = [
+        ("skills", root / ".coding-scaffold" / "skills", root / SOURCES_SUBDIR / "skills"),
+        ("knowledge", root / ".coding-scaffold" / "knowledge" / "team", root / SOURCES_SUBDIR / "knowledge"),
+        ("policy", root / ".coding-scaffold" / "policy", root / ".coding-scaffold" / "policy" / "imported"),
+    ]
+    candidates: list[tuple[str, Path, Path]] = []
+    for kind, local_base, imported_base in checks:
+        if not local_base.exists():
+            continue
+        for path in sorted(local_base.rglob("*")):
+            if not path.is_file() or ".git" in path.parts or path.name.endswith(".conflict"):
+                continue
+            if imported_base in path.parents:
+                continue
+            relative = path.relative_to(local_base)
+            matches = [
+                imported
+                for imported in imported_base.rglob(relative.name)
+                if imported.is_file() and imported.relative_to(imported_base).name == relative.name
+            ] if imported_base.exists() else []
+            if not matches or all(not _same_file(path, imported) for imported in matches):
+                candidates.append((kind, relative, path))
+    return candidates
+
+
+def _record_nomination(root: Path, outbox: Path, actions: list[str]) -> None:
+    path = root / ".coding-scaffold" / "team-provenance.json"
+    if path.exists():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        payload = {"team": "unknown", "actions": []}
+    nominations = payload.setdefault("nominations", [])
+    if isinstance(nominations, list):
+        nominations.append(
+            {
+                "created": datetime.now(UTC).isoformat(),
+                "bundle": str(outbox),
+                "actions": actions,
+            }
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
