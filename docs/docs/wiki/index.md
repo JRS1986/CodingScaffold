@@ -4,6 +4,9 @@ CodingScaffold is a local-first onboarding, configuration, and governance scaffo
 AI-assisted software development teams. The README is the quick front door; this wiki explains the
 project in more depth and gives teams a shared rollout playbook.
 
+**New here?** Read the [Glossary](./Glossary.md) first — every term `doctor` prints
+(artifact, persona, MCP, skill, manifest, scope, maturity) is defined in one place.
+
 ## What CodingScaffold Does
 
 CodingScaffold creates project-local guidance and lightweight configuration for:

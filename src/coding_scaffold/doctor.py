@@ -15,6 +15,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from .artifacts import ARTIFACTS, rationale_for
 from .hardware import probe_hardware
 from .pr_template import PR_TEMPLATE_RELATIVE
 
@@ -69,27 +70,25 @@ def run_doctor(target: Path | None = None) -> DoctorReport:
 
 
 def _survey_artifacts(root: Path) -> dict[str, bool]:
-    """File-existence survey. Keys are stable for golden tests / --json consumers."""
+    """File-existence survey. Keys are stable for golden tests / --json consumers.
+
+    Order and key set come from `artifacts.ARTIFACTS` so the registry is the single
+    source of truth.
+    """
 
     pr_template_glob_present = (root / ".github" / "PULL_REQUEST_TEMPLATE").exists() and any(
         (root / ".github" / "PULL_REQUEST_TEMPLATE").iterdir()
     )
-    return {
-        "AGENTS.md": (root / "AGENTS.md").exists(),
-        "CLAUDE.md": (root / "CLAUDE.md").exists(),
-        "pr_template": pr_template_glob_present or (root / PR_TEMPLATE_RELATIVE).exists(),
-        ".coding-scaffold/": (root / ".coding-scaffold").exists(),
-        "knowledge_base": (root / ".coding-scaffold" / "knowledge").exists(),
-        "sessions_dir": (root / ".coding-scaffold" / "sessions").exists(),
-        "policy_pack": (root / ".coding-scaffold" / "policy").exists(),
-        "permissions_json": (root / ".coding-scaffold" / "agent-permissions.json").exists(),
-        "mcp_policy": (root / ".coding-scaffold" / "mcp-policy.json").exists(),
-        "skills_dir": (root / ".coding-scaffold" / "skills").exists(),
-        "memory_dir": (root / ".coding-scaffold" / "memory").exists(),
-        "eval_config": (root / ".coding-scaffold" / "eval-config.json").exists(),
-        "pyproject.toml": (root / "pyproject.toml").exists(),
-        "package.json": (root / "package.json").exists(),
-    }
+
+    presence: dict[str, bool] = {}
+    for artifact in ARTIFACTS:
+        if artifact.key == "pr_template":
+            presence[artifact.key] = (
+                pr_template_glob_present or (root / PR_TEMPLATE_RELATIVE).exists()
+            )
+            continue
+        presence[artifact.key] = (root / artifact.relative_path).exists()
+    return presence
 
 
 def _system_notes() -> list[str]:
@@ -183,9 +182,13 @@ def format_doctor_text(report: DoctorReport) -> str:
     lines.append(f"CodingScaffold doctor — {report.target}")
     lines.append("")
     lines.append("Scaffold artifacts:")
+    # Widest key sets the column for the rationale line so output stays aligned.
+    key_width = max((len(k) for k in report.artifacts), default=0)
     for key, present in report.artifacts.items():
         mark = "[x]" if present else "[ ]"
-        lines.append(f"  {mark} {key}")
+        lines.append(f"  {mark} {key.ljust(key_width)}  -> {rationale_for(key)}")
+    lines.append("")
+    lines.append("Glossary: https://jrs1986.github.io/CodingScaffold/wiki/Glossary")
     lines.append("")
     if report.notes:
         lines.append("System:")
@@ -201,4 +204,6 @@ def format_doctor_text(report: DoctorReport) -> str:
     lines.append("")
     lines.append("Ignore for now (advanced):")
     lines.append(f"  {', '.join(report.ignore_for_now)}")
+    lines.append("")
+    lines.append("Terms: https://jrs1986.github.io/CodingScaffold/wiki/Glossary")
     return "\n".join(lines)
