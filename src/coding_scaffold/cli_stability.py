@@ -41,6 +41,7 @@ COMMAND_STABILITY: dict[str, str] = {
     "tools": "stable",
     "doctor": "stable",
     "pilot": "stable",
+    "tour": "preview",
     "skill": "stable",
     # Hidden flat aliases. Same stability as the canonical group.
     "init": "stable",
