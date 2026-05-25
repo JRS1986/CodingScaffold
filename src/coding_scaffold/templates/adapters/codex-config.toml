@@ -1,0 +1,4 @@
+# Project-local CodingScaffold guidance for Codex.
+# Do not store secrets here. Use Codex, OpenAI, or provider auth flows for credentials.
+
+approval_mode = "suggest"

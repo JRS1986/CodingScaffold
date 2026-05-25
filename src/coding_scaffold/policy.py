@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .file_ops import write_json, write_text
+
 
 @dataclass(frozen=True)
 class PolicyResult:
@@ -34,8 +36,8 @@ def write_policy_pack(
     warnings: list[str] = []
 
     policy = _policy_payload(scope, share, mcp, enabled, disabled, mcp_servers, strict_permissions)
-    files.append(_write_json(policy_dir / "policy.json", policy))
-    files.append(_write_text(policy_dir / f"{scope}.md", _policy_md(policy)))
+    files.append(write_json(policy_dir / "policy.json", policy))
+    files.append(write_text(policy_dir / f"{scope}.md", _policy_md(policy)))
 
     if adapter == "opencode":
         opencode_payload = _opencode_policy_payload(
@@ -46,7 +48,7 @@ def write_policy_pack(
             disabled_mcp_servers=mcp_servers,
             strict_permissions=strict_permissions,
         )
-        files.append(_write_json(policy_dir / "opencode-policy.json", opencode_payload))
+        files.append(write_json(policy_dir / "opencode-policy.json", opencode_payload))
         updated, warning = _merge_opencode_config(root / "opencode.json", opencode_payload)
         files.append(updated)
         if warning:
@@ -62,18 +64,6 @@ def _dedupe(values: list[str]) -> list[str]:
         if cleaned and cleaned not in result:
             result.append(cleaned)
     return result
-
-
-def _write_text(path: Path, payload: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(payload, encoding="utf-8")
-    return path
-
-
-def _write_json(path: Path, payload: object) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
 
 
 def _policy_payload(
@@ -145,7 +135,7 @@ def _merge_opencode_config(path: Path, policy: dict[str, object]) -> tuple[Path,
         except json.JSONDecodeError:
             warning = f"Could not parse {path}; wrote policy overlay to {path}.new instead."
             target_path = path.with_suffix(path.suffix + ".new")
-            target_path.write_text(json.dumps(policy, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            write_json(target_path, policy)
             return target_path, warning
         if isinstance(loaded, dict):
             current = loaded
@@ -159,7 +149,7 @@ def _merge_opencode_config(path: Path, policy: dict[str, object]) -> tuple[Path,
         warning = (
             f"Staged {target_path.name}; review and `mv {target_path.name} {path.name}` to apply."
         )
-    target_path.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json(target_path, merged)
     return target_path, warning
 
 
