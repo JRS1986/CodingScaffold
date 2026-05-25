@@ -17,6 +17,20 @@ SOURCES_SUBDIR = Path(".coding-scaffold") / "team" / "sources"
 KNOWLEDGE_FORBIDDEN_PREFIX = Path(".coding-scaffold") / "knowledge"
 MANIFEST_SCHEMA_VERSION = 1
 DEFAULT_MANIFEST_VERSION = "1.0.0"
+SUBSET_TIGHTEN_FIELDS = {
+    "mcp.allowlist",
+    "policy.allowed_mcp_servers",
+    "policy.allowed_providers",
+}
+SUPERSET_TIGHTEN_FIELDS = {
+    "security.required_review_modes",
+    "tools.required_addons",
+}
+UNION_FIELDS = {
+    "agents.remotes",
+    "configs.remotes",
+    "skills.remotes",
+}
 
 
 @dataclass(frozen=True)
@@ -30,6 +44,35 @@ class ManifestSource:
     path: Path
     source: str
     source_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class EffectiveManifest:
+    payload: dict[str, object]
+    layers: list[dict[str, object]]
+    field_provenance: dict[str, dict[str, object]]
+
+
+@dataclass(frozen=True)
+class TeamDoctorReport:
+    actions: list[str]
+    warnings: list[str]
+    payload: dict[str, object]
+    layers: list[dict[str, object]]
+    field_provenance: dict[str, dict[str, object]]
+    stale_pulls: list[dict[str, object]]
+    inbound_nominations: list[dict[str, object]]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "actions": self.actions,
+            "warnings": self.warnings,
+            "manifest": self.payload,
+            "layers": self.layers,
+            "field_provenance": self.field_provenance,
+            "stale_pulls": self.stale_pulls,
+            "inbound_nominations": self.inbound_nominations,
+        }
 
 
 def write_team_manifest(
@@ -185,7 +228,8 @@ def _sync_team_payload(
 ) -> TeamResult:
     actions: list[str] = []
     warnings: list[str] = []
-    payload, layers = _effective_manifest(root, payload, allow_local=allow_local)
+    effective = _effective_manifest(root, payload, allow_local=allow_local)
+    payload = effective.payload
     _validate_manifest_payload(payload, to_version=to_version)
 
     knowledge = _dict(payload.get("knowledge"))
@@ -265,19 +309,28 @@ def _sync_team_payload(
             )
 
     if not dry_run:
-        _write_provenance(root, payload, actions, layers=layers, manifest_source=manifest_source)
+        _write_provenance(
+            root,
+            payload,
+            actions,
+            layers=effective.layers,
+            manifest_source=manifest_source,
+            field_provenance=effective.field_provenance,
+        )
     return TeamResult(actions, warnings)
 
 
-def doctor_team(target: Path) -> TeamResult:
+def inspect_team_doctor(target: Path) -> TeamDoctorReport:
     root = target.expanduser().resolve()
     manifest = root / ".coding-scaffold" / "team-onboarding.json"
     actions: list[str] = []
     warnings: list[str] = []
     if not manifest.exists():
-        return TeamResult([], ["No team manifest found."])
+        return TeamDoctorReport([], ["No team manifest found."], {}, [], {}, [], [])
     payload = _read_manifest(manifest)
-    payload, layers = _effective_manifest(root, payload, allow_local=True)
+    effective = _effective_manifest(root, payload, allow_local=True)
+    payload = effective.payload
+    layers = effective.layers
     actions.append(f"Team: {payload.get('team', 'unknown')}")
     actions.append(f"Manifest version: {payload.get('manifest_version', 'legacy')}")
     if payload.get("min_scaffold_version"):
@@ -292,13 +345,45 @@ def doctor_team(target: Path) -> TeamResult:
     agents = root / ".opencode" / "agents"
     actions.append(f"Skills available: {len(list(skills.glob('*.md'))) if skills.exists() else 0}")
     actions.append(f"Agents available: {len(list(agents.glob('*.md'))) if agents.exists() else 0}")
+    for field, info in sorted(effective.field_provenance.items()):
+        actions.append(
+            f"Effective field: {field} = {_format_field_value(info.get('value'))} "
+            f"[{info.get('layer', 'unknown')}]"
+        )
     actions.extend(_effective_artifact_lines(root))
-    if not (root / ".coding-scaffold" / "team-provenance.json").exists():
+    provenance = _read_provenance(root)
+    stale_pulls = _list_recent_stale_pulls(provenance)
+    inbound_nominations = _list_inbound_nominations(provenance)
+    for failure in stale_pulls:
+        warnings.append(
+            f"Recent team source update failed for {failure.get('remote', 'unknown')}: "
+            f"{failure.get('error', 'git pull failed')}"
+        )
+    for nomination in inbound_nominations:
+        actions.append(
+            "Inbound nomination: "
+            f"{nomination.get('slug', 'unknown')} from {nomination.get('source_team', 'unknown')} "
+            f"({nomination.get('manifest_ref', 'unknown ref')})"
+        )
+    if not provenance:
         warnings.append("No team provenance found. Run `coding-scaffold team sync`.")
-    return TeamResult(actions, warnings)
+    return TeamDoctorReport(
+        actions,
+        warnings,
+        payload,
+        layers,
+        effective.field_provenance,
+        stale_pulls,
+        inbound_nominations,
+    )
 
 
-def push_team(target: Path, *, dry_run: bool = False) -> TeamResult:
+def doctor_team(target: Path) -> TeamResult:
+    report = inspect_team_doctor(target)
+    return TeamResult(report.actions, report.warnings)
+
+
+def push_team(target: Path, *, dry_run: bool = False, open_pr: bool = False) -> TeamResult:
     root = target.expanduser().resolve()
     candidates = _nomination_candidates(root)
     if dry_run:
@@ -340,7 +425,15 @@ def push_team(target: Path, *, dry_run: bool = False) -> TeamResult:
     )
     (outbox / "nomination.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     _record_nomination(root, outbox, actions)
-    return TeamResult([f"Wrote nomination bundle: {outbox}", *actions], [])
+    result_actions = [f"Wrote nomination bundle: {outbox}", *actions]
+    warnings: list[str] = []
+    if open_pr:
+        pr_url, warning = _open_nomination_pr(root, outbox)
+        if pr_url:
+            result_actions.append(f"Opened draft PR: {pr_url}")
+        if warning:
+            warnings.append(warning)
+    return TeamResult(result_actions, warnings)
 
 
 def _resolve_manifest(root: Path, manifest: str | None, *, to_ref: str | None = None) -> ManifestSource:
@@ -508,7 +601,10 @@ def _sync_source(
         _publish_repo_contents(repo_dir, destination)
         return f"copied {remote}", None
     # URL clone
-    return _clone_or_pull(remote, destination, dry_run=dry_run), None
+    message = _clone_or_pull(remote, destination, dry_run=dry_run)
+    if "git pull failed" in message:
+        return message, message
+    return message, None
 
 
 def _clone_or_pull(
@@ -541,7 +637,8 @@ def _clone_or_pull(
             _publish_repo_contents(repo_dir, destination)
             suffix = f" at {ref}" if ref else ""
             return f"updated {remote}{suffix}"
-        return f"kept existing checkout for {remote}; git pull failed"
+        error = completed.stderr.strip() or completed.stdout.strip() or "unknown git error"
+        return f"kept existing checkout for {remote}; git pull failed: {error}"
     # Fresh clone (or recovery from a stale partial checkout)
     if destination.exists() and any(destination.iterdir()):
         # Move aside, don't delete user-visible content.
@@ -697,6 +794,7 @@ def _write_provenance(
     *,
     layers: list[dict[str, object]],
     manifest_source: ManifestSource | None,
+    field_provenance: dict[str, dict[str, object]],
 ) -> None:
     path = root / ".coding-scaffold" / "team-provenance.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -708,6 +806,9 @@ def _write_provenance(
         "manifest_source": manifest_source.source if manifest_source else "",
         "source_ref": manifest_source.source_ref if manifest_source else "",
         "layers": layers,
+        "field_provenance": field_provenance,
+        "stale_pulls": _stale_pulls_from_actions(actions),
+        "inbound_nominations": _collect_inbound_nominations(root, manifest_source),
         "last_sync": datetime.now(UTC).isoformat(),
         "mode": "copy",
         "secrets_allowed": False,
@@ -728,7 +829,7 @@ def _effective_manifest(
     payload: dict[str, object],
     *,
     allow_local: bool,
-) -> tuple[dict[str, object], list[dict[str, object]]]:
+) -> EffectiveManifest:
     return _effective_manifest_inner(root, payload, allow_local=allow_local, seen=set(), current_source=None)
 
 
@@ -739,10 +840,11 @@ def _effective_manifest_inner(
     allow_local: bool,
     seen: set[str],
     current_source: ManifestSource | None,
-) -> tuple[dict[str, object], list[dict[str, object]]]:
+) -> EffectiveManifest:
     parents = _manifest_parents(payload)
     effective: dict[str, object] = {}
     layers: list[dict[str, object]] = []
+    field_provenance: dict[str, dict[str, object]] = {}
     for parent in parents:
         if not allow_local and _classify_remote(parent) == "local":
             raise ValueError(f"Local parent manifest {parent!r} requires --allow-local.")
@@ -752,18 +854,27 @@ def _effective_manifest_inner(
             raise ValueError(f"Manifest cascade cycle detected at {source.path}.")
         seen.add(key)
         parent_payload = _read_manifest(source.path)
-        parent_effective, parent_layers = _effective_manifest_inner(
+        parent_effective = _effective_manifest_inner(
             root,
             parent_payload,
             allow_local=allow_local,
             seen=seen,
             current_source=source,
         )
-        effective = _merge_manifest(effective, parent_effective)
-        layers.extend(parent_layers)
+        effective = _merge_manifest(effective, parent_effective.payload)
+        layers.extend(parent_effective.layers)
+        field_provenance.update(parent_effective.field_provenance)
+    layer = _layer_summary(payload, current_source)
     effective = _merge_manifest(effective, payload)
-    layers.append(_layer_summary(payload, current_source))
-    return effective, layers
+    for field, value in _flatten_manifest(payload).items():
+        field_provenance[field] = {
+            "layer": layer.get("team", "unknown"),
+            "source": layer.get("source", "local"),
+            "source_ref": layer.get("source_ref", ""),
+            "value": _manifest_path_value(effective, field, value),
+        }
+    layers.append(layer)
+    return EffectiveManifest(effective, layers, field_provenance)
 
 
 def _manifest_parents(payload: dict[str, object]) -> list[str]:
@@ -793,47 +904,112 @@ def _merge_manifest(parent: dict[str, object], child: dict[str, object]) -> dict
     for key, value in child.items():
         if key in {"extends", "parent", "_sync_source"}:
             continue
-        if key == "mcp":
-            merged[key] = _merge_mcp(_dict(merged.get(key)), _dict(value))
-            continue
         existing = merged.get(key)
         if isinstance(existing, dict) and isinstance(value, dict):
-            merged[key] = _merge_dict(existing, value)
+            merged[key] = _merge_dict(existing, value, root_parent=parent, path=key)
         else:
             merged[key] = value
     return merged
 
 
-def _merge_dict(parent: dict[str, object], child: dict[str, object]) -> dict[str, object]:
+def _merge_dict(
+    parent: dict[str, object],
+    child: dict[str, object],
+    *,
+    root_parent: dict[str, object],
+    path: str,
+) -> dict[str, object]:
     merged = dict(parent)
     for key, value in child.items():
+        field_path = f"{path}.{key}"
         existing = merged.get(key)
-        if key == "remotes" and isinstance(existing, list) and isinstance(value, list):
+        if field_path in UNION_FIELDS and isinstance(existing, list) and isinstance(value, list):
             merged[key] = _unique_strings([*existing, *value])
+        elif field_path in SUBSET_TIGHTEN_FIELDS and isinstance(existing, list) and isinstance(value, list):
+            _validate_subset_tighten(field_path, existing, value, root_parent)
+            merged[key] = [str(item) for item in value]
+        elif field_path in SUPERSET_TIGHTEN_FIELDS and isinstance(existing, list) and isinstance(value, list):
+            _validate_superset_tighten(field_path, existing, value, root_parent)
+            merged[key] = [str(item) for item in value]
         elif isinstance(existing, dict) and isinstance(value, dict):
-            merged[key] = _merge_dict(existing, value)
+            merged[key] = _merge_dict(existing, value, root_parent=root_parent, path=field_path)
         else:
             merged[key] = value
     return merged
 
 
-def _merge_mcp(parent: dict[str, object], child: dict[str, object]) -> dict[str, object]:
-    merged = _merge_dict(parent, child)
-    parent_allowlist = _string_list(parent.get("allowlist"))
-    child_allowlist = _string_list(child.get("allowlist"))
-    if parent_allowlist and child_allowlist:
-        parent_set = set(parent_allowlist)
-        child_set = set(child_allowlist)
-        relax = _dict(parent.get("inheritable")).get("allowlist") == "relax"
-        if not relax and not child_set.issubset(parent_set):
-            extra = ", ".join(sorted(child_set - parent_set))
-            raise ValueError(f"Child manifest cannot loosen parent MCP allowlist: {extra}")
-        merged["allowlist"] = child_allowlist
-    return merged
+def _validate_subset_tighten(
+    field_path: str,
+    parent_values: list[object],
+    child_values: list[object],
+    root_parent: dict[str, object],
+) -> None:
+    if _field_relaxed(root_parent, field_path):
+        return
+    parent_set = set(_string_list(parent_values))
+    child_set = set(_string_list(child_values))
+    if parent_set and child_set and not child_set.issubset(parent_set):
+        extra = ", ".join(sorted(child_set - parent_set))
+        raise ValueError(f"Child manifest cannot loosen parent {field_path}: {extra}")
+
+
+def _validate_superset_tighten(
+    field_path: str,
+    parent_values: list[object],
+    child_values: list[object],
+    root_parent: dict[str, object],
+) -> None:
+    if _field_relaxed(root_parent, field_path):
+        return
+    parent_set = set(_string_list(parent_values))
+    child_set = set(_string_list(child_values))
+    if parent_set and child_set and not parent_set.issubset(child_set):
+        missing = ", ".join(sorted(parent_set - child_set))
+        raise ValueError(f"Child manifest cannot loosen parent {field_path}: missing {missing}")
+
+
+def _field_relaxed(root_parent: dict[str, object], field_path: str) -> bool:
+    if _dict(root_parent.get("inheritable")).get(field_path) == "relax":
+        return True
+    parts = field_path.split(".")
+    if len(parts) < 2:
+        return False
+    section = _dict(root_parent.get(parts[0]))
+    return _dict(section.get("inheritable")).get(".".join(parts[1:])) == "relax"
 
 
 def _string_list(value: object) -> list[str]:
     return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _flatten_manifest(payload: dict[str, object], prefix: str = "") -> dict[str, object]:
+    fields: dict[str, object] = {}
+    for key, value in payload.items():
+        if key in {"extends", "parent", "_sync_source", "inheritable"}:
+            continue
+        field = f"{prefix}.{key}" if prefix else key
+        if key == "inheritable":
+            continue
+        if isinstance(value, dict):
+            fields.update(_flatten_manifest(value, field))
+        else:
+            fields[field] = value
+    return fields
+
+
+def _manifest_path_value(payload: dict[str, object], field: str, fallback: object) -> object:
+    current: object = payload
+    for part in field.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return fallback
+        current = current[part]
+    return current
+
+
+def _format_field_value(value: object) -> str:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True)
+    return str(value)
 
 
 def _unique_strings(values: list[object]) -> list[str]:
@@ -907,6 +1083,169 @@ def _effective_artifact_lines(root: Path) -> list[str]:
                 relative = path
             lines.append(f"{label.title()} deviates from team: {relative}")
     return lines
+
+
+def _read_provenance(root: Path) -> dict[str, object]:
+    path = root / ".coding-scaffold" / "team-provenance.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _stale_pulls_from_actions(actions: list[str]) -> list[dict[str, object]]:
+    failures: list[dict[str, object]] = []
+    for action in actions:
+        if "git pull failed" not in action:
+            continue
+        remote = action.split(" for ", 1)[1].split(";", 1)[0] if " for " in action else "unknown"
+        error = action.split("git pull failed:", 1)[1].strip() if "git pull failed:" in action else action
+        failures.append(
+            {
+                "remote": remote,
+                "error": error,
+                "recorded_at": datetime.now(UTC).isoformat(),
+            }
+        )
+    return failures
+
+
+def _list_recent_stale_pulls(provenance: dict[str, object]) -> list[dict[str, object]]:
+    values = provenance.get("stale_pulls")
+    return [value for value in values if isinstance(value, dict)] if isinstance(values, list) else []
+
+
+def _list_inbound_nominations(provenance: dict[str, object]) -> list[dict[str, object]]:
+    values = provenance.get("inbound_nominations")
+    return [value for value in values if isinstance(value, dict)] if isinstance(values, list) else []
+
+
+def _collect_inbound_nominations(
+    root: Path,
+    manifest_source: ManifestSource | None,
+) -> list[dict[str, object]]:
+    nominations: list[dict[str, object]] = []
+    for base in [root / SOURCES_SUBDIR, root / ".coding-scaffold" / "policy" / "imported"]:
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*")):
+            if path.name not in {"inbound-nominations.json", "inbound_nominations.json", "nominations.json"}:
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            entries = payload if isinstance(payload, list) else _dict(payload).get("inbound_nominations", [])
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                manifest_ref = entry.get("manifest_ref")
+                if not manifest_ref and manifest_source is not None:
+                    manifest_ref = manifest_source.source_ref
+                normalized = {
+                    "slug": str(entry.get("slug", "")),
+                    "source_team": str(entry.get("source_team", "")),
+                    "source_scope": str(entry.get("source_scope", "")),
+                    "accepted_at": str(entry.get("accepted_at", "")),
+                    "manifest_ref": str(manifest_ref or ""),
+                }
+                nominations.append(normalized)
+    return nominations
+
+
+def _open_nomination_pr(root: Path, outbox: Path) -> tuple[str | None, str | None]:
+    manifest = root / ".coding-scaffold" / "team-onboarding.json"
+    if not manifest.exists():
+        return None, "team push --open-pr requires a connected team manifest; kept the outbox bundle."
+    payload = _read_manifest(manifest)
+    sync_source = _dict(payload.get("_sync_source"))
+    remote = str(sync_source.get("manifest") or "")
+    if not remote:
+        return None, "team push --open-pr requires a GitHub manifest source; kept the outbox bundle."
+    if "github.com" not in remote.lower():
+        return None, "team push --open-pr only supports GitHub manifest remotes; kept the outbox bundle."
+    if shutil.which("gh") is None:
+        return None, "team push --open-pr requires gh on PATH; kept the outbox bundle."
+    branch = f"nomination/{outbox.name}"
+    with tempfile.TemporaryDirectory() as temp:
+        checkout = Path(temp) / "manifest"
+        clone = subprocess.run(
+            ["git", "clone", remote, str(checkout)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if clone.returncode != 0:
+            return None, f"Could not clone manifest repo for PR: {clone.stderr.strip()}; kept the outbox bundle."
+        checkout_branch = subprocess.run(
+            ["git", "-C", str(checkout), "checkout", "-b", branch],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if checkout_branch.returncode != 0:
+            return None, f"Could not create nomination branch: {checkout_branch.stderr.strip()}; kept the outbox bundle."
+        destination = checkout / "nominations" / outbox.name
+        shutil.copytree(outbox, destination)
+        subprocess.run(["git", "-C", str(checkout), "add", "nominations"], check=False, timeout=300)
+        commit = subprocess.run(
+            ["git", "-C", str(checkout), "commit", "-m", f"Nominate team artifacts {outbox.name}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if commit.returncode != 0:
+            return None, f"Could not commit nomination bundle: {commit.stderr.strip()}; kept the outbox bundle."
+        push = subprocess.run(
+            ["git", "-C", str(checkout), "push", "-u", "origin", branch],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if push.returncode != 0:
+            return None, f"Could not push nomination branch: {push.stderr.strip()}; kept the outbox bundle."
+        body = (outbox / "nomination.md").read_text(encoding="utf-8")
+        pr = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--repo",
+                _github_repo_name(remote),
+                "--head",
+                branch,
+                "--draft",
+                "--title",
+                f"Nominate team artifacts {outbox.name}",
+                "--body",
+                body,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if pr.returncode != 0:
+            return None, f"Could not open nomination PR: {pr.stderr.strip()}; kept the outbox bundle."
+        return pr.stdout.strip().splitlines()[-1], None
+
+
+def _github_repo_name(remote: str) -> str:
+    if remote.startswith("git@github.com:"):
+        path = remote.split(":", 1)[1]
+    else:
+        parsed = urlparse(remote)
+        path = parsed.path
+    return path.strip("/").removesuffix(".git")
 
 
 def _nomination_candidates(root: Path) -> list[tuple[str, Path, Path]]:

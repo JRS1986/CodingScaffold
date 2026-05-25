@@ -82,7 +82,16 @@ from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
 from .scaffold_version import write_scaffold_version
-from .team import TeamResult, connect_team, doctor_team, preview_team, push_team, sync_team, write_team_manifest
+from .team import (
+    TeamResult,
+    connect_team,
+    doctor_team,
+    inspect_team_doctor,
+    preview_team,
+    push_team,
+    sync_team,
+    write_team_manifest,
+)
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
@@ -617,10 +626,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     team_doctor = team_sub.add_parser("doctor", help="Diagnose the local team manifest.")
     team_doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team_doctor.add_argument("--format", choices=["text", "json"], default="text")
 
     team_push = team_sub.add_parser("push", help="Nominate local artifacts back to the team manifest.")
     team_push.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     team_push.add_argument("--dry-run", action="store_true", help="List nomination candidates only.")
+    team_push.add_argument("--open-pr", action="store_true", help="Open a draft PR against the manifest repo.")
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -1642,9 +1653,13 @@ def _cmd_team(args: argparse.Namespace) -> int:
                 to_ref=args.to_ref,
             )
     elif args.team_action == "doctor":
+        if args.format == "json":
+            report = inspect_team_doctor(args.target)
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+            return 1 if report.warnings and not report.actions else 0
         result = doctor_team(args.target)
     elif args.team_action == "push":
-        result = push_team(args.target, dry_run=args.dry_run)
+        result = push_team(args.target, dry_run=args.dry_run, open_pr=args.open_pr)
     else:
         raise AssertionError(f"Unknown team action: {args.team_action}")
     for action in result.actions:
