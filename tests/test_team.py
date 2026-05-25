@@ -12,6 +12,9 @@ def test_write_team_manifest_creates_non_secret_template(tmp_path) -> None:
     )
 
     payload = json.loads(path.read_text())
+    assert payload["manifest_schema_version"] == 1
+    assert payload["manifest_version"] == "1.0.0"
+    assert payload["min_scaffold_version"] == "0.5.0"
     assert payload["team"] == "platform-api"
     assert payload["knowledge"]["backend"] == "obsidian"
     assert payload["knowledge"]["remote"] == "https://example.test/team-knowledge.git"
@@ -287,3 +290,97 @@ def test_team_sync_strips_nested_git_dirs_from_agent_path(tmp_path) -> None:
     ]
     # But the subrepo content (without its .git) should survive.
     assert (destination / "subrepo" / "content.md").exists()
+
+
+def test_team_sync_refuses_incompatible_min_scaffold_version(tmp_path) -> None:
+    manifest = tmp_path / ".coding-scaffold" / "team-onboarding.json"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_schema_version": 1,
+                "manifest_version": "1.0.0",
+                "min_scaffold_version": "999.0.0",
+                "team": "t",
+                "security": {"secrets_allowed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_team(tmp_path)
+
+    assert "requires coding-scaffold" in result.warnings[0]
+
+
+def test_team_sync_writes_conflict_sidecar_for_local_skill_override(tmp_path) -> None:
+    remote = tmp_path / "skills"
+    remote.mkdir()
+    (remote / "release.md").write_text("# Team Release\n", encoding="utf-8")
+    local = tmp_path / ".coding-scaffold" / "skills"
+    local.mkdir(parents=True)
+    (local / "release.md").write_text("# Local Release\n", encoding="utf-8")
+    manifest = tmp_path / ".coding-scaffold" / "team-onboarding.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "team": "t",
+                "skills": {"remotes": [str(remote)]},
+                "security": {"secrets_allowed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_team(tmp_path, allow_local=True)
+
+    assert any("Conflict for skill" in action for action in result.actions)
+    assert (local / "release.md").read_text(encoding="utf-8") == "# Local Release\n"
+    assert (local / "release.md.conflict").read_text(encoding="utf-8") == "# Team Release\n"
+
+
+def test_team_sync_resolves_parent_manifest_and_refuses_allowlist_loosen(tmp_path) -> None:
+    parent = tmp_path / "parent.json"
+    parent.write_text(
+        json.dumps(
+            {
+                "manifest_schema_version": 1,
+                "manifest_version": "1.0.0",
+                "team": "org",
+                "mcp": {"allowlist": ["filesystem", "github"]},
+                "security": {"secrets_allowed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = tmp_path / ".coding-scaffold" / "team-onboarding.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_schema_version": 1,
+                "manifest_version": "1.0.0",
+                "extends": str(parent),
+                "team": "team",
+                "mcp": {"allowlist": ["filesystem", "slack"]},
+                "security": {"secrets_allowed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = sync_team(tmp_path, allow_local=True)
+
+    assert "cannot loosen parent MCP allowlist" in result.warnings[0]
+
+
+def test_team_push_dry_run_lists_local_artifacts(tmp_path) -> None:
+    skill = tmp_path / ".coding-scaffold" / "skills" / "debug.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("# Debug\n", encoding="utf-8")
+
+    from coding_scaffold.team import push_team
+
+    result = push_team(tmp_path, dry_run=True)
+
+    assert result.actions == ["Would nominate skills: debug.md"]

@@ -28,7 +28,15 @@ coding-scaffold team connect \
 
 `team connect` copies the manifest into `.coding-scaffold/team-onboarding.json`, syncs shared
 sources, imports Markdown skills, imports OpenCode agents, imports config and policy files, and
-writes `.coding-scaffold/team-provenance.json`.
+writes `.coding-scaffold/team-provenance.json`. Pin a reviewed manifest when rollout needs a
+stable baseline:
+
+```bash
+coding-scaffold team connect \
+  --manifest https://github.com/acme/platform-ai-onboarding.git \
+  --to-version 1.2.0 \
+  --to-ref 7f4c2a1
+```
 
 ## Manifest
 
@@ -54,11 +62,28 @@ The manifest can point to:
 Keep it JSON and non-secret. It should contain repo URLs, scopes, paths, and defaults, not API keys
 or tokens.
 
+Manifests use semantic versions:
+
+```json
+{
+  "manifest_schema_version": 1,
+  "manifest_version": "1.0.0",
+  "min_scaffold_version": "0.5.0",
+  "team": "platform-api"
+}
+```
+
+Increment `manifest_version` when team norms change. Use patch versions for clarifications, minor
+versions for additive guidance, and major versions for breaking policy or layout changes.
+`team sync` refuses a manifest whose `min_scaffold_version` is newer than the installed
+CodingScaffold and records the applied manifest version plus source ref in
+`.coding-scaffold/team-provenance.json`.
+
 ## Sync Model
 
 The default sync mode is copy:
 
-- shared knowledge is copied or cloned to `.coding-scaffold/knowledge`
+- shared knowledge is copied or cloned to `.coding-scaffold/team/sources/knowledge/<slug>/`
 - skills are copied to `.coding-scaffold/skills`
 - agents are copied to `.opencode/agents`
 - policy is copied to `.coding-scaffold/policy/imported`
@@ -67,17 +92,61 @@ The default sync mode is copy:
 Copy mode is intentionally boring. It works offline after sync, is easy to inspect in Git, and
 avoids surprising submodule or symlink behavior for new joiners.
 
+Precedence is explicit, lowest to highest:
+
+1. CodingScaffold defaults.
+2. Parent org or unit manifest imported through `extends`.
+3. Team manifest.
+4. Repo-local overrides in `.coding-scaffold/policy/`, `.coding-scaffold/knowledge/local/`,
+   `.coding-scaffold/skills/`, and `.opencode/agents/`.
+5. Per-command flags.
+
+When an imported artifact would overwrite a different local file, sync keeps the local file and
+writes a `.conflict` sidecar containing the team version. `team doctor` reports these as local
+deviations from team defaults.
+
+Manifests can inherit from a parent:
+
+```json
+{
+  "extends": "https://github.com/acme/org-ai-onboarding.git",
+  "team": "platform-api",
+  "mcp": {
+    "allowlist": ["filesystem"]
+  }
+}
+```
+
+Children may tighten an inherited MCP allowlist, but cannot loosen it unless the parent explicitly
+marks the allowlist as relaxable:
+
+```json
+{
+  "mcp": {
+    "allowlist": ["filesystem", "github"],
+    "inheritable": {
+      "allowlist": "relax"
+    }
+  }
+}
+```
+
 ## Commands
 
 ```bash
 coding-scaffold team init --target .
 coding-scaffold team connect --target . --manifest <file-or-git-repo>
-coding-scaffold team sync --target .
+coding-scaffold team sync --target . --to-version 1.2.0
 coding-scaffold team doctor --target .
+coding-scaffold team push --target . --dry-run
 ```
 
 Use `team sync` after team knowledge, agents, skills, or policy changes. Use `team doctor` before a
 first agentic coding session to confirm the local project sees the shared assets.
+
+Use `team push --dry-run` to see local skills, team knowledge, or policy files that differ from the
+imported manifest. Running `team push` writes a reviewable nomination bundle under
+`.coding-scaffold/team/outbox/`; it does not commit or push upstream.
 
 ## Trust model
 

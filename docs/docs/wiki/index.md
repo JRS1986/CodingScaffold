@@ -14,7 +14,7 @@ CodingScaffold creates project-local guidance and lightweight configuration for:
 - OpenCode, Claude Code, Codex, OpenClaude, Hermes, and Pi adapters
 - reusable team skills
 - agent orchestration profiles
-- shared Markdown, Obsidian, or MemPalace-ready knowledge bases
+- shared Markdown, HTML, Obsidian, or MemPalace-ready knowledge bases
 - experienced-team onboarding manifests
 - policy packs for provider, sharing, permission, and MCP defaults
 - context budgeting and optional compression sidecars
@@ -43,7 +43,7 @@ Start with the smallest path that matches your job today:
 | Small-team pilot | [Team Rollout](./Team-Rollout.md) | A two-person rollout plan for teams under 20 people. |
 | Security/compliance review | [Security](./Security.md) | Credential, provider, MCP, policy, and trust-boundary notes. |
 | Tool comparison | [Tool Adapters](./Tool-Adapters.md) | Capability matrix for OpenCode, Claude Code, Codex, OpenClaude, Hermes, and Pi. |
-| Shared memory | [Knowledge Base](./Knowledge-Base.md) | Markdown, Obsidian, Foam, MemPalace, and shared Git workflows. |
+| Shared memory | [Knowledge Base](./Knowledge-Base.md) | Markdown, HTML, Obsidian, Foam, MemPalace, and shared Git workflows. |
 
 Then use the reference pages when the need appears:
 
@@ -52,6 +52,7 @@ Then use the reference pages when the need appears:
 - [Skills and Agents](./Skills-and-Agents.md): reusable playbooks and agent definitions.
 - [Context Hygiene](./Context-Hygiene.md): context budgets, linting, and compression sidecars.
 - [Team Onboarding](./Team-Onboarding.md): manifests for teams that already have shared assets.
+- [Team Sync](./Team-Sync.md): sync precedence, cascade, versioning, and nomination pointers.
 - [Policy Packs](./Policy-Packs.md): reviewable provider, sharing, permission, and MCP defaults.
 
 ## Design Posture

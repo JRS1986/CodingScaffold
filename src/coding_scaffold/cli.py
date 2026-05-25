@@ -67,21 +67,29 @@ from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
 from .intake import IntakeAnswers, collect_intake
-from .knowledge import distill_knowledge, inspect_knowledge_status, write_knowledge_base
+from .knowledge import (
+    distill_knowledge,
+    inspect_knowledge_status,
+    lint_knowledge,
+    list_knowledge,
+    nominate_knowledge,
+    promote_knowledge,
+    write_knowledge_base,
+)
 from .model_selection import select_model_for_prompt
 from .policy import write_policy_pack
 from .providers import detect_providers
 from .router import RoutingPlan, build_routing_plan
 from .routing_io import load_routing_plan
 from .scaffold_version import write_scaffold_version
-from .team import TeamResult, connect_team, doctor_team, preview_team, sync_team, write_team_manifest
+from .team import TeamResult, connect_team, doctor_team, preview_team, push_team, sync_team, write_team_manifest
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
 CODING_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both", "manual"]
 INSTALLABLE_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
-KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace"]
+KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace", "html"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
 
 
@@ -220,13 +228,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     knowledge = sub.add_parser("knowledge", help="Create a shared team knowledge base.")
     knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge.add_argument("--backend", choices=["markdown", "obsidian", "foam", "mempalace"], default="markdown")
+    knowledge.add_argument("--backend", choices=KNOWLEDGE_BACKENDS, default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_sub = knowledge.add_subparsers(dest="knowledge_action", metavar="action")
     knowledge_create = knowledge_sub.add_parser("create", help="Create or update shared team knowledge.")
     knowledge_create.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge_create.add_argument("--backend", choices=["markdown", "obsidian", "foam", "mempalace"], default="markdown")
+    knowledge_create.add_argument("--backend", choices=KNOWLEDGE_BACKENDS, default="markdown")
     knowledge_create.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge_create.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
@@ -245,6 +253,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write .new proposal files instead of modifying curated wiki pages.",
     )
     knowledge_distill.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    knowledge_list = knowledge_sub.add_parser("list", help="List knowledge notes by scope and maturity.")
+    knowledge_list.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_list.add_argument("--scope", choices=["team", "department", "unit", "company"])
+    knowledge_list.add_argument("--maturity", choices=["draft", "validated", "recommended", "standard"])
+    knowledge_list.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    knowledge_lint = knowledge_sub.add_parser("lint", help="Validate knowledge ownership, review dates, and links.")
+    knowledge_lint.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_lint.add_argument("--scope", "--layer", dest="scope", choices=["team", "department", "unit", "company"])
+    knowledge_lint.add_argument("--format", choices=["text", "json"], default="text")
+    knowledge_lint.add_argument("--fix", action="store_true", help="Apply cheap fixes such as missing last_reviewed.")
+    knowledge_lint.add_argument("--warn-only", action="store_true", help="Print violations but exit 0.")
+    knowledge_promote = knowledge_sub.add_parser("promote", help="Promote a knowledge note across layers.")
+    knowledge_promote.add_argument("slug", help="Markdown filename stem or relative slug.")
+    knowledge_promote.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_promote.add_argument("--from", dest="from_layer", required=True)
+    knowledge_promote.add_argument("--to", dest="to_layer", required=True)
+    knowledge_promote.add_argument("--owner", help="Owner to set when the note does not already have one.")
+    knowledge_promote.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    knowledge_nominate = knowledge_sub.add_parser("nominate", help="Bundle a note for promotion to a parent scope.")
+    knowledge_nominate.add_argument("slug", help="Markdown filename stem or relative slug.")
+    knowledge_nominate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    knowledge_nominate.add_argument("--to-scope", required=True, choices=["department", "unit", "company"])
+    knowledge_nominate.add_argument("--rationale", default="")
+    knowledge_nominate.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     knowledge_status = sub.add_parser("knowledge-status", help=argparse.SUPPRESS)
     knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -520,7 +552,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     setup_knowledge.add_argument(
         "--backend",
-        choices=["markdown", "obsidian", "foam", "mempalace"],
+        choices=KNOWLEDGE_BACKENDS,
         default="markdown",
         help="Knowledge backend to generate.",
     )
@@ -537,7 +569,7 @@ def build_parser() -> argparse.ArgumentParser:
     team_init.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
     team_init.add_argument(
         "--knowledge-backend",
-        choices=["markdown", "obsidian", "foam", "mempalace"],
+        choices=KNOWLEDGE_BACKENDS,
         default="markdown",
         help="Knowledge backend for `team init`.",
     )
@@ -564,6 +596,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Permit local-path or file:// remotes for team manifests.",
     )
+    team_connect.add_argument("--to-version", help="Require a specific manifest_version.")
+    team_connect.add_argument("--to-ref", help="Checkout a specific manifest source ref before connecting.")
 
     team_sync = team_sub.add_parser("sync", help="Refresh team-imported assets from the manifest.")
     team_sync.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -578,9 +612,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Permit local-path or file:// remotes for team manifests.",
     )
+    team_sync.add_argument("--to-version", help="Require a specific manifest_version.")
+    team_sync.add_argument("--to-ref", help="Refresh from a specific connected manifest source ref.")
 
     team_doctor = team_sub.add_parser("doctor", help="Diagnose the local team manifest.")
     team_doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+
+    team_push = team_sub.add_parser("push", help="Nominate local artifacts back to the team manifest.")
+    team_push.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    team_push.add_argument("--dry-run", action="store_true", help="List nomination candidates only.")
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
     policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -841,6 +881,14 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
             args.command = "knowledge-status"
         elif action == "distill":
             args.command = "knowledge-distill"
+        elif action == "list":
+            args.command = "knowledge-list"
+        elif action == "lint":
+            args.command = "knowledge-lint"
+        elif action == "promote":
+            args.command = "knowledge-promote"
+        elif action == "nominate":
+            args.command = "knowledge-nominate"
         return
     if args.command == "context":
         args.command = {
@@ -1003,6 +1051,65 @@ def _cmd_knowledge_distill(args: argparse.Namespace) -> int:
         for warning in result.warnings:
             print(f"Warning: {warning}", file=sys.stderr)
     return 1 if result.warnings and not (result.created or result.updated) else 0
+
+
+def _cmd_knowledge_list(args: argparse.Namespace) -> int:
+    entries = list_knowledge(args.target, scope=args.scope, maturity=args.maturity)
+    if args.json:
+        print(json.dumps([entry.to_dict() for entry in entries], indent=2, sort_keys=True))
+    else:
+        for entry in entries:
+            print(f"{entry.scope}\t{entry.maturity}\t{entry.owner or '-'}\t{entry.path}")
+    return 0
+
+
+def _cmd_knowledge_lint(args: argparse.Namespace) -> int:
+    result = lint_knowledge(args.target, scope=args.scope, format=args.format, fix=args.fix)
+    if args.format == "json":
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        for path in result.fixed:
+            print(f"Fixed: {path}")
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        for violation in result.violations:
+            print(f"{violation.severity}: {violation.path}: {violation.message}", file=sys.stderr)
+    return 1 if result.violations and not args.warn_only else 0
+
+
+def _cmd_knowledge_promote(args: argparse.Namespace) -> int:
+    result = promote_knowledge(
+        args.target,
+        args.slug,
+        from_layer=args.from_layer,
+        to_layer=args.to_layer,
+        owner=args.owner,
+    )
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        for action in result.actions:
+            print(action)
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if result.warnings else 0
+
+
+def _cmd_knowledge_nominate(args: argparse.Namespace) -> int:
+    result = nominate_knowledge(
+        args.target,
+        args.slug,
+        to_scope=args.to_scope,
+        rationale=args.rationale,
+    )
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+    else:
+        for action in result.actions:
+            print(action)
+        for warning in result.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+    return 1 if result.warnings else 0
 
 
 def _cmd_context_budget(args: argparse.Namespace) -> int:
@@ -1479,28 +1586,65 @@ def _cmd_team(args: argparse.Namespace) -> int:
         return 0
     if args.team_action == "connect":
         if args.dry_run:
-            result = preview_team(args.target, args.manifest, allow_local=args.allow_local)
+            result = preview_team(
+                args.target,
+                args.manifest,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
         elif not args.yes and not sys.stdin.isatty():
             result = TeamResult([], ["Refusing non-interactive team connect without --yes. Run --dry-run first."])
         elif not args.yes and not _confirm_team_import(
-            preview_team(args.target, args.manifest, allow_local=args.allow_local)
+            preview_team(
+                args.target,
+                args.manifest,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
         ):
             result = TeamResult([], ["Skipped team connect."])
         else:
-            result = connect_team(args.target, args.manifest, allow_local=args.allow_local)
+            result = connect_team(
+                args.target,
+                args.manifest,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
     elif args.team_action == "sync":
         if args.dry_run:
-            result = sync_team(args.target, dry_run=True, allow_local=args.allow_local)
+            result = sync_team(
+                args.target,
+                dry_run=True,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
         elif not args.yes and not sys.stdin.isatty():
             result = TeamResult([], ["Refusing non-interactive team sync without --yes. Run --dry-run first."])
         elif not args.yes and not _confirm_team_import(
-            sync_team(args.target, dry_run=True, allow_local=args.allow_local)
+            sync_team(
+                args.target,
+                dry_run=True,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
         ):
             result = TeamResult([], ["Skipped team sync."])
         else:
-            result = sync_team(args.target, allow_local=args.allow_local)
+            result = sync_team(
+                args.target,
+                allow_local=args.allow_local,
+                to_version=args.to_version,
+                to_ref=args.to_ref,
+            )
     elif args.team_action == "doctor":
         result = doctor_team(args.target)
+    elif args.team_action == "push":
+        result = push_team(args.target, dry_run=args.dry_run)
     else:
         raise AssertionError(f"Unknown team action: {args.team_action}")
     for action in result.actions:
@@ -1641,6 +1785,10 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "knowledge": _cmd_knowledge,
     "knowledge-status": _cmd_knowledge_status,
     "knowledge-distill": _cmd_knowledge_distill,
+    "knowledge-list": _cmd_knowledge_list,
+    "knowledge-lint": _cmd_knowledge_lint,
+    "knowledge-promote": _cmd_knowledge_promote,
+    "knowledge-nominate": _cmd_knowledge_nominate,
     "context-budget": _cmd_context_budget,
     "compress-context": _cmd_compress_context,
     "context-lint": _cmd_context_lint,

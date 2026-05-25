@@ -1,6 +1,15 @@
 import json
+from datetime import date
 
-from coding_scaffold.knowledge import distill_knowledge, inspect_knowledge_status, write_knowledge_base
+from coding_scaffold.knowledge import (
+    distill_knowledge,
+    inspect_knowledge_status,
+    lint_knowledge,
+    list_knowledge,
+    nominate_knowledge,
+    promote_knowledge,
+    write_knowledge_base,
+)
 
 
 def test_write_markdown_knowledge_base_creates_linked_files(tmp_path) -> None:
@@ -34,6 +43,38 @@ def test_write_mempalace_knowledge_base_adds_optional_index_guide(tmp_path) -> N
     names = {path.name for path in result.files}
     assert "mempalace.md" in names
     assert "capture-knowledge.md" not in names
+
+
+def test_write_html_knowledge_base_renders_static_site(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    knowledge = tmp_path / ".coding-scaffold" / "knowledge"
+    testing = knowledge / "wiki" / "testing.md"
+    testing.write_text(
+        "---\nscope: team\nmaturity: draft\nowner: qa\nlast_reviewed: "
+        f"{date.today().isoformat()}\nsource_refs: []\n---\n# Testing\n\nSee [setup](setup.md).\n",
+        encoding="utf-8",
+    )
+
+    result = write_knowledge_base(tmp_path, backend="html", adapter=None)
+
+    site = knowledge / "site"
+    assert (site / "index.html").exists()
+    assert (site / "assets" / "style.css").exists()
+    assert (site / ".gitignore").exists()
+    assert (site / "wiki" / "testing.html").exists()
+    testing_html = (site / "wiki" / "testing.html").read_text(encoding="utf-8")
+    assert 'href="setup.html"' in testing_html
+    assert "<strong>owner:</strong> qa" in testing_html
+    assert "${unresolved}" not in "\n".join(
+        path.read_text(encoding="utf-8") for path in site.rglob("*.html")
+    )
+    for markdown in knowledge.rglob("*.md"):
+        if "site" in markdown.relative_to(knowledge).parts or markdown.name.endswith(".new"):
+            continue
+        relative = markdown.relative_to(knowledge)
+        expected = site / ("index.html" if relative.name == "INDEX.md" else relative.with_suffix(".html"))
+        assert expected.exists(), f"missing rendered page for {relative}"
+    assert any(path.name == "testing.html" for path in result.files)
 
 
 def test_write_obsidian_knowledge_base_adds_vault_files(tmp_path) -> None:
@@ -223,3 +264,84 @@ def test_frontmatter_skips_non_utf8_file_gracefully(tmp_path) -> None:
     # And it must not bubble up through the status check.
     status = inspect_knowledge_status(tmp_path)
     assert any("latin1.md" in w for w in status.warnings)
+
+
+def test_knowledge_list_filters_scope_and_maturity(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "company" / "security.md"
+    note.write_text(
+        "---\nscope: company\nmaturity: standard\nowner: sec\nlast_reviewed: "
+        f"{date.today().isoformat()}\nsource_refs: []\n---\n# Security\n\nUse approved tools.\n",
+        encoding="utf-8",
+    )
+
+    entries = list_knowledge(tmp_path, scope="company", maturity="standard")
+
+    assert [entry.path for entry in entries] == [note]
+
+
+def test_knowledge_lint_reports_layered_notes_missing_scope(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "company" / "security.md"
+    note.write_text("---\nmaturity: standard\n---\n# Security\n\nUse approved tools.\n", encoding="utf-8")
+
+    result = lint_knowledge(tmp_path, scope="company")
+
+    assert any(
+        violation.code == "missing_frontmatter" and "scope" in violation.message
+        for violation in result.violations
+    )
+
+
+def test_knowledge_lint_reports_broken_link_and_orphan(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").write_text("# Index\n", encoding="utf-8")
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "runbook.md"
+    note.write_text(
+        "---\nscope: team\nmaturity: draft\nowner: ops\nlast_reviewed: "
+        f"{date.today().isoformat()}\nsource_refs: []\n---\n# Runbook\n\nSee [missing](missing.md).\n",
+        encoding="utf-8",
+    )
+
+    result = lint_knowledge(tmp_path, scope="team")
+
+    codes = {violation.code for violation in result.violations}
+    assert "broken_link" in codes
+    assert "orphan" in codes
+
+
+def test_knowledge_promote_moves_raw_note_and_records_audit(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    raw = tmp_path / ".coding-scaffold" / "knowledge" / "raw" / "release.md"
+    raw.write_text("# Release\n\nRun checks before release.\n", encoding="utf-8")
+
+    result = promote_knowledge(tmp_path, "release", from_layer="raw", to_layer="wiki", owner="platform")
+
+    destination = tmp_path / ".coding-scaffold" / "knowledge" / "wiki" / "release.md"
+    assert not result.warnings
+    assert destination.exists()
+    assert not raw.exists()
+    text = destination.read_text(encoding="utf-8")
+    assert "owner: platform" in text
+    assert "last_reviewed:" in text
+    assert (tmp_path / ".coding-scaffold" / "knowledge" / "CHANGELOG.md").exists()
+    assert "wiki/release.md" in (tmp_path / ".coding-scaffold" / "knowledge" / "INDEX.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_knowledge_nominate_writes_reviewable_bundle(tmp_path) -> None:
+    write_knowledge_base(tmp_path)
+    note = tmp_path / ".coding-scaffold" / "knowledge" / "team" / "debug.md"
+    note.write_text(
+        "---\nscope: team\nmaturity: validated\nowner: platform\nlast_reviewed: "
+        f"{date.today().isoformat()}\nsource_refs: []\n---\n# Debug\n\nUse the debug playbook.\n",
+        encoding="utf-8",
+    )
+
+    result = nominate_knowledge(tmp_path, "debug", to_scope="company", rationale="Useful broadly.")
+
+    assert not result.warnings
+    assert result.destination is not None
+    assert (result.destination / "debug.md").exists()
+    assert (result.destination / "nomination.md").exists()

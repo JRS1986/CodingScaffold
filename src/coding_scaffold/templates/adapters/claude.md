@@ -8,7 +8,9 @@ router.
 
 - Inspect before editing.
 - Keep changes bounded to the requested task.
-- Prefer reviewed Markdown knowledge in `.coding-scaffold/knowledge/`.
+- Prefer reviewed Markdown knowledge in `.coding-scaffold/knowledge/`; use `team/` for local
+  repository work, then widen to `department/`, `unit/`, or `company/` only when the task needs
+  broader guidance.
 - Keep credentials in local ignored files or Claude Code's secure auth flow.
 - Ask before broad rewrites, dependency changes, destructive commands, or cloud/provider changes.
 

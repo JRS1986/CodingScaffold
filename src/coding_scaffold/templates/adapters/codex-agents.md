@@ -22,7 +22,9 @@ team guidance for choosing routine versus heavy-lift work.
 ## Knowledge
 
 Start with `.coding-scaffold/knowledge/INDEX.md` when it exists. Curated wiki pages are preferred
-over raw notes.
+over raw notes. Prefer the narrowest useful layer for the task: `team/` for this repository,
+`department/` for shared runbooks, `unit/` for domain standards, and `company/` only for broad
+defaults. Use broader layers when a task crosses those boundaries.
 
 ## Knowledge Nudge
 

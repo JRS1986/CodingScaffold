@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import date, datetime
+from html import escape
 from pathlib import Path
 
 from .file_ops import collect_text, write_text
 
 STALE_REVIEW_DAYS = 180
+KNOWLEDGE_SCOPES = ("team", "department", "unit", "company")
+MATURITY_LEVELS = ("draft", "validated", "recommended", "standard")
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,68 @@ class KnowledgeDistillResult:
             "created": [str(path) for path in self.created],
             "updated": [str(path) for path in self.updated],
             "skipped": [str(path) for path in self.skipped],
+            "warnings": self.warnings,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeListEntry:
+    path: Path
+    scope: str
+    maturity: str
+    owner: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "path": str(self.path),
+            "scope": self.scope,
+            "maturity": self.maturity,
+            "owner": self.owner,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeLintViolation:
+    path: Path
+    code: str
+    message: str
+    severity: str = "error"
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "path": str(self.path),
+            "code": self.code,
+            "message": self.message,
+            "severity": self.severity,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgeLintResult:
+    violations: list[KnowledgeLintViolation]
+    fixed: list[Path]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "violations": [violation.to_dict() for violation in self.violations],
+            "fixed": [str(path) for path in self.fixed],
+            "warnings": self.warnings,
+        }
+
+
+@dataclass(frozen=True)
+class KnowledgePromotionResult:
+    source: Path | None
+    destination: Path | None
+    actions: list[str]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source": str(self.source) if self.source else None,
+            "destination": str(self.destination) if self.destination else None,
+            "actions": self.actions,
             "warnings": self.warnings,
         }
 
@@ -126,6 +193,8 @@ def write_knowledge_base(
         _collect_foam_files(files, skipped, knowledge)
     if backend == "mempalace":
         collect_text(files, skipped, knowledge / "mempalace.md", _mempalace_template())
+    if backend == "html":
+        _collect_html_files(files, skipped, knowledge)
     if adapter == "opencode":
         collect_text(
             files,
@@ -205,6 +274,196 @@ def distill_knowledge(target: Path, source: str = "raw", review: bool = True) ->
         else:
             created.append(proposal)
     return KnowledgeDistillResult(created, updated, skipped, warnings)
+
+
+def list_knowledge(
+    target: Path,
+    *,
+    scope: str | None = None,
+    maturity: str | None = None,
+) -> list[KnowledgeListEntry]:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    if not knowledge.exists():
+        return []
+    entries: list[KnowledgeListEntry] = []
+    for path in sorted(knowledge.rglob("*.md")):
+        if not _lintable_note(path, knowledge) or path.name.endswith(".new"):
+            continue
+        frontmatter, _warning = _frontmatter(path)
+        note_scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
+        note_maturity = frontmatter.get("maturity") or "unspecified"
+        if scope and note_scope != scope:
+            continue
+        if maturity and note_maturity != maturity:
+            continue
+        entries.append(
+            KnowledgeListEntry(
+                path=path,
+                scope=note_scope,
+                maturity=note_maturity,
+                owner=frontmatter.get("owner", ""),
+            )
+        )
+    return entries
+
+
+def lint_knowledge(
+    target: Path,
+    *,
+    scope: str | None = None,
+    format: str = "text",
+    fix: bool = False,
+) -> KnowledgeLintResult:
+    del format  # The CLI owns rendering; the result is always structured.
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    if not knowledge.exists():
+        return KnowledgeLintResult([], [], ["No knowledge base found. Run `coding-scaffold knowledge create`."])
+    violations: list[KnowledgeLintViolation] = []
+    fixed: list[Path] = []
+    markdown = [
+        path
+        for path in sorted(knowledge.rglob("*.md"))
+        if not path.name.endswith(".new") and _lintable_note(path, knowledge)
+    ]
+    covered = _linked_knowledge_paths(markdown, knowledge)
+    today = date.today().isoformat()
+    for path in markdown:
+        frontmatter, warning = _frontmatter(path)
+        if warning:
+            violations.append(_violation(path, knowledge, "decode_error", warning))
+            continue
+        note_scope = frontmatter.get("scope") or _scope_from_path(path, knowledge)
+        if scope and note_scope != scope:
+            continue
+        if _is_layered_note(path, knowledge) or _is_curated_wiki_page(path, knowledge):
+            for field in ("scope", "maturity", "owner", "last_reviewed", "source_refs"):
+                if not frontmatter.get(field):
+                    if fix and field == "last_reviewed" and _add_frontmatter_field(path, "last_reviewed", today):
+                        fixed.append(path)
+                        frontmatter["last_reviewed"] = today
+                        continue
+                    violations.append(
+                        _violation(
+                            path,
+                            knowledge,
+                            "missing_frontmatter",
+                            f"Missing required frontmatter field: {field}",
+                        )
+                    )
+        if note_scope in KNOWLEDGE_SCOPES and frontmatter.get("scope") and frontmatter["scope"] != note_scope:
+            violations.append(
+                _violation(
+                    path,
+                    knowledge,
+                    "scope_mismatch",
+                    f"Frontmatter scope {frontmatter['scope']!r} does not match layer {note_scope!r}",
+                )
+            )
+        reviewed = frontmatter.get("last_reviewed")
+        if reviewed:
+            violations.extend(_review_violations(path, knowledge, reviewed))
+        violations.extend(_broken_link_violations(path, knowledge))
+        if path not in covered:
+            violations.append(
+                _violation(path, knowledge, "orphan", "Note is not linked from INDEX.md or another note.")
+            )
+        if _is_stub_note(path):
+            violations.append(_violation(path, knowledge, "stub", "Note appears to be empty or only headings."))
+    return KnowledgeLintResult(violations, fixed, [])
+
+
+def promote_knowledge(
+    target: Path,
+    slug: str,
+    *,
+    from_layer: str,
+    to_layer: str,
+    owner: str | None = None,
+) -> KnowledgePromotionResult:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    source = _find_knowledge_note(knowledge, slug, from_layer)
+    if source is None:
+        return KnowledgePromotionResult(None, None, [], [f"No knowledge note found for {slug!r} in {from_layer}."])
+    try:
+        destination = _promotion_destination(knowledge, source, from_layer, to_layer)
+    except ValueError as exc:
+        return KnowledgePromotionResult(source, None, [], [str(exc)])
+    frontmatter, warning = _frontmatter(source)
+    if warning:
+        return KnowledgePromotionResult(source, None, [], [warning])
+    if owner:
+        frontmatter["owner"] = owner
+    if not frontmatter.get("owner"):
+        return KnowledgePromotionResult(source, None, [], ["Promotion requires owner frontmatter or --owner."])
+    _apply_promotion_frontmatter(frontmatter, source, knowledge, to_layer)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(_replace_frontmatter(source.read_text(encoding="utf-8"), frontmatter), encoding="utf-8")
+    source.unlink()
+    _record_knowledge_changelog(knowledge, source, destination)
+    _append_index_link(knowledge, destination)
+    return KnowledgePromotionResult(
+        source,
+        destination,
+        [
+            f"Promoted {source.relative_to(knowledge)} -> {destination.relative_to(knowledge)}",
+            "Recorded promotion in knowledge/CHANGELOG.md",
+            "Updated knowledge/INDEX.md",
+        ],
+        [],
+    )
+
+
+def nominate_knowledge(
+    target: Path,
+    slug: str,
+    *,
+    to_scope: str,
+    rationale: str = "",
+) -> KnowledgePromotionResult:
+    root = target.expanduser().resolve()
+    knowledge = root / ".coding-scaffold" / "knowledge"
+    source = _find_knowledge_note(knowledge, slug, None)
+    if source is None:
+        return KnowledgePromotionResult(None, None, [], [f"No knowledge note found for {slug!r}."])
+    if to_scope not in KNOWLEDGE_SCOPES:
+        return KnowledgePromotionResult(source, None, [], [f"Unknown destination scope: {to_scope}"])
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    bundle = knowledge / "nominations" / f"{stamp}-{_slugify(source.stem)}-to-{to_scope}"
+    bundle.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, bundle / source.name)
+    nomination = bundle / "nomination.md"
+    nomination.write_text(
+        "\n".join(
+            [
+                "# Knowledge Nomination",
+                "",
+                f"Source note: `{source.relative_to(knowledge).as_posix()}`",
+                f"Requested scope: `{to_scope}`",
+                f"Created: {datetime.now().isoformat()}",
+                "",
+                "## Rationale",
+                "",
+                rationale or "Explain why this knowledge should move to the parent scope before review.",
+                "",
+                "## Review Bar",
+                "",
+                "- Confirm the note is useful beyond the source team.",
+                "- Confirm ownership, source_refs, and last_reviewed are present.",
+                "- Accept by adding the note to the parent manifest repository.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return KnowledgePromotionResult(
+        source,
+        bundle,
+        [f"Wrote knowledge nomination bundle: {bundle}"],
+        [],
+    )
 
 
 def _frontmatter(path: Path) -> tuple[dict[str, str], str | None]:
@@ -304,6 +563,218 @@ def _curated_metadata_warnings(path: Path, knowledge: Path, frontmatter: dict[st
     return warnings
 
 
+def _lintable_note(path: Path, knowledge: Path) -> bool:
+    try:
+        relative = path.relative_to(knowledge)
+    except ValueError:
+        return False
+    if not relative.parts:
+        return False
+    if path.name in {"README.md", "INDEX.md", "CHANGELOG.md"}:
+        return False
+    if any(part.startswith(".") for part in relative.parts):
+        return False
+    if "nominations" in relative.parts:
+        return False
+    return True
+
+
+def _violation(path: Path, knowledge: Path, code: str, message: str) -> KnowledgeLintViolation:
+    return KnowledgeLintViolation(path.relative_to(knowledge), code, message)
+
+
+def _review_violations(path: Path, knowledge: Path, reviewed: str) -> list[KnowledgeLintViolation]:
+    try:
+        reviewed_date = datetime.strptime(reviewed, "%Y-%m-%d").date()
+    except ValueError:
+        return [_violation(path, knowledge, "invalid_last_reviewed", f"Invalid last_reviewed date: {reviewed}")]
+    if (date.today() - reviewed_date).days > STALE_REVIEW_DAYS:
+        return [
+            _violation(
+                path,
+                knowledge,
+                "stale_last_reviewed",
+                f"Note has not been reviewed in more than {STALE_REVIEW_DAYS} days",
+            )
+        ]
+    return []
+
+
+def _linked_knowledge_paths(markdown: list[Path], knowledge: Path) -> set[Path]:
+    covered: set[Path] = set()
+    all_notes = set(markdown)
+    for source in [knowledge / "INDEX.md", *markdown]:
+        if not source.exists():
+            continue
+        for target in _markdown_links(source, knowledge):
+            if target.is_dir():
+                covered.update(path for path in all_notes if target in path.parents)
+            elif target in all_notes:
+                covered.add(target)
+    return covered
+
+
+def _markdown_links(path: Path, knowledge: Path) -> list[Path]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    targets: list[Path] = []
+    for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        raw = match.group(1).split()[0].strip("<>")
+        if not raw or raw.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        raw = raw.split("#", 1)[0]
+        target = (path.parent / raw).resolve()
+        try:
+            target.relative_to(knowledge.resolve())
+        except ValueError:
+            continue
+        targets.append(target)
+    return targets
+
+
+def _broken_link_violations(path: Path, knowledge: Path) -> list[KnowledgeLintViolation]:
+    violations: list[KnowledgeLintViolation] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return violations
+    for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text):
+        raw = match.group(1).split()[0].strip("<>")
+        if not raw or raw.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        raw = raw.split("#", 1)[0]
+        target = (path.parent / raw).resolve()
+        if not target.exists():
+            violations.append(_violation(path, knowledge, "broken_link", f"Broken relative link: {raw}"))
+    return violations
+
+
+def _is_stub_note(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return False
+    body = _strip_frontmatter_block(text)
+    non_heading = [
+        line.strip()
+        for line in body.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    return len(" ".join(non_heading)) < 24
+
+
+def _strip_frontmatter_block(text: str) -> str:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return text
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[index + 1 :])
+    return text
+
+
+def _add_frontmatter_field(path: Path, field: str, value: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return False
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            lines.insert(index, f"{field}: {value}")
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            return True
+    return False
+
+
+def _find_knowledge_note(knowledge: Path, slug: str, layer: str | None) -> Path | None:
+    slug_path = Path(slug)
+    candidates: list[Path]
+    if layer and layer in {"raw", "wiki", *KNOWLEDGE_SCOPES}:
+        base = knowledge / layer
+        if slug_path.suffix == ".md":
+            candidates = [base / slug_path]
+        else:
+            candidates = [base / f"{slug}.md", *base.rglob(f"{slug}.md")]
+    else:
+        candidates = [knowledge / f"{slug}.md", *knowledge.rglob(f"{slug}.md")]
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file() and not candidate.name.endswith(".new"):
+            return candidate
+    return None
+
+
+def _promotion_destination(knowledge: Path, source: Path, from_layer: str, to_layer: str) -> Path:
+    if from_layer == to_layer:
+        raise ValueError("Promotion source and destination must differ.")
+    if from_layer == "raw" and to_layer == "wiki":
+        return knowledge / "wiki" / f"{_slugify(source.stem)}.md"
+    if from_layer in KNOWLEDGE_SCOPES and to_layer in KNOWLEDGE_SCOPES:
+        from_index = KNOWLEDGE_SCOPES.index(from_layer)
+        to_index = KNOWLEDGE_SCOPES.index(to_layer)
+        if to_index != from_index + 1:
+            raise ValueError("Scope promotion must move to the next broader layer.")
+        return knowledge / to_layer / source.name
+    if from_layer in MATURITY_LEVELS and to_layer in MATURITY_LEVELS:
+        from_index = MATURITY_LEVELS.index(from_layer)
+        to_index = MATURITY_LEVELS.index(to_layer)
+        if to_index != from_index + 1:
+            raise ValueError("Maturity promotion must move to the next maturity level.")
+        return source
+    raise ValueError(f"Unsupported knowledge promotion: {from_layer} -> {to_layer}")
+
+
+def _apply_promotion_frontmatter(
+    frontmatter: dict[str, str],
+    source: Path,
+    knowledge: Path,
+    to_layer: str,
+) -> None:
+    frontmatter["last_reviewed"] = date.today().isoformat()
+    if to_layer == "wiki":
+        frontmatter["scope"] = frontmatter.get("scope") or "team"
+        frontmatter["maturity"] = frontmatter.get("maturity") or "draft"
+    elif to_layer in KNOWLEDGE_SCOPES:
+        frontmatter["scope"] = to_layer
+        frontmatter["maturity"] = frontmatter.get("maturity") or "validated"
+    elif to_layer in MATURITY_LEVELS:
+        frontmatter["maturity"] = to_layer
+        frontmatter["scope"] = frontmatter.get("scope") or _scope_from_path(source, knowledge)
+    frontmatter.setdefault("source_refs", f"[{source.relative_to(knowledge).as_posix()}]")
+
+
+def _replace_frontmatter(text: str, frontmatter: dict[str, str]) -> str:
+    block = ["---", *[f"{key}: {value}" for key, value in sorted(frontmatter.items())], "---"]
+    body = _strip_frontmatter_block(text).lstrip("\n")
+    return "\n".join(block) + "\n" + body
+
+
+def _record_knowledge_changelog(knowledge: Path, source: Path, destination: Path) -> None:
+    changelog = knowledge / "CHANGELOG.md"
+    if changelog.exists():
+        text = changelog.read_text(encoding="utf-8")
+    else:
+        text = "# Knowledge Changelog\n\n"
+    entry = (
+        f"- {date.today().isoformat()}: promoted `{source.relative_to(knowledge).as_posix()}` "
+        f"to `{destination.relative_to(knowledge).as_posix()}`.\n"
+    )
+    changelog.write_text(text.rstrip() + "\n\n" + entry, encoding="utf-8")
+
+
+def _append_index_link(knowledge: Path, destination: Path) -> None:
+    index = knowledge / "INDEX.md"
+    if not index.exists():
+        return
+    text = index.read_text(encoding="utf-8")
+    relative = destination.relative_to(knowledge).as_posix()
+    if relative in text:
+        return
+    line = f"- [{destination.stem.replace('-', ' ').title()}]({relative})"
+    index.write_text(text.rstrip() + "\n" + line + "\n", encoding="utf-8")
+
+
 def _knowledge_json(backend: str, shared_remote: str | None) -> str:
     payload = {
         "backend": backend,
@@ -347,6 +818,12 @@ def _knowledge_json(backend: str, shared_remote: str | None) -> str:
                 "the Foam extension recommends itself on first open."
             ),
         },
+        "html": {
+            "optional": False,
+            "site_path": ".coding-scaffold/knowledge/site",
+            "open": "Open .coding-scaffold/knowledge/site/index.html in a browser.",
+            "source_of_truth": "Markdown files under .coding-scaffold/knowledge.",
+        },
     }
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
@@ -371,6 +848,11 @@ def _knowledge_guide(backend: str, shared_remote: str | None) -> str:
             "Run `coding-scaffold knowledge --backend foam` later if you want a Foam workspace "
             "(MIT-licensed VS Code extension)."
         )
+    )
+    html_line = (
+        "This scaffold also generated a static HTML site under `knowledge/site/`."
+        if backend == "html"
+        else "Run `coding-scaffold knowledge --backend html` later if you want browser-readable HTML."
     )
     return f"""# Team Knowledge Base
 
@@ -445,6 +927,14 @@ organizations of more than two people).
 
 MemPalace is useful when the Markdown corpus gets large enough that semantic retrieval matters.
 Keep Markdown as the source of truth; use memory tooling as an index, not as the only copy.
+
+## Static HTML
+
+{html_line}
+
+The HTML backend renders Markdown notes into `knowledge/site/` for browser reading, intranet
+hosting, or review by teammates who do not use Markdown tools. Markdown remains the source of
+truth; regenerate the HTML site after editing notes.
 """
 
 
@@ -475,6 +965,10 @@ def _knowledge_index() -> str:
 - [Shared skills](skills/README.md)
 - [Shared agents](agents/README.md)
 - [Hierarchical sharing](sharing/README.md)
+- [Team layer](team/)
+- [Department layer](department/)
+- [Unit layer](unit/)
+- [Company layer](company/)
 - [Glossary](glossary.md)
 - [Links](links.md)
 - [Sync guide](sync.md)
@@ -1002,6 +1496,369 @@ def _collect_foam_files(files: list[Path], skipped: list[Path], knowledge: Path)
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "decision.md", _foam_decision_template())
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "skill.md", _foam_skill_template())
     collect_text(files, skipped, knowledge / ".foam" / "templates" / "agent.md", _foam_agent_template())
+
+
+def _collect_html_files(files: list[Path], skipped: list[Path], knowledge: Path) -> None:
+    del skipped  # HTML files are generated artifacts and are refreshed on each html backend run.
+    site = knowledge / "site"
+    markdown_files = [
+        path
+        for path in sorted(knowledge.rglob("*.md"))
+        if "site" not in path.relative_to(knowledge).parts and not path.name.endswith(".new")
+    ]
+    pages = {_html_output_relative(path, knowledge): path for path in markdown_files}
+    nav = _html_nav_items(knowledge, markdown_files)
+    files.append(write_text(site / ".gitignore", _html_site_gitignore(), overwrite=True))
+    files.append(write_text(site / "assets" / "style.css", _html_site_css(), overwrite=True))
+    for source in markdown_files:
+        frontmatter, _warning = _frontmatter(source)
+        title = _html_title(source, frontmatter)
+        html = _html_page(source, knowledge, title, frontmatter, nav, pages)
+        files.append(write_text(site / _html_output_relative(source, knowledge), html, overwrite=True))
+
+
+def _html_output_relative(path: Path, knowledge: Path) -> Path:
+    relative = path.relative_to(knowledge)
+    if relative.name == "INDEX.md":
+        return relative.with_name("index.html")
+    return relative.with_suffix(".html")
+
+
+def _html_nav_items(knowledge: Path, markdown_files: list[Path]) -> list[tuple[str, Path]]:
+    index = knowledge / "INDEX.md"
+    items: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    if index.exists():
+        try:
+            text = index.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            text = ""
+        for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
+            raw = match.group(2).split()[0].strip("<>").split("#", 1)[0]
+            if not raw or raw.startswith(("http://", "https://", "mailto:")):
+                continue
+            target = (index.parent / raw).resolve()
+            if target.is_dir():
+                target = target / "README.md"
+            if target.exists() and target.suffix == ".md":
+                items.append((match.group(1), _html_output_relative(target, knowledge)))
+                seen.add(target)
+    for path in markdown_files:
+        if path in seen:
+            continue
+        items.append((_html_title(path, _frontmatter(path)[0]), _html_output_relative(path, knowledge)))
+    return items
+
+
+def _html_title(path: Path, frontmatter: dict[str, str]) -> str:
+    if frontmatter.get("title"):
+        return frontmatter["title"]
+    try:
+        for line in _strip_frontmatter_block(path.read_text(encoding="utf-8")).splitlines():
+            if line.startswith("# "):
+                return line[2:].strip()
+    except UnicodeDecodeError:
+        pass
+    return path.stem.replace("-", " ").replace("_", " ").title()
+
+
+def _html_page(
+    source: Path,
+    knowledge: Path,
+    title: str,
+    frontmatter: dict[str, str],
+    nav: list[tuple[str, Path]],
+    pages: dict[Path, Path],
+) -> str:
+    output_relative = _html_output_relative(source, knowledge)
+    nav_html = "\n".join(
+        f'      <a href="{escape(_relative_html_href(output_relative, href), quote=True)}">{escape(label)}</a>'
+        for label, href in nav
+    )
+    source_path = source.relative_to(knowledge).as_posix()
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <link rel="stylesheet" href="{escape(_relative_html_href(output_relative, Path("assets") / "style.css"), quote=True)}">
+</head>
+<body>
+  <aside class="site-nav">
+    <a class="brand" href="{escape(_relative_html_href(output_relative, Path("index.html")), quote=True)}">Knowledge</a>
+    <nav>
+{nav_html}
+    </nav>
+  </aside>
+  <main>
+    <header class="page-header">
+      <p class="source-path">{escape(source_path)}</p>
+      <h1>{escape(title)}</h1>
+      {_frontmatter_chips(frontmatter)}
+    </header>
+    <article>
+{_markdown_to_html(source, knowledge, pages)}
+    </article>
+  </main>
+</body>
+</html>
+"""
+
+
+def _frontmatter_chips(frontmatter: dict[str, str]) -> str:
+    fields = ["scope", "maturity", "owner", "last_reviewed"]
+    chips = [
+        f'<span class="chip"><strong>{escape(field)}:</strong> {escape(frontmatter[field])}</span>'
+        for field in fields
+        if frontmatter.get(field)
+    ]
+    if not chips:
+        return '<div class="chips muted">No audit frontmatter found.</div>'
+    return '<div class="chips">' + "".join(chips) + "</div>"
+
+
+def _markdown_to_html(source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    try:
+        text = _strip_frontmatter_block(source.read_text(encoding="utf-8"))
+    except UnicodeDecodeError:
+        return "      <p>Unable to render non-UTF-8 Markdown file.</p>"
+    rendered: list[str] = []
+    paragraph: list[str] = []
+    in_code = False
+    code_lines: list[str] = []
+    in_list = False
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            rendered.append(
+                "      <p>"
+                + _render_inline(" ".join(line.strip() for line in paragraph), source, knowledge, pages)
+                + "</p>"
+            )
+            paragraph.clear()
+
+    def close_list() -> None:
+        nonlocal in_list
+        if in_list:
+            rendered.append("      </ul>")
+            in_list = False
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            flush_paragraph()
+            close_list()
+            if in_code:
+                rendered.append("      <pre><code>" + escape("\n".join(code_lines)) + "</code></pre>")
+                code_lines.clear()
+                in_code = False
+            else:
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+        if not stripped:
+            flush_paragraph()
+            close_list()
+            continue
+        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading:
+            flush_paragraph()
+            close_list()
+            level = len(heading.group(1))
+            rendered.append(
+                f"      <h{level}>{_render_inline(heading.group(2), source, knowledge, pages)}</h{level}>"
+            )
+            continue
+        item = re.match(r"^[-*]\s+(.+)$", stripped)
+        if item:
+            flush_paragraph()
+            if not in_list:
+                rendered.append("      <ul>")
+                in_list = True
+            rendered.append(f"        <li>{_render_inline(item.group(1), source, knowledge, pages)}</li>")
+            continue
+        paragraph.append(line)
+    flush_paragraph()
+    close_list()
+    if in_code:
+        rendered.append("      <pre><code>" + escape("\n".join(code_lines)) + "</code></pre>")
+    return "\n".join(rendered)
+
+
+def _render_inline(text: str, source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    rendered: list[str] = []
+    position = 0
+    for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
+        rendered.append(_render_code_spans(text[position : match.start()]))
+        href = _html_rewrite_link(match.group(2), source, knowledge, pages)
+        rendered.append(f'<a href="{escape(href, quote=True)}">{_render_code_spans(match.group(1))}</a>')
+        position = match.end()
+    rendered.append(_render_code_spans(text[position:]))
+    return "".join(rendered)
+
+
+def _render_code_spans(text: str) -> str:
+    parts: list[str] = []
+    position = 0
+    for match in re.finditer(r"`([^`]+)`", text):
+        parts.append(escape(text[position : match.start()]))
+        parts.append(f"<code>{escape(match.group(1))}</code>")
+        position = match.end()
+    parts.append(escape(text[position:]))
+    return "".join(parts)
+
+
+def _html_rewrite_link(raw: str, source: Path, knowledge: Path, pages: dict[Path, Path]) -> str:
+    href = raw.strip()
+    if href.startswith(("http://", "https://", "mailto:", "#")):
+        return href
+    target_part, separator, fragment = href.partition("#")
+    target = (source.parent / target_part).resolve()
+    if target.is_dir():
+        target = target / "README.md"
+    try:
+        target.relative_to(knowledge.resolve())
+    except ValueError:
+        return href
+    output = _html_output_relative(target, knowledge)
+    if output not in pages and not target.exists():
+        return href
+    rewritten = _relative_html_href(_html_output_relative(source, knowledge), output)
+    if separator:
+        return f"{rewritten}#{fragment}"
+    return rewritten
+
+
+def _relative_html_href(from_page: Path, to_page: Path) -> str:
+    return Path(os.path.relpath(to_page, start=from_page.parent)).as_posix()
+
+
+def _html_site_gitignore() -> str:
+    return """# Generated by `coding-scaffold knowledge --backend html`.
+# Remove this file if your team chooses to commit the rendered site.
+*
+!.gitignore
+"""
+
+
+def _html_site_css() -> str:
+    return """body {
+  margin: 0;
+  color: #18202a;
+  background: #f6f7f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+
+.site-nav {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 260px;
+  overflow: auto;
+  border-right: 1px solid #d8dde5;
+  background: #ffffff;
+  padding: 24px 20px;
+}
+
+.brand {
+  display: block;
+  margin-bottom: 18px;
+  color: #0f1720;
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-nav nav a {
+  display: block;
+  padding: 6px 0;
+  color: #405064;
+  text-decoration: none;
+}
+
+.site-nav nav a:hover {
+  color: #005ea8;
+}
+
+main {
+  max-width: 880px;
+  margin-left: 300px;
+  padding: 42px 48px 72px;
+}
+
+.page-header {
+  border-bottom: 1px solid #d8dde5;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+}
+
+.source-path {
+  color: #6d7786;
+  font-size: 13px;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+}
+
+a {
+  color: #005ea8;
+}
+
+pre {
+  overflow: auto;
+  padding: 16px;
+  background: #111827;
+  color: #f9fafb;
+}
+
+code {
+  border-radius: 4px;
+  background: #e9edf3;
+  padding: 2px 4px;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.muted {
+  color: #6d7786;
+}
+
+@media (max-width: 760px) {
+  .site-nav {
+    position: static;
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid #d8dde5;
+  }
+
+  main {
+    margin-left: 0;
+    padding: 28px 22px 48px;
+  }
+}
+"""
 
 
 def _foam_start_here() -> str:
