@@ -173,9 +173,10 @@ def run_pilot(
     if persona == DEFAULT_PERSONA:
         if len(canonical) == 1:
             # Single-tool: preserve today's 3-step recipe verbatim (golden test path).
+            # `installed` is sourced from `shutil.which(...) is not None` above,
+            # which is always a bool — no narrowing assert needed.
             t = canonical[0]
-            tool_present = per_tool_info[0]["installed"]
-            assert isinstance(tool_present, bool)
+            tool_present = bool(per_tool_info[0]["installed"])
             steps = _build_steps(root, tool=t, tool_present=tool_present)
         else:
             # Multi-tool: shared setup + per-tool agent lines.
@@ -298,7 +299,13 @@ def format_pilot_text(report: PilotReport) -> str:
             lines.append(f"  - {warning}")
         lines.append("")
 
-    if multi_tool:
+    # The multi-tool "shared setup + per-tool agent lines" layout only applies
+    # to the beginner-persona default recipe. Other personas (control, security,
+    # team-lead) substitute their own 3-command override; those don't follow
+    # the [0]=setup, [1]=pr-template, [2..]=binaries shape so the multi-tool
+    # rendering would label persona commands as "agent lines" — actively wrong.
+    use_multi_tool_layout = multi_tool and report.persona == DEFAULT_PERSONA
+    if use_multi_tool_layout:
         # Multi-tool format: shared setup steps, then per-tool agent lines
         # Steps layout: [0] = setup run, [1] = pr-template init, [2..] = per-tool binaries
         shared_steps = report.steps[:2]
@@ -311,7 +318,7 @@ def format_pilot_text(report: PilotReport) -> str:
         for step in agent_steps:
             lines.append(f"  {step}")
     else:
-        # Single-tool: original 3-step format
+        # Single-tool or persona-override: render as a flat numbered list.
         lines.append("Run these next (in order):")
         for i, step in enumerate(report.steps, start=1):
             lines.append(f"  {i}. {step}")

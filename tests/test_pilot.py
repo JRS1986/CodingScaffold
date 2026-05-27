@@ -189,10 +189,13 @@ def test_pilot_accepts_multi_tool_list(tmp_path: Path) -> None:
     assert report.tools == ["codex", "claude-code"]
     # Setup step is shared with the multi-tool flag
     assert any("--tool codex,claude-code" in step for step in report.steps)
-    # One agent step per tool (look for the binary names)
-    binaries_in_steps = " ".join(report.steps)
-    assert "codex" in binaries_in_steps
-    assert "claude" in binaries_in_steps
+    # Exactly one agent step per selected tool — structural guarantee from
+    # the plan, not just "some binary name appears somewhere."
+    agent_steps = [s for s in report.steps if "/first-session" in s]
+    assert len(agent_steps) == 2, (
+        f"expected one agent step per tool (2 total), got {len(agent_steps)}: "
+        f"{agent_steps}"
+    )
 
 
 def test_pilot_environment_ok_requires_all_tools_installed(
@@ -269,3 +272,26 @@ def test_pilot_back_compat_tool_kwarg_still_works(tmp_path: Path) -> None:
     from coding_scaffold.pilot import run_pilot
     report = run_pilot(tmp_path, tool="claude-code")
     assert report.tools == ["claude-code"]
+
+
+def test_pilot_persona_plus_multi_tool_does_not_mislabel_persona_commands(
+    tmp_path: Path,
+) -> None:
+    """Regression: when persona overrides the recipe with focus commands AND
+    the user passes multiple tools, format_pilot_text must NOT slice the
+    persona steps into 'shared setup' + 'per-tool agent lines'. The persona
+    commands are a flat 3-step recipe; rendering them as a multi-tool layout
+    would label scaffold commands as agent invocations — actively wrong.
+    Found in code review of Bundle 6.
+    """
+
+    from coding_scaffold.pilot import format_pilot_text, run_pilot
+
+    report = run_pilot(tmp_path, tools=["codex", "claude-code"], persona="security")
+    text = format_pilot_text(report)
+    # Multi-tool agent-tail header must NOT appear when persona overrides the recipe.
+    assert "Then start a session with whichever tool" not in text
+    # Persona-override commands render under the flat "Run these next" header.
+    assert "Run these next (in order):" in text
+    # Header still shows both tools (informational).
+    assert "Tools: codex, claude-code" in text
