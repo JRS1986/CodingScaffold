@@ -119,40 +119,42 @@ args.tool = args.tools[0]                     # back-compat single value
 @dataclass
 class IntakeAnswers:
     ...
-    tools: list[str]            # NEW — canonical, ordered, deduped, never empty
+    tools: list[str]            # canonical, ordered, deduped, never empty
                                 # (always contains at least one entry, even if "manual")
-
-    @property
-    def tool(self) -> str:      # back-compat — first entry, never raises
-        return self.tools[0]
 ```
+
+The Python `tool` (singular) attribute is **removed**. Callers that need a
+single tool — there are four today (`updater.py` x2, `writers.py` x2) — switch
+to `intake.tools[0]`. With the user base small, the cost of one breaking change
+is lower than the cost of two parallel APIs forever. Same justification applies
+to the JSON shape below.
 
 Persisted form in `.coding-scaffold/project.json`:
 
 ```json
 {
-  "tools": ["codex", "claude-code"],
-  "tool": "codex"
+  "tools": ["codex", "claude-code"]
 }
 ```
-
-The singular `tool` key is duplicated into JSON so older code reading the file
-(scripts, tests, external consumers) still works. New consumers should read
-`tools`.
 
 ### 5.2 `routing.json`
 
 ```json
 {
   "tools": ["codex", "claude-code"],
-  "tool": "codex",
   "weak_model": "...",
   "strong_model": "...",
   ...
 }
 ```
 
-Same pattern: both keys present.
+No singular `tool` key. Consumers reading older `project.json` /
+`routing.json` files (the snapshot's `min_supported_scaffold_version` blocks
+genuine downgrades, but in-place reads can still hit older shapes) must handle
+the absence of `tools` by falling back to a `tool` (string) field for one
+release; this back-fill lives in a small `_normalize_persisted_intake` helper
+in `intake.py` so the rest of the code only ever sees `tools`. The helper is
+removed in 0.7.0 alongside `--tool both`.
 
 ### 5.3 Interactive intake prompt
 
@@ -251,7 +253,6 @@ Notes:
 {
   "target": "/path",
   "tools": ["codex", "claude-code"],
-  "tool": "codex",
   "persona": "beginner",
   "environment_ok": true,
   "environment": {
@@ -262,7 +263,6 @@ Notes:
       {"name": "codex", "binary": "codex", "installed": true},
       {"name": "claude-code", "binary": "claude", "installed": false}
     ],
-    "tool": {"name": "codex", "binary": "codex", "installed": true},
     "credentials_in_env": ["ANTHROPIC_API_KEY"],
     "local_runtime_cli": ["ollama"]
   },
@@ -272,8 +272,11 @@ Notes:
 }
 ```
 
-`environment.tool` is the back-compat (first-tool) entry. `environment.tools` is
-the full per-tool list. Same shape used in `PilotReport.to_dict()`.
+`environment.tools` is the canonical per-tool list. There is no singular
+`tool` / `environment.tool` back-compat field — same rationale as the
+`IntakeAnswers` / `routing.json` cut in §5: small user base, one breaking
+change is cheaper than two parallel shapes. Consumers parsing pilot JSON read
+`tools[0]` if they need a single tool.
 
 ### 7.3 Single-tool pilot stays identical
 
@@ -324,12 +327,13 @@ golden tests in `test_cli_ux.py` and `test_pilot.py`.
 
 | File | Update |
 |------|--------|
-| `tests/test_intake.py` | `tools` list in `IntakeAnswers`; `tool` property returns first; round-trip through `to_dict`. |
+| `tests/test_intake.py` | `tools` list in `IntakeAnswers` (singular `tool` attribute is gone); round-trip through `to_dict`. Persisted-form back-fill test covers reading an older `project.json` that still has `tool`. |
 | `tests/test_cli.py` | `--tool codex --tool claude-code` populates `args.tools`. `--tool both` triggers deprecation warning + expansion. `manual + real-tool` rejects via fail_with. |
-| `tests/test_writers.py` | `routing.json` carries both `tools` and `tool`. Single-tool case unchanged. |
-| `tests/test_adapters.py` | `write_tool_adapter(target, ["codex", "claude-code"])` writes both adapter sets. Backward: `write_tool_adapter(target, "codex")` still works. |
-| `tests/test_pilot.py` | Single-tool output unchanged (golden). Multi-tool output has `Tools:` header, per-tool environment lines, shared setup step, per-tool agent steps. `environment_ok` is AND across tools. |
+| `tests/test_writers.py` | `routing.json` carries `tools` only — no `tool` key. Single-tool case writes `{"tools": ["codex"]}`. |
+| `tests/test_adapters.py` | `write_tool_adapter(target, ["codex", "claude-code"])` writes both adapter sets. Backward: `write_tool_adapter(target, "codex")` still works (string → `["codex"]`). |
+| `tests/test_pilot.py` | Single-tool output unchanged (golden). Multi-tool output has `Tools:` header, per-tool environment lines, shared setup step, per-tool agent steps. `environment_ok` is AND across tools. JSON shape: `tools` and `environment.tools` only — singular keys gone. |
 | `tests/test_cli_ux.py` | Pilot CLI accepts comma-separated `--tool`. |
+| `tests/test_updater.py` | `refresh_scaffold` reads `intake.tools` instead of `intake.tool`; covers reading both a fresh multi-tool project.json and a legacy single-tool project.json via the back-fill helper. |
 
 ### 9.2 New file
 
@@ -349,14 +353,28 @@ golden tests in `test_cli_ux.py` and `test_pilot.py`.
 
 - **CHANGELOG `[Unreleased]`:**
   - Added: multi-tool `--tool` support across setup / tools adapt / pilot.
+  - Changed (breaking): `routing.json`, `project.json`, and the pilot JSON
+    output no longer carry a singular `tool` key — only `tools` (a list).
+    The `IntakeAnswers.tool` Python attribute is also removed. The reasoning:
+    user base small enough that one breaking change is cheaper than two
+    parallel shapes.
   - Deprecated: `--tool both`; will be removed in 0.7.0.
 - **Glossary entry:** "multi-tool project — a project with more than one
   coding tool configured. Generated via `setup run --tool <a> --tool <b>`."
 - **Getting-Started.md:** add a "Two tools in one repo" subsection under
   "Smallest Useful Path" showing the canonical invocation and what's written.
-- **Upgrading.md:** add a "0.7.0 Breaking" block (drafted now, lands when the
-  removal lands) describing the `both` removal and replacement command.
+- **Upgrading.md:** add a "0.6.0 Breaking" block describing the
+  `routing.json` / `project.json` / pilot-JSON shape change. Add a "0.7.0
+  Breaking" block (drafted now, activated when the removal lands) describing
+  the `both` removal and replacement command. Both blocks point at the
+  one-line migration: read `tools[0]` where you used to read `tool`.
 - **Tool-Adapters.md:** mention multi-tool in the capability matrix preamble.
+  Add an example showing `--tool codex,claude-code`.
+- **Doc audit (must check before merge, not just write):** grep
+  `docs/docs/wiki/` and the README for any literal mention of a `"tool":`
+  JSON key in routing/project context. Current audit finds none, but the
+  audit must be re-run before merge so a doc added between brainstorm and
+  implementation doesn't sneak the old shape back in.
 
 ## 11. Open questions
 
@@ -374,7 +392,7 @@ None at design time. Confirmed in brainstorm:
 |------|-------|-------|
 | `intake.py` | ~40 | list field + interactive prompt + validation |
 | `cli.py` | ~50 | `action="append"` + shared normalizer + four surfaces |
-| `writers.py` | ~10 | `routing.json` records `tools` and `tool` |
+| `writers.py` | ~15 | `routing.json` records `tools` only; two `intake.tool` call-sites switch to `intake.tools[0]` |
 | `adapters.py` | ~20 | widen signature; preserve back-compat |
 | `pilot.py` | ~80 | multi-tool recipe + per-tool env check + JSON shape |
 | `tests/test_multi_tool.py` | ~120 | end-to-end coverage |
