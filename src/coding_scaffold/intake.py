@@ -1,10 +1,103 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .context import IGNORED_PARTS
+from .errors import CliError
+
+DEFAULT_TOOLS: tuple[str, ...] = ("opencode",)
+# Legacy `--tool both` literal expansion. Removed in 0.7.0 alongside the value
+# itself; see docs/docs/wiki/Upgrading.md.
+_BOTH_EXPANSION: tuple[str, ...] = ("opencode", "openclaude")
+
+# Single-fire deprecation warning state. Reset between tests via
+# `reset_deprecation_state()`.
+_BOTH_WARNING_FIRED: bool = False
+
+
+def reset_deprecation_state() -> None:
+    """Reset the once-per-process deprecation warning latch. Test-only."""
+
+    global _BOTH_WARNING_FIRED
+    _BOTH_WARNING_FIRED = False
+
+
+def normalize_tools(value: str | list[str] | None) -> list[str]:
+    """Return a canonical deduped tool list from any accepted input shape.
+
+    Accepts: None, "", "codex", "codex,claude-code", ["codex"],
+    ["codex", "claude-code"], ["codex,opencode", "claude-code"], ["both"].
+
+    Expands the deprecated `both` literal to `opencode,openclaude` with a
+    one-line stderr warning that fires at most once per process.
+
+    Raises `CliError` when `manual` appears alongside any real tool — `manual`
+    means "no adapter," which is incompatible with also picking a real one.
+    """
+
+    if value is None or value == "":
+        return list(DEFAULT_TOOLS)
+    if isinstance(value, str):
+        raw_parts = [value]
+    else:
+        raw_parts = list(value)
+    if not raw_parts:
+        return list(DEFAULT_TOOLS)
+
+    # Flatten commas + trim whitespace.
+    # We do NOT coerce non-str elements (e.g. None) via str() — silently
+    # coercing would write a tool literally named "None" into project.json.
+    # The type annotation promises str; let Python raise AttributeError on
+    # a non-str element instead.
+    flat: list[str] = []
+    for part in raw_parts:
+        for chunk in part.split(","):
+            chunk = chunk.strip()
+            if chunk:
+                flat.append(chunk)
+    if not flat:
+        return list(DEFAULT_TOOLS)
+
+    # Expand `both` with a one-fire deprecation warning.
+    global _BOTH_WARNING_FIRED
+    expanded: list[str] = []
+    for chunk in flat:
+        if chunk == "both":
+            if not _BOTH_WARNING_FIRED:
+                print(
+                    "warning: '--tool both' is deprecated; "
+                    "using '--tool opencode,openclaude' instead.\n"
+                    "         Will be removed in 0.7.0. "
+                    "See https://jrs1986.github.io/CodingScaffold/wiki/Upgrading.",
+                    file=sys.stderr,
+                )
+                _BOTH_WARNING_FIRED = True
+            expanded.extend(_BOTH_EXPANSION)
+            continue
+        expanded.append(chunk)
+
+    # Dedupe, preserve first-seen order.
+    seen: set[str] = set()
+    canonical: list[str] = []
+    for chunk in expanded:
+        if chunk in seen:
+            continue
+        seen.add(chunk)
+        canonical.append(chunk)
+
+    # `manual` is exclusive — it means "no adapter."
+    if "manual" in canonical and len(canonical) > 1:
+        others = [t for t in canonical if t != "manual"]
+        raise CliError(
+            cause=f"`--tool manual` excludes other tools; got manual + {', '.join(others)}",
+            next_step="pick one of: `--tool manual` OR `--tool <real-tool>...`",
+            link="https://jrs1986.github.io/CodingScaffold/wiki/Glossary",
+        )
+
+    return canonical
 
 _MAX_WALK_DEPTH = 4
 _MAX_FILES_SCANNED = 5000
