@@ -13,6 +13,16 @@ DEFAULT_TOOLS: tuple[str, ...] = ("opencode",)
 # itself; see docs/docs/wiki/Upgrading.md.
 _BOTH_EXPANSION: tuple[str, ...] = ("opencode", "openclaude")
 
+# Canonical valid tool names. Kept in sync with `CODING_TOOLS` in cli.py
+# (the CLI's argparse `choices=` list). We can't import from cli.py here
+# without a circular dependency, so the list is duplicated — a test
+# (`tests/test_normalize_tools.py::test_valid_tools_matches_cli_coding_tools`)
+# asserts both sets stay in sync.
+VALID_TOOLS: frozenset[str] = frozenset({
+    "opencode", "claude-code", "codex", "openclaude", "hermes", "pi",
+    "both", "manual",
+})
+
 # Single-fire deprecation warning state. Reset between tests via
 # `reset_deprecation_state()`.
 _BOTH_WARNING_FIRED: bool = False
@@ -87,6 +97,22 @@ def normalize_tools(value: str | list[str] | None) -> list[str]:
             continue
         seen.add(chunk)
         canonical.append(chunk)
+
+    # Validate against the canonical tool set. We do this here instead of via
+    # argparse `choices=` because the CLI accepts comma-separated values
+    # (`--tool codex,claude-code`) which `choices=` would reject as a single
+    # invalid token. Validation here catches typos the same way and gives a
+    # clearer error than argparse's "invalid choice".
+    invalid = [chunk for chunk in canonical if chunk not in VALID_TOOLS]
+    if invalid:
+        raise CliError(
+            cause=f"unknown tool(s): {', '.join(repr(t) for t in invalid)}",
+            next_step=(
+                f"choose from: {', '.join(sorted(VALID_TOOLS))}. "
+                "Multiple tools: repeat --tool or comma-separate."
+            ),
+            link="https://jrs1986.github.io/CodingScaffold/wiki/Glossary",
+        )
 
     # `manual` is exclusive — it means "no adapter."
     if "manual" in canonical and len(canonical) > 1:

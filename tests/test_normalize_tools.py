@@ -7,6 +7,7 @@ import pytest
 from coding_scaffold.errors import CliError
 from coding_scaffold.intake import (
     DEFAULT_TOOLS,
+    VALID_TOOLS,
     normalize_tools,
     reset_deprecation_state,
 )
@@ -83,3 +84,43 @@ def test_manual_alone_is_accepted() -> None:
 
 def test_whitespace_around_comma_is_trimmed() -> None:
     assert normalize_tools(" codex , claude-code ") == ["codex", "claude-code"]
+
+
+def test_unknown_tool_raises_with_help_message() -> None:
+    """Typos at the CLI must produce an actionable error, not a downstream crash.
+
+    argparse `choices=` was removed from the widened surfaces so comma-separated
+    values can be parsed. `normalize_tools` recovers the same early-error
+    behaviour and gives a clearer recovery hint.
+    """
+
+    with pytest.raises(CliError) as excinfo:
+        normalize_tools(["xodex"])
+    assert "xodex" in excinfo.value.cause
+    assert "unknown tool" in excinfo.value.cause.lower()
+    # Recovery message names the valid choices.
+    for valid in ("codex", "claude-code", "opencode"):
+        assert valid in excinfo.value.next_step
+
+
+def test_unknown_tool_in_mixed_list_raises_with_full_list() -> None:
+    with pytest.raises(CliError) as excinfo:
+        normalize_tools(["codex", "xodex", "wat"])
+    # Both invalid tokens are named in the error.
+    assert "xodex" in excinfo.value.cause
+    assert "wat" in excinfo.value.cause
+
+
+def test_valid_tools_matches_cli_coding_tools() -> None:
+    """Invariant: `VALID_TOOLS` in intake.py and `CODING_TOOLS` in cli.py
+    must stay in sync. cli.py can't import VALID_TOOLS without a circular
+    dependency, so the lists are duplicated — this test fails if they drift.
+    """
+
+    from coding_scaffold.cli import CODING_TOOLS
+
+    assert set(CODING_TOOLS) == set(VALID_TOOLS), (
+        f"CODING_TOOLS (cli.py) and VALID_TOOLS (intake.py) drifted:\n"
+        f"  only in CODING_TOOLS: {set(CODING_TOOLS) - set(VALID_TOOLS)}\n"
+        f"  only in VALID_TOOLS: {set(VALID_TOOLS) - set(CODING_TOOLS)}"
+    )
