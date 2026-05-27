@@ -278,7 +278,10 @@ def format_pilot_text(report: PilotReport) -> str:
                 name = entry.get("name")
                 binary = entry.get("binary")
                 installed = entry.get("installed")
-                lines.append(f"  - {name} ({binary}) installed: {'yes' if installed else 'no'}")
+                # Render as Python bool to preserve the historic single-tool
+                # format (`installed: True` / `installed: False`). The
+                # multi-tool case inherits the same rendering for consistency.
+                lines.append(f"  - {name} ({binary}) installed: {installed}")
 
     creds = env.get("credentials_in_env") or []
     if isinstance(creds, list) and creds:

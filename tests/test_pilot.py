@@ -236,14 +236,31 @@ def test_pilot_text_multi_tool_has_tools_header_and_shared_setup(tmp_path: Path)
 
 
 def test_pilot_single_tool_text_format_unchanged(tmp_path: Path) -> None:
-    """Golden: single-tool pilot must NOT show the multi-tool headers."""
+    """Golden: single-tool pilot text is bit-for-bit identical to pre-multi-tool.
+
+    Specifically asserts the exact substrings the spec promised remain stable:
+    - singular `Tool:` header (not the multi-tool `Tools:` list)
+    - `Run these next (in order):` (not the multi-tool `Run these once`)
+    - per-tool `installed: True/False` (Python bool — not the implementer's
+      `yes/no` regression that slipped through code review)
+    - three numbered steps (not the per-binary tail block)
+    """
+
     from coding_scaffold.pilot import format_pilot_text, run_pilot
     text = format_pilot_text(run_pilot(tmp_path, tool="opencode"))
+    # Header is the historic singular `Tool:` line.
+    assert "\nTool: opencode\n" in text
     # Multi-tool-specific headers must be absent for single-tool case.
-    assert "Tools: opencode, " not in text  # no comma list
+    assert "Tools: " not in text
     assert "Then start a session with whichever tool" not in text
+    assert "Run these once" not in text
+    # Historic next-step header preserved.
+    assert "Run these next (in order):" in text
+    # `installed:` line renders Python bool, not the implementer's `yes/no`
+    # regression. Either True or False must be present (depending on env).
+    assert "installed: True" in text or "installed: False" in text
+    assert "installed: yes" not in text and "installed: no" not in text
     # The original three-step numbering must still be present.
-    assert "Run these next" in text
     assert "  1. " in text and "  2. " in text and "  3. " in text
 
 
