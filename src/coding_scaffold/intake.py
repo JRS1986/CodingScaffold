@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .context import IGNORED_PARTS
@@ -110,7 +110,7 @@ class IntakeAnswers:
     project_target: str | None = None
     existing_codebase: bool | None = None
     privacy: str | None = None
-    tool: str | None = None
+    tools: list[str] = field(default_factory=lambda: list(DEFAULT_TOOLS))
     preferred_local_model: str | None = None
     mode: str | None = None
 
@@ -119,11 +119,45 @@ class IntakeAnswers:
 
     @property
     def agent(self) -> str | None:
-        return self.tool
+        """First tool, or None if the list is empty.
+
+        Adapter selection elsewhere reads `.agent`; preserving the property keeps
+        those call-sites stable while the migration to `.tools` lands across the
+        rest of the codebase.
+        """
+
+        return self.tools[0] if self.tools else None
+
+
+def _normalize_persisted_intake(payload: dict[str, object]) -> dict[str, object]:
+    """Migrate a persisted intake payload to the canonical `tools` shape.
+
+    Legacy `.coding-scaffold/project.json` files written before 0.6.0 carry
+    `tool: "opencode"` (singular). New files carry `tools: ["opencode", ...]`.
+    Returns a payload with only `tools` populated.
+
+    Removed in 0.7.0 once the migration window closes; see Upgrading.md.
+    """
+
+    result = dict(payload)
+    legacy = result.pop("tool", None)
+    if "tools" in result:
+        return result
+    if legacy:
+        result["tools"] = [str(legacy)]
+    else:
+        result["tools"] = list(DEFAULT_TOOLS)
+    return result
 
 
 def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> IntakeAnswers:
     detected_language = _detect_language(target) if provided.language is None else None
+    raw_tool_answer = _value(
+        ",".join(provided.tools) if provided.tools else None,
+        "Coding tools to set up (comma-separated, e.g. `codex,claude-code`)",
+        "opencode",
+        interactive,
+    )
     return IntakeAnswers(
         language=_value(
             provided.language,
@@ -138,12 +172,7 @@ def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> 
             else _bool_value("Existing codebase", _has_code(target), interactive)
         ),
         privacy=_value(provided.privacy, "Privacy mode", "local-first", interactive),
-        tool=_value(
-            provided.tool,
-            "Coding environment / IDE (opencode/openclaude/hermes/pi/both/manual)",
-            "opencode",
-            interactive,
-        ),
+        tools=normalize_tools(raw_tool_answer),
         preferred_local_model=_value(
             provided.preferred_local_model,
             "Preferred local model",

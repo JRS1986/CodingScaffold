@@ -50,9 +50,10 @@ def refresh_scaffold(
     with tempfile.TemporaryDirectory() as temp:
         temp_root = Path(temp).resolve()
         manifest = write_scaffold(temp_root, intake, hardware, providers, routing)
+        primary_tool = intake.tools[0] if intake.tools else "manual"
         adapter = (
-            write_tool_adapter(temp_root, intake.tool)
-            if intake.tool and intake.tool != "manual"
+            write_tool_adapter(temp_root, intake.tools)
+            if primary_tool and primary_tool != "manual"
             else None
         )
         generated_files = [path for path in manifest.files if path.exists()]

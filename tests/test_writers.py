@@ -33,7 +33,8 @@ def test_write_scaffold_creates_expected_files(tmp_path, scaffold_inputs) -> Non
     assert "nativeAdapter" in opencode
     project = json.loads((tmp_path / ".coding-scaffold" / "project.json").read_text())
     assert project["language"] == "python"
-    assert "tool" in project
+    assert "tools" in project
+    assert "tool" not in project, "singular `tool` key must not be written to project.json"
     assert "agent" not in project
     version = json.loads((tmp_path / ".coding-scaffold" / "scaffold-version.json").read_text())
     assert ".coding-scaffold/AGENTS.md" in version["files"]
