@@ -7,6 +7,8 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-27
+
 ### Added
 
 - **Multi-tool projects: `--tool` accepts a list.** `coding-scaffold setup run
