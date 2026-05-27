@@ -80,7 +80,7 @@ def test_pilot_recipe_is_parseable_by_the_cli(tmp_path: Path) -> None:
 def test_pilot_supports_every_known_tool(tmp_path: Path) -> None:
     for tool in SUPPORTED_TOOLS:
         report = run_pilot(tmp_path, tool=tool)
-        assert report.tool == tool
+        assert report.tools == [tool]
         assert any(tool in step for step in report.steps)
 
 
@@ -174,5 +174,81 @@ def test_cli_pilot_json_round_trips(
     rc = main(["pilot", "--target", str(tmp_path), "--tool", "claude-code", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["tool"] == "claude-code"
+    assert payload["tools"] == ["claude-code"]
     assert isinstance(payload["steps"], list)
+
+
+# ---------------------------------------------------------------------------
+# Multi-tool new tests
+# ---------------------------------------------------------------------------
+
+
+def test_pilot_accepts_multi_tool_list(tmp_path: Path) -> None:
+    from coding_scaffold.pilot import run_pilot
+    report = run_pilot(tmp_path, tools=["codex", "claude-code"])
+    assert report.tools == ["codex", "claude-code"]
+    # Setup step is shared with the multi-tool flag
+    assert any("--tool codex,claude-code" in step for step in report.steps)
+    # One agent step per tool (look for the binary names)
+    binaries_in_steps = " ".join(report.steps)
+    assert "codex" in binaries_in_steps
+    assert "claude" in binaries_in_steps
+
+
+def test_pilot_environment_ok_requires_all_tools_installed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AND across selected tools — if any is missing, environment_ok is False."""
+    import coding_scaffold.pilot as pilot_module
+    monkeypatch.setattr(
+        pilot_module.shutil, "which",
+        lambda name: f"/usr/bin/{name}" if name in {"git", "codex", "ollama"} else None,
+    )
+    from coding_scaffold.pilot import run_pilot
+    report = run_pilot(tmp_path, tools=["codex", "claude-code"])
+    assert report.environment_ok is False
+    per_tool = report.environment["tools"]
+    by_name = {entry["name"]: entry["installed"] for entry in per_tool}
+    assert by_name["codex"] is True
+    assert by_name["claude-code"] is False
+
+
+def test_pilot_json_emits_tools_list_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+    from coding_scaffold.cli import main
+    rc = main(["pilot", "--target", str(tmp_path), "--tool", "codex", "--tool", "claude-code", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["tools"] == ["codex", "claude-code"]
+    assert "tool" not in payload, "pilot JSON must not carry singular tool"
+    assert "tool" not in payload["environment"], "environment must not carry singular tool"
+    assert len(payload["environment"]["tools"]) == 2
+
+
+def test_pilot_text_multi_tool_has_tools_header_and_shared_setup(tmp_path: Path) -> None:
+    from coding_scaffold.pilot import format_pilot_text, run_pilot
+    text = format_pilot_text(run_pilot(tmp_path, tools=["codex", "claude-code"]))
+    assert "Tools: codex, claude-code" in text
+    assert "Run these once" in text
+    assert "Then start a session" in text
+
+
+def test_pilot_single_tool_text_format_unchanged(tmp_path: Path) -> None:
+    """Golden: single-tool pilot must NOT show the multi-tool headers."""
+    from coding_scaffold.pilot import format_pilot_text, run_pilot
+    text = format_pilot_text(run_pilot(tmp_path, tool="opencode"))
+    # Multi-tool-specific headers must be absent for single-tool case.
+    assert "Tools: opencode, " not in text  # no comma list
+    assert "Then start a session with whichever tool" not in text
+    # The original three-step numbering must still be present.
+    assert "Run these next" in text
+    assert "  1. " in text and "  2. " in text and "  3. " in text
+
+
+def test_pilot_back_compat_tool_kwarg_still_works(tmp_path: Path) -> None:
+    """Existing in-process Python callers pass tool= (singular string)."""
+    from coding_scaffold.pilot import run_pilot
+    report = run_pilot(tmp_path, tool="claude-code")
+    assert report.tools == ["claude-code"]

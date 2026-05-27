@@ -45,7 +45,7 @@ from .memory import (
 )
 from .doctor import format_doctor_text, run_doctor
 from .personas import PERSONAS as _PERSONAS, DEFAULT_PERSONA
-from .pilot import SUPPORTED_TOOLS as PILOT_SUPPORTED_TOOLS, format_pilot_text, run_pilot
+from .pilot import format_pilot_text, run_pilot
 from .tour import format_tour
 from .pr_template import write_pr_template
 from .session import (
@@ -787,9 +787,12 @@ def build_parser() -> argparse.ArgumentParser:
     pilot.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     pilot.add_argument(
         "--tool",
-        choices=list(PILOT_SUPPORTED_TOOLS),
-        default="opencode",
-        help="Coding tool to weave into the recipe (default: opencode).",
+        # `choices=` removed — comma-separated values would fail validation here;
+        # normalize_tools validates against VALID_TOOLS instead.
+        action="append",
+        default=None,
+        help="Coding tool(s) to weave into the recipe (default: opencode). "
+             "Repeat or comma-separate for multi-tool projects.",
     )
     pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     pilot.add_argument(
@@ -1203,7 +1206,7 @@ def _cmd_pilot(args: argparse.Namespace) -> int:
     try:
         report = run_pilot(
             args.target,
-            tool=args.tool,
+            tools=getattr(args, "tools", None),
             persona=getattr(args, "persona", DEFAULT_PERSONA),
         )
     except ValueError as exc:
