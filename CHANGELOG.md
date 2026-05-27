@@ -9,6 +9,12 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Multi-tool projects: `--tool` accepts a list.** `coding-scaffold setup run
+  --tool codex --tool claude-code` (or `--tool codex,claude-code`) generates
+  both tools' adapters in a single pass. Supported on `setup run`,
+  `tools adapt`, `setup tool`, and `pilot`. Pilot prints a shared setup step
+  plus one per-tool agent step.
+
 - **`coding-scaffold tour`** — read-only five-screen walkthrough explaining what the
   tool does, the scaffold artifact families, the doctor/pilot/setup loop, the daily
   session/eval/team workflow, and where to go next. Never writes files; safe right
@@ -56,11 +62,22 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Breaking (single-key removal): `routing.json`, `project.json`, and pilot
+  JSON output now carry `tools` (a list) only.** The singular `tool` key is
+  gone. Read `tools[0]` if you need a single value. Legacy `project.json`
+  files with `tool` are back-filled on read for one release window
+  (removed in 0.7.0). See [Upgrading](docs/docs/wiki/Upgrading.md).
+
 - **Unified error message style.** New `src/coding_scaffold/errors.py` exposes
   `fail_with(cause, next_step, link=None)` so CLI failure paths share a
   three-line shape (`error: ... / next: ... / see: ...`). Documented in
   [Errors and Recovery](docs/docs/wiki/Errors-and-Recovery.md). Closes
   [#92](https://github.com/JRS1986/CodingScaffold/issues/92).
+
+### Deprecated
+
+- **`--tool both`** is deprecated and will be removed in 0.7.0. Use
+  `--tool opencode,openclaude` instead.
 
 ### Documentation
 

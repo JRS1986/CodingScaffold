@@ -145,6 +145,43 @@ to `policy.network.allowlist`", and your update produced
 rename. Merge by renaming the key in your edited file and dropping the
 sidecar.
 
+## Breaking change in 0.6.0 — singular `tool` JSON key removed
+
+`routing.json`, `project.json`, and the pilot JSON output used to carry a
+singular `tool` key. These are gone — only `tools` (a list) remains. The
+migration is a one-line change for any script that read them:
+
+```python
+# Before
+config["tool"]            # "codex"
+
+# After
+config["tools"][0]        # "codex"
+```
+
+Legacy `project.json` files written by 0.5.x (with `tool` instead of `tools`)
+are back-filled when `setup update` reads them, so existing projects upgrade
+cleanly. The back-fill is removed in 0.7.0.
+
+## Breaking change planned for 0.7.0 — `--tool both` removed
+
+`--tool both` is currently a deprecated alias for `--tool opencode,openclaude`
+and prints a warning when used. In 0.7.0 it is removed entirely.
+
+Update any scripts or CI invocations now:
+
+```bash
+# Before
+coding-scaffold setup run --tool both
+
+# After
+coding-scaffold setup run --tool opencode,openclaude
+```
+
+The `_normalize_persisted_intake` back-fill helper also lands its sunset
+in 0.7.0; any `project.json` file still on the legacy `tool` shape must be
+upgraded by running `setup update` in 0.6.x first.
+
 ## When `setup update` is not the right tool
 
 - **First-time setup** → use `setup run`, not `setup update`. `update` needs an
