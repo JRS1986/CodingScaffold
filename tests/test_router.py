@@ -153,3 +153,32 @@ def test_low_memory_machine_has_no_local_model_candidate(hardware_profile) -> No
 
     assert plan.weak_model is None
     assert plan.strong_model is None
+
+
+def test_routing_plan_to_dict_includes_tools_list_only(hardware_profile) -> None:
+    """Spec §5.2: routing.json carries `tools` (a list); no singular `tool`."""
+
+    plan = build_routing_plan(
+        IntakeAnswers(tools=["codex", "claude-code"], language="python"),
+        hardware_profile(cpu_count=4, ram_gb=8, llmfit_available=False, local_runtimes=[]),
+        [],
+    )
+
+    assert plan.tools == ["codex", "claude-code"]
+    payload = plan.to_dict()
+    assert payload["tools"] == ["codex", "claude-code"]
+    assert "tool" not in payload, "singular `tool` must be gone from routing.json"
+
+
+def test_routing_plan_tools_defaults_to_intake_default(hardware_profile) -> None:
+    """When the user picks no tool, IntakeAnswers defaults to ['opencode'];
+    routing.json must mirror that, not the empty list."""
+
+    plan = build_routing_plan(
+        IntakeAnswers(),  # default tools = ["opencode"]
+        hardware_profile(cpu_count=4, ram_gb=8, llmfit_available=False, local_runtimes=[]),
+        [],
+    )
+
+    assert plan.tools == ["opencode"]
+    assert plan.to_dict()["tools"] == ["opencode"]

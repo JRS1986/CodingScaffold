@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from .hardware import HardwareProfile
 from .intake import IntakeAnswers
@@ -24,6 +24,12 @@ class RoutingPlan:
     cloud_model_family: str | None
     route_rules: list[str]
     model_policy: dict[str, object]
+    # `tools` mirrors the project's intake selection so consumers of routing.json
+    # can answer "which coding tools is this project configured for?" without
+    # also having to read project.json. Multi-tool projects (e.g. codex +
+    # claude-code) carry both entries; the singular `tool` key from the legacy
+    # 0.5.x shape is intentionally absent — see spec §5.2.
+    tools: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -61,6 +67,7 @@ def build_routing_plan(
         local_endpoint=local_endpoint,
         cloud_provider=None if privacy == "local-only" else cloud_provider,
         cloud_model_family=None if privacy == "local-only" else cloud_family,
+        tools=list(intake.tools),
         route_rules=[
             "Use weak/local model for short edits, explanation, search, formatting, and tests.",
             "Use strong model for architecture, multi-file refactors, security, migrations, and failed attempts.",
