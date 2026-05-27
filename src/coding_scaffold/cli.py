@@ -183,11 +183,21 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--tool", choices=CODING_TOOLS)
-    init.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    init.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
+    init.add_argument(
+        "--agent",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
     init.add_argument(
         "--coding-tool",
-        choices=CODING_TOOLS,
+        action="append",
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -214,10 +224,15 @@ def build_parser() -> argparse.ArgumentParser:
     wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument("--tool", choices=CODING_TOOLS)
+    wizard.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     wizard.add_argument(
         "--coding-tool",
-        choices=CODING_TOOLS,
+        action="append",
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -553,7 +568,12 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     setup_tool = sub.add_parser("setup-tool", help=argparse.SUPPRESS)
-    setup_tool.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    setup_tool.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     setup_tool.add_argument(
         "--install",
         action="store_true",
@@ -693,7 +713,12 @@ def build_parser() -> argparse.ArgumentParser:
     tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
     tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
     tools_adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    tools_adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    tools_adapt.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
     tools_route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
@@ -712,7 +737,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
     adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    adapt.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
 
     route = sub.add_parser("route", help=argparse.SUPPRESS)
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -799,6 +829,26 @@ def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None
     ]
 
 
+def _normalize_args_tools_in_place(args: argparse.Namespace) -> int | None:
+    """If args carries ``tool`` from ``action='append'``, normalize it into a
+    canonical ``tools`` list via :func:`normalize_tools`. Surfaces that don't
+    accept ``--tool`` leave *args* untouched.
+
+    Returns ``1`` when the combination is invalid (e.g. ``manual`` mixed with a
+    real tool) — the caller should propagate this as the process exit code.
+    Returns ``None`` on success.
+    """
+    if not hasattr(args, "tool"):
+        return None
+    from .errors import CliError, fail_with
+
+    try:
+        args.tools = normalize_tools(getattr(args, "tool", None))
+    except CliError as exc:
+        fail_with(cause=exc.cause, next_step=exc.next_step, link=exc.link)
+    return None
+
+
 def _apply_help_registry(parser: argparse.ArgumentParser) -> None:
     """Walk the subparser tree and apply description/epilog from cli_help.HELP_REGISTRY.
 
@@ -882,9 +932,24 @@ def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     parser.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     parser.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    parser.add_argument("--tool", choices=CODING_TOOLS)
-    parser.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
-    parser.add_argument("--coding-tool", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
+    parser.add_argument(
+        "--agent",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--coding-tool",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--preferred-local-model", help="Preferred local model name.")
     parser.add_argument("--mode", choices=["standard", "beginner"], default=None)
     parser.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
@@ -911,7 +976,12 @@ def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_setup_tool_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    parser.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     parser.add_argument(
         "--install",
         action="store_true",
@@ -1682,14 +1752,18 @@ def _cmd_orchestrate(args: argparse.Namespace) -> int:
 
 
 def _cmd_setup_tool(args: argparse.Namespace) -> int:
-    results = install_missing_tools(
-        args.tool,
-        interactive=sys.stdin.isatty(),
-        assume_yes=args.install,
-    )
-    for result in results:
+    all_results = []
+    for tool in args.tools:
+        all_results.extend(
+            install_missing_tools(
+                tool,
+                interactive=sys.stdin.isatty(),
+                assume_yes=args.install,
+            )
+        )
+    for result in all_results:
         print(f"{result.tool}: {result.status} - {result.message}")
-    return 1 if any(result.status == "failed" for result in results) else 0
+    return 1 if any(result.status == "failed" for result in all_results) else 0
 
 
 def _cmd_setup_addon(args: argparse.Namespace) -> int:
@@ -1886,7 +1960,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
 
 
 def _cmd_adapt(args: argparse.Namespace) -> int:
-    result = write_tool_adapter(args.target, args.tool)
+    result = write_tool_adapter(args.target, args.tools)
     print(f"Wrote {len(result.files)} adapter file(s).")
     if result.skipped:
         print(f"Skipped {len(result.skipped)} existing file(s).")
@@ -1926,7 +2000,7 @@ def _cmd_workflow(args: argparse.Namespace) -> int:
 def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
     is_wizard = args.command == "wizard"
-    # normalize_tools(None) already defaults to DEFAULT_TOOLS — no ternary needed.
+    # args.tools is already normalized by _normalize_args_tools_in_place in main().
     answers = collect_intake(
         target=target,
         provided=IntakeAnswers(
@@ -1934,7 +2008,7 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
             project_target=getattr(args, "project_target", None),
             existing_codebase=getattr(args, "existing_codebase", False) or None,
             privacy=getattr(args, "privacy", None),
-            tools=normalize_tools(getattr(args, "tool", None)),
+            tools=getattr(args, "tools", None),
             preferred_local_model=getattr(args, "preferred_local_model", None),
             mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
         ),
@@ -2031,6 +2105,10 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _normalize_grouped_command(args)
+    try:
+        _normalize_args_tools_in_place(args)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 1
     handler = COMMANDS.get(args.command)
     return handler(args) if handler else 2
 
