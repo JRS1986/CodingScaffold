@@ -829,24 +829,24 @@ def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None
     ]
 
 
-def _normalize_args_tools_in_place(args: argparse.Namespace) -> int | None:
+def _normalize_args_tools_in_place(args: argparse.Namespace) -> None:
     """If args carries ``tool`` from ``action='append'``, normalize it into a
     canonical ``tools`` list via :func:`normalize_tools`. Surfaces that don't
     accept ``--tool`` leave *args* untouched.
 
-    Returns ``1`` when the combination is invalid (e.g. ``manual`` mixed with a
-    real tool) — the caller should propagate this as the process exit code.
-    Returns ``None`` on success.
+    On invalid input (unknown tool, ``manual`` mixed with a real tool) this
+    calls :func:`coding_scaffold.errors.fail_with` which writes the three-line
+    error block to stderr and raises ``SystemExit(1)``. The caller (``main``)
+    catches that and converts it to its return value.
     """
     if not hasattr(args, "tool"):
-        return None
+        return
     from .errors import CliError, fail_with
 
     try:
         args.tools = normalize_tools(getattr(args, "tool", None))
     except CliError as exc:
         fail_with(cause=exc.cause, next_step=exc.next_step, link=exc.link)
-    return None
 
 
 def _apply_help_registry(parser: argparse.ArgumentParser) -> None:
