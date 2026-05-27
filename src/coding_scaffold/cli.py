@@ -2022,7 +2022,13 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
     routing = build_routing_plan(answers, hardware, providers)
     manifest = write_scaffold(target, answers, hardware, providers, routing)
     primary_tool = answers.tools[0] if answers.tools else "opencode"
-    install_results = _maybe_install_tools(primary_tool, args, is_wizard)
+    # Install every selected tool, not just the primary. The pilot recipe
+    # explicitly tells multi-tool users `setup run ... --install-tools` will
+    # install both — single-tool delegation broke that promise (see review
+    # of Bundle 7).
+    install_results = []
+    for tool_choice in answers.tools or [primary_tool]:
+        install_results.extend(_maybe_install_tools(tool_choice, args, is_wizard))
     addon_results = _maybe_install_addons(args, is_wizard, target)
     knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, primary_tool)
     adapter = write_tool_adapter(target, answers.tools) if primary_tool != "manual" else None
@@ -2030,7 +2036,15 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
         write_scaffold_version(target, [*manifest.files, *adapter.files])
     print(f"Wrote scaffold to {manifest.scaffold_dir}")
     if adapter:
-        print(f"Wrote {len(adapter.files)} tool adapter file(s)")
+        # Spec §6.3: surface the multi-tool count in the summary when applicable.
+        non_manual_tools = [t for t in answers.tools if t != "manual"]
+        if len(non_manual_tools) > 1:
+            print(
+                f"Wrote {len(adapter.files)} tool adapter file(s) across "
+                f"{len(non_manual_tools)} tool(s): {', '.join(non_manual_tools)}"
+            )
+        else:
+            print(f"Wrote {len(adapter.files)} tool adapter file(s)")
     else:
         print("Skipped tool adapter generation.")
     for result in install_results:

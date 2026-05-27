@@ -132,3 +132,42 @@ def test_legacy_project_json_with_singular_tool_still_updates(tmp_path: Path) ->
         new_payload = json.loads(project_json.read_text())
     assert "tools" in new_payload
     assert new_payload["tools"] == ["codex"]
+
+
+def test_install_tools_loops_over_every_selected_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: --install-tools must install EVERY tool in --tool, not just
+    the first one. The pilot recipe promises this in spec §7.1 line 231."""
+
+    from coding_scaffold import installers
+    install_calls: list[str] = []
+
+    class _FakeResult:
+        def __init__(self, tool: str) -> None:
+            self.tool = tool
+            self.status = "installed"
+            self.message = "fake"
+
+    def fake_install_missing_tools(selection: str, *, interactive: bool, assume_yes: bool):
+        install_calls.append(selection)
+        return [_FakeResult(selection)]
+
+    monkeypatch.setattr(installers, "install_missing_tools", fake_install_missing_tools)
+    # The CLI imports the symbol directly, so patch the import site too.
+    from coding_scaffold import cli as cli_module
+    monkeypatch.setattr(cli_module, "install_missing_tools", fake_install_missing_tools)
+
+    rc = main([
+        "setup", "run",
+        "--target", str(tmp_path),
+        "--tool", "codex",
+        "--tool", "claude-code",
+        "--install-tools",
+        "--non-interactive",
+    ])
+    assert rc == 0
+    # Both tools were offered for install — not just codex.
+    assert install_calls == ["codex", "claude-code"], (
+        f"--install-tools should loop over every selected tool, got {install_calls}"
+    )
