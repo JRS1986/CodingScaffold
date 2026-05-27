@@ -121,9 +121,11 @@ class IntakeAnswers:
     def agent(self) -> str | None:
         """First tool, or None if the list is empty.
 
-        Adapter selection elsewhere reads `.agent`; preserving the property keeps
-        those call-sites stable while the migration to `.tools` lands across the
-        rest of the codebase.
+        No production call site currently reads this. It is retained as a
+        migration safety net for downstream library callers / external scripts
+        that still expect the historical attribute name, and as a single point
+        to remove when the back-compat window closes alongside `--tool both`
+        in 0.7.0.
         """
 
         return self.tools[0] if self.tools else None
@@ -133,16 +135,19 @@ def _normalize_persisted_intake(payload: dict[str, object]) -> dict[str, object]
     """Migrate a persisted intake payload to the canonical `tools` shape.
 
     Legacy `.coding-scaffold/project.json` files written before 0.6.0 carry
-    `tool: "opencode"` (singular). New files carry `tools: ["opencode", ...]`.
-    Returns a payload with only `tools` populated.
+    `tool: "opencode"` (singular). Even older files used the `agent` alias.
+    New files carry `tools: ["opencode", ...]`. Returns a payload with only
+    `tools` populated; legacy `tool` and `agent` keys are stripped.
 
     Removed in 0.7.0 once the migration window closes; see Upgrading.md.
     """
 
     result = dict(payload)
-    legacy = result.pop("tool", None)
+    legacy_tool = result.pop("tool", None)
+    legacy_agent = result.pop("agent", None)
     if "tools" in result:
         return result
+    legacy = legacy_tool or legacy_agent
     if legacy:
         result["tools"] = [str(legacy)]
     else:

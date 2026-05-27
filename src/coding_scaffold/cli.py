@@ -70,7 +70,7 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
-from .intake import DEFAULT_TOOLS, IntakeAnswers, _normalize_persisted_intake, collect_intake
+from .intake import DEFAULT_TOOLS, IntakeAnswers, collect_intake, normalize_tools
 from .knowledge import (
     distill_knowledge,
     inspect_knowledge_status,
@@ -1926,9 +1926,7 @@ def _cmd_workflow(args: argparse.Namespace) -> int:
 def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
     is_wizard = args.command == "wizard"
-    from .intake import normalize_tools
-
-    raw_tool_arg = getattr(args, "tool", None)
+    # normalize_tools(None) already defaults to DEFAULT_TOOLS — no ternary needed.
     answers = collect_intake(
         target=target,
         provided=IntakeAnswers(
@@ -1936,7 +1934,7 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
             project_target=getattr(args, "project_target", None),
             existing_codebase=getattr(args, "existing_codebase", False) or None,
             privacy=getattr(args, "privacy", None),
-            tools=normalize_tools(raw_tool_arg) if raw_tool_arg else list(DEFAULT_TOOLS),
+            tools=normalize_tools(getattr(args, "tool", None)),
             preferred_local_model=getattr(args, "preferred_local_model", None),
             mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
         ),
@@ -2168,6 +2166,12 @@ def _load_routing_or_probe(target: Path) -> RoutingPlan:
 
 
 def _load_project_intake(target: Path) -> IntakeAnswers:
+    # `_normalize_persisted_intake` is the underscore-prefixed back-fill helper
+    # that handles legacy project.json shapes (singular `tool` or `agent`). It
+    # is sunset in 0.7.0 alongside `--tool both`, so the import is scoped here
+    # rather than at module level to signal its temporary nature.
+    from .intake import _normalize_persisted_intake
+
     path = target / ".coding-scaffold" / "project.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -2176,9 +2180,11 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
     if not isinstance(payload, dict):
         return collect_intake(target, IntakeAnswers(), interactive=False)
     payload = _normalize_persisted_intake(payload)
-    tools_value = payload.get("tools") or (
-        [_string_or_none(payload.get("agent"))] if payload.get("agent") else None
-    )
+    # After back-fill, payload["tools"] is always populated by the helper.
+    raw_tools = payload.get("tools")
+    if not isinstance(raw_tools, list):
+        raw_tools = []
+    tools = [t for t in raw_tools if isinstance(t, str) and t] or list(DEFAULT_TOOLS)
     return collect_intake(
         target,
         IntakeAnswers(
@@ -2186,7 +2192,7 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
             project_target=_string_or_none(payload.get("project_target")),
             existing_codebase=_bool_or_none(payload.get("existing_codebase")),
             privacy=_string_or_none(payload.get("privacy")),
-            tools=[t for t in (tools_value or []) if t] or list(DEFAULT_TOOLS),
+            tools=tools,
             preferred_local_model=_string_or_none(payload.get("preferred_local_model")),
             mode=_string_or_none(payload.get("mode")),
         ),

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import coding_scaffold.intake as intake_module
 from coding_scaffold.intake import (
     IntakeAnswers,
@@ -123,10 +121,20 @@ def test_normalize_persisted_intake_passes_through_modern_payload() -> None:
     assert _normalize_persisted_intake(modern) == modern
 
 
-def test_normalize_persisted_intake_handles_missing_tool(tmp_path: Path) -> None:
+def test_normalize_persisted_intake_handles_missing_tool() -> None:
     no_tool = {"language": "python"}
     normalized = _normalize_persisted_intake(no_tool)
     assert normalized["tools"] == ["opencode"]
+
+
+def test_normalize_persisted_intake_back_fills_legacy_agent_key() -> None:
+    """Even older project.json files used `agent` instead of `tool`."""
+
+    legacy = {"language": "python", "agent": "opencode"}
+    normalized = _normalize_persisted_intake(legacy)
+    assert normalized["tools"] == ["opencode"]
+    assert "agent" not in normalized
+    assert "tool" not in normalized
 
 
 def test_intake_answers_default_tools_is_opencode() -> None:
