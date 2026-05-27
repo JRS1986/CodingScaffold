@@ -16,12 +16,14 @@ class AdapterResult:
     skipped: list[Path]
 
 
-def write_tool_adapter(target: Path, tool: str) -> AdapterResult:
+def write_tool_adapter(target: Path, tool: str | list[str]) -> AdapterResult:
+    from .intake import normalize_tools
+
     root = target.expanduser().resolve()
     files: list[Path] = []
     skipped: list[Path] = []
     routing = load_routing_payload(root)
-    tools = ["opencode", "openclaude"] if tool == "both" else [tool]
+    tools = normalize_tools(tool)
     for selected in tools:
         if selected == "opencode":
             result = _write_opencode(root, routing)

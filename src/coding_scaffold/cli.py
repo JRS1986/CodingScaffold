@@ -45,7 +45,7 @@ from .memory import (
 )
 from .doctor import format_doctor_text, run_doctor
 from .personas import PERSONAS as _PERSONAS, DEFAULT_PERSONA
-from .pilot import SUPPORTED_TOOLS as PILOT_SUPPORTED_TOOLS, format_pilot_text, run_pilot
+from .pilot import format_pilot_text, run_pilot
 from .tour import format_tour
 from .pr_template import write_pr_template
 from .session import (
@@ -70,7 +70,7 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
-from .intake import IntakeAnswers, collect_intake
+from .intake import DEFAULT_TOOLS, IntakeAnswers, collect_intake, normalize_tools
 from .knowledge import (
     distill_knowledge,
     inspect_knowledge_status,
@@ -183,11 +183,21 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument("--tool", choices=CODING_TOOLS)
-    init.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    init.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
+    init.add_argument(
+        "--agent",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
     init.add_argument(
         "--coding-tool",
-        choices=CODING_TOOLS,
+        action="append",
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -214,10 +224,15 @@ def build_parser() -> argparse.ArgumentParser:
     wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
     wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument("--tool", choices=CODING_TOOLS)
+    wizard.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     wizard.add_argument(
         "--coding-tool",
-        choices=CODING_TOOLS,
+        action="append",
         dest="tool",
         help=argparse.SUPPRESS,
     )
@@ -553,7 +568,12 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     setup_tool = sub.add_parser("setup-tool", help=argparse.SUPPRESS)
-    setup_tool.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    setup_tool.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     setup_tool.add_argument(
         "--install",
         action="store_true",
@@ -693,7 +713,12 @@ def build_parser() -> argparse.ArgumentParser:
     tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
     tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
     tools_adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    tools_adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    tools_adapt.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
     tools_route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
@@ -712,7 +737,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
     adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    adapt.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    adapt.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
 
     route = sub.add_parser("route", help=argparse.SUPPRESS)
     route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
@@ -757,9 +787,12 @@ def build_parser() -> argparse.ArgumentParser:
     pilot.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
     pilot.add_argument(
         "--tool",
-        choices=list(PILOT_SUPPORTED_TOOLS),
-        default="opencode",
-        help="Coding tool to weave into the recipe (default: opencode).",
+        # `choices=` removed — comma-separated values would fail validation here;
+        # normalize_tools validates against VALID_TOOLS instead.
+        action="append",
+        default=None,
+        help="Coding tool(s) to weave into the recipe (default: opencode). "
+             "Repeat or comma-separate for multi-tool projects.",
     )
     pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     pilot.add_argument(
@@ -797,6 +830,26 @@ def _hide_suppressed_subcommands(subparsers: argparse._SubParsersAction) -> None
     subparsers._choices_actions = [  # noqa: SLF001 - argparse has no public hook for this.
         action for action in subparsers._choices_actions if action.help is not argparse.SUPPRESS
     ]
+
+
+def _normalize_args_tools_in_place(args: argparse.Namespace) -> None:
+    """If args carries ``tool`` from ``action='append'``, normalize it into a
+    canonical ``tools`` list via :func:`normalize_tools`. Surfaces that don't
+    accept ``--tool`` leave *args* untouched.
+
+    On invalid input (unknown tool, ``manual`` mixed with a real tool) this
+    calls :func:`coding_scaffold.errors.fail_with` which writes the three-line
+    error block to stderr and raises ``SystemExit(1)``. The caller (``main``)
+    catches that and converts it to its return value.
+    """
+    if not hasattr(args, "tool"):
+        return
+    from .errors import CliError, fail_with
+
+    try:
+        args.tools = normalize_tools(getattr(args, "tool", None))
+    except CliError as exc:
+        fail_with(cause=exc.cause, next_step=exc.next_step, link=exc.link)
 
 
 def _apply_help_registry(parser: argparse.ArgumentParser) -> None:
@@ -882,9 +935,24 @@ def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     parser.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
     parser.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    parser.add_argument("--tool", choices=CODING_TOOLS)
-    parser.add_argument("--agent", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
-    parser.add_argument("--coding-tool", choices=CODING_TOOLS, dest="tool", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
+    parser.add_argument(
+        "--agent",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--coding-tool",
+        action="append",
+        dest="tool",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--preferred-local-model", help="Preferred local model name.")
     parser.add_argument("--mode", choices=["standard", "beginner"], default=None)
     parser.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
@@ -911,7 +979,12 @@ def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_setup_tool_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--tool", choices=INSTALLABLE_TOOLS, default="opencode")
+    parser.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
     parser.add_argument(
         "--install",
         action="store_true",
@@ -1133,7 +1206,7 @@ def _cmd_pilot(args: argparse.Namespace) -> int:
     try:
         report = run_pilot(
             args.target,
-            tool=args.tool,
+            tools=getattr(args, "tools", None),
             persona=getattr(args, "persona", DEFAULT_PERSONA),
         )
     except ValueError as exc:
@@ -1682,14 +1755,18 @@ def _cmd_orchestrate(args: argparse.Namespace) -> int:
 
 
 def _cmd_setup_tool(args: argparse.Namespace) -> int:
-    results = install_missing_tools(
-        args.tool,
-        interactive=sys.stdin.isatty(),
-        assume_yes=args.install,
-    )
-    for result in results:
+    all_results = []
+    for tool in args.tools:
+        all_results.extend(
+            install_missing_tools(
+                tool,
+                interactive=sys.stdin.isatty(),
+                assume_yes=args.install,
+            )
+        )
+    for result in all_results:
         print(f"{result.tool}: {result.status} - {result.message}")
-    return 1 if any(result.status == "failed" for result in results) else 0
+    return 1 if any(result.status == "failed" for result in all_results) else 0
 
 
 def _cmd_setup_addon(args: argparse.Namespace) -> int:
@@ -1886,7 +1963,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
 
 
 def _cmd_adapt(args: argparse.Namespace) -> int:
-    result = write_tool_adapter(args.target, args.tool)
+    result = write_tool_adapter(args.target, args.tools)
     print(f"Wrote {len(result.files)} adapter file(s).")
     if result.skipped:
         print(f"Skipped {len(result.skipped)} existing file(s).")
@@ -1926,6 +2003,7 @@ def _cmd_workflow(args: argparse.Namespace) -> int:
 def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
     is_wizard = args.command == "wizard"
+    # args.tools is already normalized by _normalize_args_tools_in_place in main().
     answers = collect_intake(
         target=target,
         provided=IntakeAnswers(
@@ -1933,7 +2011,7 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
             project_target=getattr(args, "project_target", None),
             existing_codebase=getattr(args, "existing_codebase", False) or None,
             privacy=getattr(args, "privacy", None),
-            tool=getattr(args, "tool", None),
+            tools=getattr(args, "tools", None),
             preferred_local_model=getattr(args, "preferred_local_model", None),
             mode="beginner" if getattr(args, "beginner", False) else getattr(args, "mode", None),
         ),
@@ -1943,16 +2021,30 @@ def _cmd_init_or_wizard(args: argparse.Namespace) -> int:
     providers = detect_providers(load_local_credentials(target))
     routing = build_routing_plan(answers, hardware, providers)
     manifest = write_scaffold(target, answers, hardware, providers, routing)
-    selected_tool = answers.tool or "opencode"
-    install_results = _maybe_install_tools(selected_tool, args, is_wizard)
+    primary_tool = answers.tools[0] if answers.tools else "opencode"
+    # Install every selected tool, not just the primary. The pilot recipe
+    # explicitly tells multi-tool users `setup run ... --install-tools` will
+    # install both — single-tool delegation broke that promise (see review
+    # of Bundle 7).
+    install_results = []
+    for tool_choice in answers.tools or [primary_tool]:
+        install_results.extend(_maybe_install_tools(tool_choice, args, is_wizard))
     addon_results = _maybe_install_addons(args, is_wizard, target)
-    knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, selected_tool)
-    adapter = write_tool_adapter(target, selected_tool) if selected_tool != "manual" else None
+    knowledge_result = _maybe_setup_knowledge(args, is_wizard, target, primary_tool)
+    adapter = write_tool_adapter(target, answers.tools) if primary_tool != "manual" else None
     if adapter:
         write_scaffold_version(target, [*manifest.files, *adapter.files])
     print(f"Wrote scaffold to {manifest.scaffold_dir}")
     if adapter:
-        print(f"Wrote {len(adapter.files)} tool adapter file(s)")
+        # Spec §6.3: surface the multi-tool count in the summary when applicable.
+        non_manual_tools = [t for t in answers.tools if t != "manual"]
+        if len(non_manual_tools) > 1:
+            print(
+                f"Wrote {len(adapter.files)} tool adapter file(s) across "
+                f"{len(non_manual_tools)} tool(s): {', '.join(non_manual_tools)}"
+            )
+        else:
+            print(f"Wrote {len(adapter.files)} tool adapter file(s)")
     else:
         print("Skipped tool adapter generation.")
     for result in install_results:
@@ -2030,6 +2122,10 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _normalize_grouped_command(args)
+    try:
+        _normalize_args_tools_in_place(args)
+    except SystemExit as exc:
+        return int(exc.code) if exc.code is not None else 1
     handler = COMMANDS.get(args.command)
     return handler(args) if handler else 2
 
@@ -2165,6 +2261,12 @@ def _load_routing_or_probe(target: Path) -> RoutingPlan:
 
 
 def _load_project_intake(target: Path) -> IntakeAnswers:
+    # `_normalize_persisted_intake` is the underscore-prefixed back-fill helper
+    # that handles legacy project.json shapes (singular `tool` or `agent`). It
+    # is sunset in 0.7.0 alongside `--tool both`, so the import is scoped here
+    # rather than at module level to signal its temporary nature.
+    from .intake import _normalize_persisted_intake
+
     path = target / ".coding-scaffold" / "project.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -2172,6 +2274,12 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
         return collect_intake(target, IntakeAnswers(), interactive=False)
     if not isinstance(payload, dict):
         return collect_intake(target, IntakeAnswers(), interactive=False)
+    payload = _normalize_persisted_intake(payload)
+    # After back-fill, payload["tools"] is always populated by the helper.
+    raw_tools = payload.get("tools")
+    if not isinstance(raw_tools, list):
+        raw_tools = []
+    tools = [t for t in raw_tools if isinstance(t, str) and t] or list(DEFAULT_TOOLS)
     return collect_intake(
         target,
         IntakeAnswers(
@@ -2179,7 +2287,7 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
             project_target=_string_or_none(payload.get("project_target")),
             existing_codebase=_bool_or_none(payload.get("existing_codebase")),
             privacy=_string_or_none(payload.get("privacy")),
-            tool=_string_or_none(payload.get("tool") or payload.get("agent")),
+            tools=tools,
             preferred_local_model=_string_or_none(payload.get("preferred_local_model")),
             mode=_string_or_none(payload.get("mode")),
         ),

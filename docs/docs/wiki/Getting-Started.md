@@ -24,6 +24,23 @@ to when you actually need it. The other commands (`policy`, `mcp`, `skills`, `me
 `doctor` lists them under "Ignore for now (advanced)" so you don't have to track them
 yourself.
 
+### Two tools in one repo
+
+If you use more than one coding tool on the same project (e.g., Codex + Claude
+Code), pass `--tool` for each one in a single setup run:
+
+```bash
+coding-scaffold setup run --target . --tool codex --tool claude-code --mode beginner
+# or equivalently:
+coding-scaffold setup run --target . --tool codex,claude-code --mode beginner
+```
+
+`AGENTS.md` (Codex's project rules) and `CLAUDE.md` (Claude Code's project
+rules) are both generated; `setup update` keeps them in sync.
+
+`coding-scaffold pilot --target . --tool codex,claude-code` prints one shared
+setup step plus a per-tool agent step at the bottom.
+
 ### Persona-targeted output
 
 `doctor` and `pilot` accept `--persona {beginner,control,security,team-lead}` to scope the

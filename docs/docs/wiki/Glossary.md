@@ -69,6 +69,14 @@ Reviewable memory entries the agent can recall: `memory capture` proposes one,
 `memory audit` lists what is in effect. Distinct from knowledge: memory is short
 runtime hints; knowledge is shared documentation.
 
+## multi-tool project
+
+A project configured with more than one coding tool — e.g., Codex + Claude
+Code in the same repo. Generated via `coding-scaffold setup run --tool codex
+--tool claude-code` (or comma-separated). Each tool gets its native adapter
+files (e.g., `AGENTS.md` for Codex, `CLAUDE.md` for Claude Code) generated
+side-by-side; `setup update` keeps them in sync going forward.
+
 ## orchestration
 
 A multi-step recipe a tool can drive (`tools orchestrate`). Distinct from a single

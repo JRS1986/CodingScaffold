@@ -84,7 +84,7 @@ def intake_answers() -> Callable[..., IntakeAnswers]:
         project_target: str = "CLI",
         existing_codebase: bool = True,
         privacy: str = "local-first",
-        tool: str = "manual",
+        tools: list[str] | None = None,
         preferred_local_model: str | None = None,
         mode: str | None = None,
     ) -> IntakeAnswers:
@@ -93,7 +93,7 @@ def intake_answers() -> Callable[..., IntakeAnswers]:
             project_target=project_target,
             existing_codebase=existing_codebase,
             privacy=privacy,
-            tool=tool,
+            tools=["manual"] if tools is None else tools,
             preferred_local_model=preferred_local_model,
             mode=mode,
         )
@@ -138,7 +138,7 @@ def scaffold_inputs(
 ) -> Callable[..., ScaffoldInputs]:
     def factory(language: str = "python", tool: str | None = "manual") -> ScaffoldInputs:
         return ScaffoldInputs(
-            intake=intake_answers(language=language, tool=tool),
+            intake=intake_answers(language=language, tools=[tool] if tool else ["manual"]),
             hardware=hardware_profile(),
             providers=[local_provider],
             routing=routing_plan_factory(route_threshold=0.1),

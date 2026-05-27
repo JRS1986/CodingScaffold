@@ -279,7 +279,7 @@ def _agents_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
 
 
 def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
-    selected_tool = intake.tool or "opencode"
+    selected_tool = intake.tools[0] if intake.tools else "opencode"
     setup_hint = (
         "Validate or install the selected coding environment with "
         f"`coding-scaffold setup tool --tool {selected_tool}`."
@@ -292,7 +292,7 @@ def _getting_started_md(intake: IntakeAnswers, routing: RoutingPlan) -> str:
         language=intake.language,
         project_target=intake.project_target,
         privacy=intake.privacy,
-        tool=intake.tool,
+        tool=selected_tool,
         mode=intake.mode,
         weak_model=routing.weak_model,
         strong_model=routing.strong_model,

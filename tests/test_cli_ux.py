@@ -189,7 +189,10 @@ def test_pilot_environment_not_ok_when_selected_tool_missing(
     report = run_pilot(tmp_path, tool="opencode")
     assert report.environment["git"] is True
     assert report.environment["local_runtime_cli"] == ["ollama"]
-    tool_info = report.environment["tool"]
+    tool_entries = report.environment["tools"]
+    assert isinstance(tool_entries, list)
+    assert len(tool_entries) == 1
+    tool_info = tool_entries[0]
     assert isinstance(tool_info, dict)
     assert tool_info["installed"] is False
     assert report.environment_ok is False
@@ -203,7 +206,7 @@ def test_pilot_rejects_unknown_tool(tmp_path: Path) -> None:
 def test_pilot_supports_every_known_tool(tmp_path: Path) -> None:
     for tool in SUPPORTED_TOOLS:
         report = run_pilot(tmp_path, tool=tool)
-        assert report.tool == tool
+        assert report.tools == [tool]
         assert any(tool in step for step in report.steps), (
             f"recipe for tool {tool!r} should mention the tool name"
         )
@@ -216,7 +219,7 @@ def test_pilot_cli_json_output(
     captured = capsys.readouterr()
     assert rc == 0
     payload = json.loads(captured.out)
-    assert payload["tool"] == "claude-code"
+    assert payload["tools"] == ["claude-code"]
     assert "steps" in payload
     assert "ignore_for_now" in payload
 
@@ -234,6 +237,7 @@ def test_pilot_cli_text_output_runs(
 def test_pilot_cli_rejects_unknown_tool_via_argparse(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # argparse's choices= rejects the bad value before the handler runs.
-    with pytest.raises(SystemExit):
-        main(["pilot", "--target", str(tmp_path), "--tool", "not-a-tool"])
+    # normalize_tools validates tools and returns non-zero for unknown values.
+    # (Previously used argparse choices=; now validation runs in _normalize_args_tools_in_place.)
+    rc = main(["pilot", "--target", str(tmp_path), "--tool", "not-a-tool"])
+    assert rc != 0

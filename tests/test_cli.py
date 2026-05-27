@@ -502,3 +502,57 @@ def test_select_model_missing_prompt_returns_error(tmp_path, monkeypatch, capsys
 class _TtyInput(io.StringIO):
     def isatty(self) -> bool:
         return True
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — --tool becomes action="append" across 6 surfaces
+# ---------------------------------------------------------------------------
+
+
+def test_cli_setup_run_accepts_repeatable_tool_flag() -> None:
+    args = build_parser().parse_args(
+        ["setup", "run", "--tool", "codex", "--tool", "claude-code"]
+    )
+    # action="append" puts each value into a list; normalization happens later.
+    assert args.tool == ["codex", "claude-code"]
+
+
+def test_cli_setup_run_accepts_comma_separated_tool() -> None:
+    args = build_parser().parse_args(
+        ["setup", "run", "--tool", "codex,claude-code"]
+    )
+    assert args.tool == ["codex,claude-code"]
+
+
+def test_cli_main_normalizes_tools_into_args_tools() -> None:
+    """The post-parse step in main() turns args.tool into args.tools (canonical list)."""
+    import argparse
+
+    from coding_scaffold.cli import _normalize_args_tools_in_place
+
+    ns = argparse.Namespace(tool=["codex,claude-code"])
+    _normalize_args_tools_in_place(ns)
+    assert ns.tools == ["codex", "claude-code"]
+
+
+def test_cli_setup_tool_install_accepts_list_of_tools() -> None:
+    args = build_parser().parse_args(
+        ["setup", "tool", "--tool", "codex", "--tool", "claude-code", "--install"]
+    )
+    assert args.tool == ["codex", "claude-code"]
+
+
+def test_cli_tools_adapt_accepts_repeatable_tool_flag() -> None:
+    args = build_parser().parse_args(
+        ["tools", "adapt", "--tool", "codex", "--tool", "claude-code"]
+    )
+    assert args.tool == ["codex", "claude-code"]
+
+
+def test_cli_main_rejects_manual_with_real_tool(capsys, tmp_path) -> None:
+    rc = main(["setup", "run", "--tool", "manual", "--tool", "codex",
+               "--target", str(tmp_path), "--non-interactive"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "manual" in err.lower()
+    assert "next:" in err

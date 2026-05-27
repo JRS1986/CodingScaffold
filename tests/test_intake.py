@@ -1,5 +1,10 @@
 import coding_scaffold.intake as intake_module
-from coding_scaffold.intake import IntakeAnswers, _iter_project_files, collect_intake
+from coding_scaffold.intake import (
+    IntakeAnswers,
+    _iter_project_files,
+    _normalize_persisted_intake,
+    collect_intake,
+)
 
 
 def test_intake_ignores_generated_scaffold_files(tmp_path) -> None:
@@ -89,3 +94,49 @@ def test_collect_intake_skips_detection_when_language_provided(tmp_path, monkeyp
 
     assert answers.language == "python"
     assert answers.existing_codebase is False
+
+
+def test_intake_answers_carries_tools_list() -> None:
+    answers = IntakeAnswers(tools=["codex", "claude-code"])
+    assert answers.tools == ["codex", "claude-code"]
+    assert answers.agent == "codex"
+
+
+def test_intake_answers_to_dict_emits_tools_only() -> None:
+    answers = IntakeAnswers(tools=["codex"])
+    payload = answers.to_dict()
+    assert payload["tools"] == ["codex"]
+    assert "tool" not in payload, "singular `tool` must be gone from persisted form"
+
+
+def test_normalize_persisted_intake_back_fills_legacy_tool_key() -> None:
+    legacy = {"language": "python", "tool": "opencode"}
+    normalized = _normalize_persisted_intake(legacy)
+    assert normalized["tools"] == ["opencode"]
+    assert "tool" not in normalized, "back-fill must strip the legacy key after migrating"
+
+
+def test_normalize_persisted_intake_passes_through_modern_payload() -> None:
+    modern = {"language": "python", "tools": ["codex", "claude-code"]}
+    assert _normalize_persisted_intake(modern) == modern
+
+
+def test_normalize_persisted_intake_handles_missing_tool() -> None:
+    no_tool = {"language": "python"}
+    normalized = _normalize_persisted_intake(no_tool)
+    assert normalized["tools"] == ["opencode"]
+
+
+def test_normalize_persisted_intake_back_fills_legacy_agent_key() -> None:
+    """Even older project.json files used `agent` instead of `tool`."""
+
+    legacy = {"language": "python", "agent": "opencode"}
+    normalized = _normalize_persisted_intake(legacy)
+    assert normalized["tools"] == ["opencode"]
+    assert "agent" not in normalized
+    assert "tool" not in normalized
+
+
+def test_intake_answers_default_tools_is_opencode() -> None:
+    answers = IntakeAnswers()
+    assert answers.tools == ["opencode"]

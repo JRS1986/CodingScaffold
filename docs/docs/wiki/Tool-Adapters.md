@@ -7,6 +7,11 @@ OpenClaude, Hermes, and Pi remain lightweight guidance-first connectors.
 Adapters are where the scaffold hands off to tools that actually call models. Generating adapter
 files does not require an LLM; running an adapter session does.
 
+**Multi-tool projects:** every adapter listed here can be generated alongside
+another via `setup run --tool <a> --tool <b>` (or `--tool a,b`). Codex + Claude
+Code in the same repo is the most common pair; see
+[Getting-Started](./Getting-Started.md#two-tools-in-one-repo).
+
 ## OpenCode
 
 OpenCode is the recommended first adapter.
