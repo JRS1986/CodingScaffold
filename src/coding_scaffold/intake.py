@@ -8,20 +8,24 @@ from pathlib import Path
 from .context import IGNORED_PARTS
 from .errors import CliError
 
+# Canonical list of tool names the CLI accepts. Order matters for the
+# argparse `choices=...` ordering shown in --help. Single source of truth:
+# cli.py re-exports this as a `list[...]` for argparse and derives
+# INSTALLABLE_TOOLS from it. VALID_TOOLS below is derived too.
+CODING_TOOLS: tuple[str, ...] = (
+    "opencode", "claude-code", "codex", "openclaude", "hermes", "pi",
+    "both", "manual",
+)
+
 DEFAULT_TOOLS: tuple[str, ...] = ("opencode",)
+
 # Legacy `--tool both` literal expansion. Removed in 0.7.0 alongside the value
 # itself; see docs/docs/wiki/Upgrading.md.
 _BOTH_EXPANSION: tuple[str, ...] = ("opencode", "openclaude")
 
-# Canonical valid tool names. Kept in sync with `CODING_TOOLS` in cli.py
-# (the CLI's argparse `choices=` list). We can't import from cli.py here
-# without a circular dependency, so the list is duplicated — a test
-# (`tests/test_normalize_tools.py::test_valid_tools_matches_cli_coding_tools`)
-# asserts both sets stay in sync.
-VALID_TOOLS: frozenset[str] = frozenset({
-    "opencode", "claude-code", "codex", "openclaude", "hermes", "pi",
-    "both", "manual",
-})
+# Set lookup for normalize_tools' validation. Derived from CODING_TOOLS so
+# the two cannot drift.
+VALID_TOOLS: frozenset[str] = frozenset(CODING_TOOLS)
 
 # Single-fire deprecation warning state. Reset between tests via
 # `reset_deprecation_state()`.

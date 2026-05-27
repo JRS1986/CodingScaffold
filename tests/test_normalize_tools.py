@@ -111,16 +111,13 @@ def test_unknown_tool_in_mixed_list_raises_with_full_list() -> None:
     assert "wat" in excinfo.value.cause
 
 
-def test_valid_tools_matches_cli_coding_tools() -> None:
-    """Invariant: `VALID_TOOLS` in intake.py and `CODING_TOOLS` in cli.py
-    must stay in sync. cli.py can't import VALID_TOOLS without a circular
-    dependency, so the lists are duplicated — this test fails if they drift.
+def test_valid_tools_is_derived_from_coding_tools() -> None:
+    """As of v0.7.0 these are one source of truth — `VALID_TOOLS = frozenset(CODING_TOOLS)`.
+
+    A trivial assertion, but it pins the invariant so a future refactor can't
+    silently break the derivation.
     """
 
-    from coding_scaffold.cli import CODING_TOOLS
+    from coding_scaffold.intake import CODING_TOOLS
 
-    assert set(CODING_TOOLS) == set(VALID_TOOLS), (
-        f"CODING_TOOLS (cli.py) and VALID_TOOLS (intake.py) drifted:\n"
-        f"  only in CODING_TOOLS: {set(CODING_TOOLS) - set(VALID_TOOLS)}\n"
-        f"  only in VALID_TOOLS: {set(VALID_TOOLS) - set(CODING_TOOLS)}"
-    )
+    assert VALID_TOOLS == frozenset(CODING_TOOLS)

@@ -70,7 +70,13 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
-from .intake import DEFAULT_TOOLS, IntakeAnswers, collect_intake, normalize_tools
+from .intake import (
+    CODING_TOOLS as _CODING_TOOLS_TUPLE,
+    DEFAULT_TOOLS,
+    IntakeAnswers,
+    collect_intake,
+    normalize_tools,
+)
 from .knowledge import (
     distill_knowledge,
     inspect_knowledge_status,
@@ -99,8 +105,10 @@ from .team import (
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
-CODING_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both", "manual"]
-INSTALLABLE_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both"]
+# argparse `choices=` expects a list; the canonical tuple lives in intake.py.
+CODING_TOOLS = list(_CODING_TOOLS_TUPLE)
+# Installable subset: every coding tool except the special `manual` value.
+INSTALLABLE_TOOLS = [t for t in CODING_TOOLS if t != "manual"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
 KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace", "html"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
