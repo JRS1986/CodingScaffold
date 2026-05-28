@@ -7,6 +7,8 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-28
+
 ### Removed (breaking)
 
 - **`--tool both`** removed. The CLI now exits 1 with the three-line error
