@@ -89,6 +89,9 @@ def _write_cache(profile: HardwareProfile) -> None:
         "version": 1,
         "cached_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "key": _cache_key(),
+        # Use asdict() — NOT HardwareProfile.to_dict() — because to_dict()
+        # renames os_name → os for the public JSON shape, which would break
+        # the HardwareProfile(**profile) round-trip in _read_cache().
         "profile": asdict(profile),
     }
     try:
