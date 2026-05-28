@@ -7,6 +7,39 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed (breaking)
+
+- **`--tool both`** removed. The CLI now exits 1 with the three-line error
+  shape (`error: ... / next: use --tool opencode,openclaude / see: Upgrading`).
+  Deprecated in v0.6.0. See [Upgrading](docs/docs/wiki/Upgrading.md).
+- **`_normalize_persisted_intake` back-fill helper** removed. A `project.json`
+  written by 0.5.x that was never updated through 0.6.x now silently ignores
+  its legacy `tool` / `agent` keys and falls back to `DEFAULT_TOOLS`
+  (`opencode`). Re-run `coding-scaffold setup run` to regenerate.
+- **`IntakeAnswers.agent` property** removed. Use `IntakeAnswers.tools[0]`.
+- **Stale `"both"`-handling branches** in `installers.py:build_install_plans`
+  and `cli.py:_maybe_setup_knowledge` cleaned up — dead code post-removal.
+
+### Changed
+
+- **`probe_hardware()` is now cached** at
+  `$XDG_CACHE_HOME/coding-scaffold/hardware.json` (default `~/.cache/...`)
+  with a 1-hour TTL keyed on OS / arch / Python version. Warm-call
+  performance: `doctor` 243ms → 78ms median (**3.1×**); `pilot` 235ms →
+  79ms (**3.0×**). New `--no-probe-cache` flag on `doctor` / `pilot` /
+  `probe` forces a fresh probe (use after installing a new local runtime
+  like `ollama`).
+- **`CODING_TOOLS` / `VALID_TOOLS` consolidated.** `intake.py` holds the
+  canonical tuple; `cli.py` re-exports it as a list for argparse and
+  derives `INSTALLABLE_TOOLS`. `VALID_TOOLS = frozenset(CODING_TOOLS)`.
+  The drift-detection test that policed the previous duplication is
+  replaced with a one-line derivation invariant.
+
+### Tests
+
+- **pytest-xdist enabled** (`addopts = "-n auto"`). Test suite ~22s → **~3s**
+  with parallel workers; 637 tests pass.
+
 ## [0.6.0] — 2026-05-27
 
 ### Added
