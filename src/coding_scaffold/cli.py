@@ -70,7 +70,13 @@ from .credentials import load_local_credentials, write_local_credential_file
 from .enablement import write_orchestration_plan, write_skill_template
 from .hardware import probe_hardware
 from .installers import install_missing_addons, install_missing_tools
-from .intake import DEFAULT_TOOLS, IntakeAnswers, collect_intake, normalize_tools
+from .intake import (
+    CODING_TOOLS as _CODING_TOOLS_TUPLE,
+    DEFAULT_TOOLS,
+    IntakeAnswers,
+    collect_intake,
+    normalize_tools,
+)
 from .knowledge import (
     distill_knowledge,
     inspect_knowledge_status,
@@ -99,8 +105,10 @@ from .team import (
 from .updater import refresh_scaffold
 from .writers import write_scaffold
 
-CODING_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both", "manual"]
-INSTALLABLE_TOOLS = ["opencode", "claude-code", "codex", "openclaude", "hermes", "pi", "both"]
+# argparse `choices=` expects a list; the canonical tuple lives in intake.py.
+CODING_TOOLS = list(_CODING_TOOLS_TUPLE)
+# Installable subset: every coding tool except the special `manual` value.
+INSTALLABLE_TOOLS = [t for t in CODING_TOOLS if t != "manual"]
 ADDONS = ["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"]
 KNOWLEDGE_BACKENDS = ["markdown", "obsidian", "foam", "mempalace", "html"]
 KNOWLEDGE_BACKENDS_WITH_NONE = ["none", *KNOWLEDGE_BACKENDS]
@@ -147,6 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
     probe = sub.add_parser("probe", help="Inspect hardware and provider availability.")
     probe.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     probe.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    probe.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
+    )
 
     setup = sub.add_parser("setup", help="Start here: run setup, install add-ons, or refresh generated files.")
     setup_sub = setup.add_subparsers(dest="setup_action", required=True, metavar="action")
@@ -779,6 +792,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PERSONA,
         help="Tailor the recommendations and ignore-list to a persona's focus area.",
     )
+    doctor.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
+    )
 
     pilot = sub.add_parser(
         "pilot",
@@ -800,6 +818,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(_PERSONAS),
         default=DEFAULT_PERSONA,
         help="Tailor the printed recipe to a persona's focus area.",
+    )
+    pilot.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
     )
 
     tour = sub.add_parser(
@@ -1178,7 +1201,8 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
 
 def _cmd_probe(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
-    hardware = probe_hardware()
+    use_cache = not getattr(args, "no_probe_cache", False)
+    hardware = probe_hardware(use_cache=use_cache)
     providers = detect_providers(load_local_credentials(target), include_copilot=True)
     payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
     if args.json:
@@ -1191,7 +1215,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 def _cmd_doctor(args: argparse.Namespace) -> int:
     target = getattr(args, "target", None) or Path.cwd()
     persona = getattr(args, "persona", DEFAULT_PERSONA)
-    report = run_doctor(target, persona=persona)
+    use_cache = not getattr(args, "no_probe_cache", False)
+    report = run_doctor(target, persona=persona, use_cache=use_cache)
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
@@ -1203,11 +1228,13 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def _cmd_pilot(args: argparse.Namespace) -> int:
+    use_cache = not getattr(args, "no_probe_cache", False)
     try:
         report = run_pilot(
             args.target,
             tools=getattr(args, "tools", None),
             persona=getattr(args, "persona", DEFAULT_PERSONA),
+            use_cache=use_cache,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -2208,7 +2235,9 @@ def _maybe_setup_knowledge(
             )
     if backend is None or backend == "none":
         return None
-    adapter = "opencode" if selected_tool in {"opencode", "both"} else None
+    # `"both"` literal was removed in 0.7.0; selected_tool is always a single
+    # canonical tool name. Only `opencode` currently wires a knowledge adapter.
+    adapter = "opencode" if selected_tool == "opencode" else None
     return write_knowledge_base(target, backend, shared_remote or None, adapter)
 
 
@@ -2261,12 +2290,6 @@ def _load_routing_or_probe(target: Path) -> RoutingPlan:
 
 
 def _load_project_intake(target: Path) -> IntakeAnswers:
-    # `_normalize_persisted_intake` is the underscore-prefixed back-fill helper
-    # that handles legacy project.json shapes (singular `tool` or `agent`). It
-    # is sunset in 0.7.0 alongside `--tool both`, so the import is scoped here
-    # rather than at module level to signal its temporary nature.
-    from .intake import _normalize_persisted_intake
-
     path = target / ".coding-scaffold" / "project.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -2274,8 +2297,6 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
         return collect_intake(target, IntakeAnswers(), interactive=False)
     if not isinstance(payload, dict):
         return collect_intake(target, IntakeAnswers(), interactive=False)
-    payload = _normalize_persisted_intake(payload)
-    # After back-fill, payload["tools"] is always populated by the helper.
     raw_tools = payload.get("tools")
     if not isinstance(raw_tools, list):
         raw_tools = []

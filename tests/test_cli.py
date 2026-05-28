@@ -556,3 +556,19 @@ def test_cli_main_rejects_manual_with_real_tool(capsys, tmp_path) -> None:
     assert rc == 1
     assert "manual" in err.lower()
     assert "next:" in err
+
+
+def test_cli_setup_run_rejects_both(capsys, tmp_path) -> None:
+    """setup run --tool both exits with rc=1 and a CliError naming the replacement.
+
+    `setup run --tool` uses `action=append` without `choices=` (to allow
+    comma-separated values like `--tool codex,claude-code`). Rejection of
+    `both` therefore happens inside `normalize_tools`, which raises `CliError`.
+    The CLI catches it, prints the three-line error, and exits with rc=1.
+    """
+
+    rc = main(["setup", "run", "--tool", "both", "--target", str(tmp_path), "--non-interactive"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "removed in 0.7.0" in err
+    assert "opencode,openclaude" in err

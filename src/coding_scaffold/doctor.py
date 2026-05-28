@@ -60,6 +60,7 @@ def run_doctor(
     target: Path | None = None,
     *,
     persona: str = DEFAULT_PERSONA,
+    use_cache: bool = True,
 ) -> DoctorReport:
     """Build a structured DoctorReport for the given target (default cwd).
 
@@ -68,6 +69,9 @@ def run_doctor(
     section still surveys the full registry so the user sees a complete picture;
     persona-specific artifacts are highlighted by the ordering coming from
     ``Persona.artifact_keys`` when present.
+
+    Pass ``use_cache=False`` to force a fresh hardware probe (e.g. after
+    installing a new local runtime).
     """
 
     if persona not in PERSONAS:
@@ -77,7 +81,7 @@ def run_doctor(
 
     root = (target or Path.cwd()).expanduser().resolve()
     artifacts = _survey_artifacts(root)
-    notes = _system_notes()
+    notes = _system_notes(use_cache=use_cache)
     if persona == DEFAULT_PERSONA:
         next_steps = _recommend_next_steps(artifacts)
         ignore = list(ADVANCED_FOR_NOW)
@@ -136,11 +140,11 @@ def _survey_artifacts(root: Path) -> dict[str, bool]:
     return presence
 
 
-def _system_notes() -> list[str]:
+def _system_notes(*, use_cache: bool = True) -> list[str]:
     """Local environment notes that influence which next step is useful."""
 
     notes: list[str] = []
-    hardware = probe_hardware()
+    hardware = probe_hardware(use_cache=use_cache)
     notes.append(f"OS: {hardware.os_name}")
     py = sys.version_info
     notes.append(f"Python: {py.major}.{py.minor}.{py.micro}")

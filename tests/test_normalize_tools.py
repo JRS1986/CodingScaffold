@@ -9,16 +9,7 @@ from coding_scaffold.intake import (
     DEFAULT_TOOLS,
     VALID_TOOLS,
     normalize_tools,
-    reset_deprecation_state,
 )
-
-
-@pytest.fixture(autouse=True)
-def _reset_deprecation():
-    # The "both" warning only fires once per process; reset between tests.
-    reset_deprecation_state()
-    yield
-    reset_deprecation_state()
 
 
 def test_none_returns_default_tools() -> None:
@@ -51,24 +42,6 @@ def test_duplicates_are_removed_preserving_order() -> None:
     assert normalize_tools(["codex", "codex", "claude-code", "codex"]) == [
         "codex", "claude-code",
     ]
-
-
-def test_both_expands_to_opencode_openclaude_and_warns(capsys: pytest.CaptureFixture[str]) -> None:
-    result = normalize_tools(["both"])
-    assert result == ["opencode", "openclaude"]
-    err = capsys.readouterr().err
-    assert "deprecated" in err.lower()
-    assert "0.7.0" in err
-    assert "opencode,openclaude" in err
-
-
-def test_both_deprecation_warning_fires_once_per_process(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    normalize_tools(["both"])
-    normalize_tools(["both"])
-    err = capsys.readouterr().err
-    assert err.count("deprecated") == 1
 
 
 def test_manual_with_real_tool_raises_clierror() -> None:
@@ -111,16 +84,29 @@ def test_unknown_tool_in_mixed_list_raises_with_full_list() -> None:
     assert "wat" in excinfo.value.cause
 
 
-def test_valid_tools_matches_cli_coding_tools() -> None:
-    """Invariant: `VALID_TOOLS` in intake.py and `CODING_TOOLS` in cli.py
-    must stay in sync. cli.py can't import VALID_TOOLS without a circular
-    dependency, so the lists are duplicated — this test fails if they drift.
+def test_valid_tools_is_derived_from_coding_tools() -> None:
+    """As of v0.7.0 these are one source of truth — `VALID_TOOLS = frozenset(CODING_TOOLS)`.
+
+    A trivial assertion, but it pins the invariant so a future refactor can't
+    silently break the derivation.
     """
 
-    from coding_scaffold.cli import CODING_TOOLS
+    from coding_scaffold.intake import CODING_TOOLS
 
-    assert set(CODING_TOOLS) == set(VALID_TOOLS), (
-        f"CODING_TOOLS (cli.py) and VALID_TOOLS (intake.py) drifted:\n"
-        f"  only in CODING_TOOLS: {set(CODING_TOOLS) - set(VALID_TOOLS)}\n"
-        f"  only in VALID_TOOLS: {set(VALID_TOOLS) - set(CODING_TOOLS)}"
-    )
+    assert VALID_TOOLS == frozenset(CODING_TOOLS)
+
+
+def test_both_raises_cli_error_for_programmatic_callers() -> None:
+    """Removed in 0.7.0 — every caller (CLI or programmatic) gets a CliError.
+
+    The `setup run --tool` surface uses ``action="append"`` *without*
+    ``choices=`` (so comma-separated values like ``codex,claude-code`` parse),
+    which means argparse does NOT pre-validate the token list. The rejection
+    happens here, in ``normalize_tools``, for both CLI and library callers.
+    """
+
+    with pytest.raises(CliError) as excinfo:
+        normalize_tools(["both"])
+    assert "removed in 0.7.0" in excinfo.value.cause
+    assert "opencode,openclaude" in excinfo.value.next_step
+    assert "Upgrading" in (excinfo.value.link or "")

@@ -67,27 +67,6 @@ def test_pilot_json_multi_tool_shape(
     assert {entry["name"] for entry in tools_env} == {"codex", "claude-code"}
 
 
-def test_both_alias_still_works_with_deprecation_warning(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # Reset the once-per-process deprecation latch so this test sees the warning.
-    from coding_scaffold.intake import reset_deprecation_state
-    reset_deprecation_state()
-
-    rc = main([
-        "setup", "run",
-        "--target", str(tmp_path),
-        "--tool", "both",
-        "--non-interactive",
-    ])
-    assert rc == 0
-    err = capsys.readouterr().err
-    assert "deprecated" in err.lower()
-    assert "0.7.0" in err
-    routing = json.loads((tmp_path / ".coding-scaffold" / "routing.json").read_text())
-    assert routing["tools"] == ["opencode", "openclaude"]
-
-
 def test_manual_plus_real_tool_exits_non_zero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -103,35 +82,6 @@ def test_manual_plus_real_tool_exits_non_zero(
     assert "manual" in err.lower()
     assert "next:" in err
     assert "see:" in err
-
-
-def test_legacy_project_json_with_singular_tool_still_updates(tmp_path: Path) -> None:
-    """A `project.json` written by 0.5.x (with `tool` instead of `tools`)
-    must be readable by `setup update`."""
-
-    # Bootstrap modern, then mutate the file back to legacy shape.
-    main(["setup", "run", "--target", str(tmp_path), "--tool", "codex", "--non-interactive"])
-    project_json = tmp_path / ".coding-scaffold" / "project.json"
-    payload = json.loads(project_json.read_text())
-    del payload["tools"]
-    payload["tool"] = "codex"
-    project_json.write_text(json.dumps(payload))
-    # setup update should silently back-fill and run.
-    rc = main(["setup", "update", "--target", str(tmp_path)])
-    assert rc == 0
-    # The legacy file was "user-edited" (hash mismatch), so the updater stages
-    # the modernised version as project.json.new rather than overwriting.
-    # Either the original file was overwritten with `tools`, or a .new sidecar
-    # carrying the modernised shape was created.
-    new_file = project_json.with_suffix(".json.new")
-    if new_file.exists():
-        # Staged path: the .new file must carry the canonical `tools` key.
-        new_payload = json.loads(new_file.read_text())
-    else:
-        # Direct overwrite path: original file was updated in place.
-        new_payload = json.loads(project_json.read_text())
-    assert "tools" in new_payload
-    assert new_payload["tools"] == ["codex"]
 
 
 def test_install_tools_loops_over_every_selected_tool(
