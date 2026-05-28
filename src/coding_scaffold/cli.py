@@ -2269,12 +2269,6 @@ def _load_routing_or_probe(target: Path) -> RoutingPlan:
 
 
 def _load_project_intake(target: Path) -> IntakeAnswers:
-    # `_normalize_persisted_intake` is the underscore-prefixed back-fill helper
-    # that handles legacy project.json shapes (singular `tool` or `agent`). It
-    # is sunset in 0.7.0 alongside `--tool both`, so the import is scoped here
-    # rather than at module level to signal its temporary nature.
-    from .intake import _normalize_persisted_intake
-
     path = target / ".coding-scaffold" / "project.json"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -2282,8 +2276,6 @@ def _load_project_intake(target: Path) -> IntakeAnswers:
         return collect_intake(target, IntakeAnswers(), interactive=False)
     if not isinstance(payload, dict):
         return collect_intake(target, IntakeAnswers(), interactive=False)
-    payload = _normalize_persisted_intake(payload)
-    # After back-fill, payload["tools"] is always populated by the helper.
     raw_tools = payload.get("tools")
     if not isinstance(raw_tools, list):
         raw_tools = []

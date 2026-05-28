@@ -9,16 +9,7 @@ from coding_scaffold.intake import (
     DEFAULT_TOOLS,
     VALID_TOOLS,
     normalize_tools,
-    reset_deprecation_state,
 )
-
-
-@pytest.fixture(autouse=True)
-def _reset_deprecation():
-    # The "both" warning only fires once per process; reset between tests.
-    reset_deprecation_state()
-    yield
-    reset_deprecation_state()
 
 
 def test_none_returns_default_tools() -> None:
@@ -51,24 +42,6 @@ def test_duplicates_are_removed_preserving_order() -> None:
     assert normalize_tools(["codex", "codex", "claude-code", "codex"]) == [
         "codex", "claude-code",
     ]
-
-
-def test_both_expands_to_opencode_openclaude_and_warns(capsys: pytest.CaptureFixture[str]) -> None:
-    result = normalize_tools(["both"])
-    assert result == ["opencode", "openclaude"]
-    err = capsys.readouterr().err
-    assert "deprecated" in err.lower()
-    assert "0.7.0" in err
-    assert "opencode,openclaude" in err
-
-
-def test_both_deprecation_warning_fires_once_per_process(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    normalize_tools(["both"])
-    normalize_tools(["both"])
-    err = capsys.readouterr().err
-    assert err.count("deprecated") == 1
 
 
 def test_manual_with_real_tool_raises_clierror() -> None:
@@ -121,3 +94,18 @@ def test_valid_tools_is_derived_from_coding_tools() -> None:
     from coding_scaffold.intake import CODING_TOOLS
 
     assert VALID_TOOLS == frozenset(CODING_TOOLS)
+
+
+def test_both_raises_cli_error_for_programmatic_callers() -> None:
+    """Removed in 0.7.0 — programmatic callers get a clear three-line error.
+
+    The CLI itself rejects `--tool both` at argparse (choice validation)
+    before normalize_tools runs; this test covers library callers that
+    bypass argparse.
+    """
+
+    with pytest.raises(CliError) as excinfo:
+        normalize_tools(["both"])
+    assert "removed in 0.7.0" in excinfo.value.cause
+    assert "opencode,openclaude" in excinfo.value.next_step
+    assert "Upgrading" in (excinfo.value.link or "")

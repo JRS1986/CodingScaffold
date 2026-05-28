@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -14,40 +13,23 @@ from .errors import CliError
 # INSTALLABLE_TOOLS from it. VALID_TOOLS below is derived too.
 CODING_TOOLS: tuple[str, ...] = (
     "opencode", "claude-code", "codex", "openclaude", "hermes", "pi",
-    "both", "manual",
+    "manual",
 )
 
 DEFAULT_TOOLS: tuple[str, ...] = ("opencode",)
 
-# Legacy `--tool both` literal expansion. Removed in 0.7.0 alongside the value
-# itself; see docs/docs/wiki/Upgrading.md.
-_BOTH_EXPANSION: tuple[str, ...] = ("opencode", "openclaude")
-
 # Set lookup for normalize_tools' validation. Derived from CODING_TOOLS so
 # the two cannot drift.
 VALID_TOOLS: frozenset[str] = frozenset(CODING_TOOLS)
-
-# Single-fire deprecation warning state. Reset between tests via
-# `reset_deprecation_state()`.
-_BOTH_WARNING_FIRED: bool = False
-
-
-def reset_deprecation_state() -> None:
-    """Reset the once-per-process deprecation warning latch. Test-only."""
-
-    global _BOTH_WARNING_FIRED
-    _BOTH_WARNING_FIRED = False
 
 
 def normalize_tools(value: str | list[str] | None) -> list[str]:
     """Return a canonical deduped tool list from any accepted input shape.
 
     Accepts: None, "", "codex", "codex,claude-code", ["codex"],
-    ["codex", "claude-code"], ["codex,opencode", "claude-code"], ["both"].
+    ["codex", "claude-code"], ["codex,opencode", "claude-code"].
 
-    Expands the deprecated `both` literal to `opencode,openclaude` with a
-    one-line stderr warning that fires at most once per process.
-
+    Raises `CliError` when `both` is passed — it was removed in 0.7.0.
     Raises `CliError` when `manual` appears alongside any real tool — `manual`
     means "no adapter," which is incompatible with also picking a real one.
     """
@@ -75,22 +57,14 @@ def normalize_tools(value: str | list[str] | None) -> list[str]:
     if not flat:
         return list(DEFAULT_TOOLS)
 
-    # Expand `both` with a one-fire deprecation warning.
-    global _BOTH_WARNING_FIRED
     expanded: list[str] = []
     for chunk in flat:
         if chunk == "both":
-            if not _BOTH_WARNING_FIRED:
-                print(
-                    "warning: '--tool both' is deprecated; "
-                    "using '--tool opencode,openclaude' instead.\n"
-                    "         Will be removed in 0.7.0. "
-                    "See https://jrs1986.github.io/CodingScaffold/wiki/Upgrading.",
-                    file=sys.stderr,
-                )
-                _BOTH_WARNING_FIRED = True
-            expanded.extend(_BOTH_EXPANSION)
-            continue
+            raise CliError(
+                cause="`--tool both` was removed in 0.7.0",
+                next_step="use `--tool opencode,openclaude` instead",
+                link="https://jrs1986.github.io/CodingScaffold/wiki/Upgrading",
+            )
         expanded.append(chunk)
 
     # Dedupe, preserve first-seen order.
@@ -146,43 +120,6 @@ class IntakeAnswers:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
-
-    @property
-    def agent(self) -> str | None:
-        """First tool, or None if the list is empty.
-
-        No production call site currently reads this. It is retained as a
-        migration safety net for downstream library callers / external scripts
-        that still expect the historical attribute name, and as a single point
-        to remove when the back-compat window closes alongside `--tool both`
-        in 0.7.0.
-        """
-
-        return self.tools[0] if self.tools else None
-
-
-def _normalize_persisted_intake(payload: dict[str, object]) -> dict[str, object]:
-    """Migrate a persisted intake payload to the canonical `tools` shape.
-
-    Legacy `.coding-scaffold/project.json` files written before 0.6.0 carry
-    `tool: "opencode"` (singular). Even older files used the `agent` alias.
-    New files carry `tools: ["opencode", ...]`. Returns a payload with only
-    `tools` populated; legacy `tool` and `agent` keys are stripped.
-
-    Removed in 0.7.0 once the migration window closes; see Upgrading.md.
-    """
-
-    result = dict(payload)
-    legacy_tool = result.pop("tool", None)
-    legacy_agent = result.pop("agent", None)
-    if "tools" in result:
-        return result
-    legacy = legacy_tool or legacy_agent
-    if legacy:
-        result["tools"] = [str(legacy)]
-    else:
-        result["tools"] = list(DEFAULT_TOOLS)
-    return result
 
 
 def collect_intake(target: Path, provided: IntakeAnswers, interactive: bool) -> IntakeAnswers:

@@ -163,12 +163,12 @@ Legacy `project.json` files written by 0.5.x (with `tool` instead of `tools`)
 are back-filled when `setup update` reads them, so existing projects upgrade
 cleanly. The back-fill is removed in 0.7.0.
 
-## Breaking change planned for 0.7.0 — `--tool both` removed
+## Breaking change in 0.7.0 — `--tool both` removed
 
-`--tool both` is currently a deprecated alias for `--tool opencode,openclaude`
-and prints a warning when used. In 0.7.0 it is removed entirely.
+`--tool both` was deprecated in 0.6.0 and is removed in 0.7.0. The CLI rejects
+it with argparse's `invalid choice` error.
 
-Update any scripts or CI invocations now:
+Update scripts that still use it:
 
 ```bash
 # Before
@@ -178,9 +178,12 @@ coding-scaffold setup run --tool both
 coding-scaffold setup run --tool opencode,openclaude
 ```
 
-The `_normalize_persisted_intake` back-fill helper also lands its sunset
-in 0.7.0; any `project.json` file still on the legacy `tool` shape must be
-upgraded by running `setup update` in 0.6.x first.
+The `_normalize_persisted_intake` back-fill helper (which migrated legacy
+`project.json` files carrying the singular `tool` key on read) is also gone.
+A `project.json` written by 0.5.x that was never updated through 0.6.x will
+now have its `tool`/`agent` fields silently ignored; the project falls back
+to `DEFAULT_TOOLS` (`opencode`). Run `coding-scaffold setup run` once to
+regenerate with the modern shape.
 
 ## When `setup update` is not the right tool
 
