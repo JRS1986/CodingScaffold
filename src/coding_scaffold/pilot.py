@@ -80,6 +80,7 @@ def run_pilot(
     tool: str | None = None,
     tools: list[str] | None = None,
     persona: str = DEFAULT_PERSONA,
+    use_cache: bool = True,
 ) -> PilotReport:
     """Build a structured PilotReport. Read-only — no commands are executed beyond
     `probe_hardware()` (which itself is a local inspection).
@@ -121,7 +122,7 @@ def run_pilot(
         )
 
     # 2. Hardware probe (read-only).
-    hardware = probe_hardware()
+    hardware = probe_hardware(use_cache=use_cache)
     env_info["os"] = hardware.os_name
     env_info["wsl"] = hardware.is_wsl
 

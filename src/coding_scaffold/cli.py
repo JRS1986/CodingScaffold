@@ -155,6 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
     probe = sub.add_parser("probe", help="Inspect hardware and provider availability.")
     probe.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     probe.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    probe.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
+    )
 
     setup = sub.add_parser("setup", help="Start here: run setup, install add-ons, or refresh generated files.")
     setup_sub = setup.add_subparsers(dest="setup_action", required=True, metavar="action")
@@ -787,6 +792,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PERSONA,
         help="Tailor the recommendations and ignore-list to a persona's focus area.",
     )
+    doctor.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
+    )
 
     pilot = sub.add_parser(
         "pilot",
@@ -808,6 +818,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(_PERSONAS),
         default=DEFAULT_PERSONA,
         help="Tailor the printed recipe to a persona's focus area.",
+    )
+    pilot.add_argument(
+        "--no-probe-cache",
+        action="store_true",
+        help="Bypass the hardware probe cache; re-probe live. Use after installing a new local runtime.",
     )
 
     tour = sub.add_parser(
@@ -1186,7 +1201,8 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
 
 def _cmd_probe(args: argparse.Namespace) -> int:
     target = args.target.expanduser().resolve()
-    hardware = probe_hardware()
+    use_cache = not getattr(args, "no_probe_cache", False)
+    hardware = probe_hardware(use_cache=use_cache)
     providers = detect_providers(load_local_credentials(target), include_copilot=True)
     payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
     if args.json:
@@ -1199,7 +1215,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 def _cmd_doctor(args: argparse.Namespace) -> int:
     target = getattr(args, "target", None) or Path.cwd()
     persona = getattr(args, "persona", DEFAULT_PERSONA)
-    report = run_doctor(target, persona=persona)
+    use_cache = not getattr(args, "no_probe_cache", False)
+    report = run_doctor(target, persona=persona, use_cache=use_cache)
     if getattr(args, "json", False):
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
@@ -1211,11 +1228,13 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def _cmd_pilot(args: argparse.Namespace) -> int:
+    use_cache = not getattr(args, "no_probe_cache", False)
     try:
         report = run_pilot(
             args.target,
             tools=getattr(args, "tools", None),
             persona=getattr(args, "persona", DEFAULT_PERSONA),
+            use_cache=use_cache,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)

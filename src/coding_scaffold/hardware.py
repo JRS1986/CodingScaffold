@@ -5,7 +5,9 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -26,7 +28,97 @@ class HardwareProfile:
         return data
 
 
-def probe_hardware() -> HardwareProfile:
+_CACHE_TTL = timedelta(hours=1)
+
+
+def _cache_path() -> Path:
+    """XDG-conformant cache location."""
+
+    base = Path(
+        os.environ.get("XDG_CACHE_HOME")
+        or Path.home() / ".cache"
+    )
+    return base / "coding-scaffold" / "hardware.json"
+
+
+def _cache_key() -> str:
+    """OS + arch + Python version — invalidates when any of these change."""
+
+    return (
+        f"{platform.system().lower()}"
+        f"/{platform.machine()}"
+        f"/{sys.version_info.major}.{sys.version_info.minor}"
+    )
+
+
+def _read_cache() -> HardwareProfile | None:
+    """Return cached profile if present, fresh, and key-matched. Else None."""
+
+    path = _cache_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("version") != 1 or payload.get("key") != _cache_key():
+        return None
+    cached_at_raw = payload.get("cached_at", "")
+    try:
+        cached_at = datetime.fromisoformat(cached_at_raw)
+    except (TypeError, ValueError):
+        return None
+    if datetime.now(timezone.utc) - cached_at > _CACHE_TTL:
+        return None
+    profile = payload.get("profile")
+    if not isinstance(profile, dict):
+        return None
+    try:
+        return HardwareProfile(**profile)
+    except TypeError:
+        # Cache shape from an older release; ignore.
+        return None
+
+
+def _write_cache(profile: HardwareProfile) -> None:
+    """Best-effort write. Failures (read-only FS, permission denied) are
+    logged once to stderr and otherwise swallowed."""
+
+    path = _cache_path()
+    payload = {
+        "version": 1,
+        "cached_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "key": _cache_key(),
+        "profile": asdict(profile),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(
+            f"warning: could not write hardware probe cache to {path}: {exc}",
+            file=sys.stderr,
+        )
+
+
+def probe_hardware(*, use_cache: bool = True) -> HardwareProfile:
+    """Detect hardware features. Results cached for 1 hour by default.
+
+    Pass ``use_cache=False`` to force a fresh probe (e.g. after installing
+    a new local runtime like ``ollama`` and wanting `doctor` to see it
+    immediately).
+    """
+
+    if use_cache:
+        cached = _read_cache()
+        if cached is not None:
+            return cached
+    profile = _probe_hardware_fresh()
+    _write_cache(profile)
+    return profile
+
+
+def _probe_hardware_fresh() -> HardwareProfile:
     gpu_name, vram_gb = _detect_gpu()
     return HardwareProfile(
         os_name=platform.platform(),
