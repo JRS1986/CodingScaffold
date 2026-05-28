@@ -97,11 +97,12 @@ def test_valid_tools_is_derived_from_coding_tools() -> None:
 
 
 def test_both_raises_cli_error_for_programmatic_callers() -> None:
-    """Removed in 0.7.0 — programmatic callers get a clear three-line error.
+    """Removed in 0.7.0 — every caller (CLI or programmatic) gets a CliError.
 
-    The CLI itself rejects `--tool both` at argparse (choice validation)
-    before normalize_tools runs; this test covers library callers that
-    bypass argparse.
+    The `setup run --tool` surface uses ``action="append"`` *without*
+    ``choices=`` (so comma-separated values like ``codex,claude-code`` parse),
+    which means argparse does NOT pre-validate the token list. The rejection
+    happens here, in ``normalize_tools``, for both CLI and library callers.
     """
 
     with pytest.raises(CliError) as excinfo:

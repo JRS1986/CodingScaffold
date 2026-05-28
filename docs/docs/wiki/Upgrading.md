@@ -166,7 +166,13 @@ cleanly. The back-fill is removed in 0.7.0.
 ## Breaking change in 0.7.0 — `--tool both` removed
 
 `--tool both` was deprecated in 0.6.0 and is removed in 0.7.0. The CLI rejects
-it with argparse's `invalid choice` error.
+it with the standard three-line error block:
+
+```
+error: `--tool both` was removed in 0.7.0
+  next: use `--tool opencode,openclaude` instead
+  see: https://jrs1986.github.io/CodingScaffold/wiki/Upgrading
+```
 
 Update scripts that still use it:
 
