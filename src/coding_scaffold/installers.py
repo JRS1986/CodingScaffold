@@ -47,8 +47,12 @@ class ToolInstallResult:
 
 
 def build_install_plans(selection: str) -> list[ToolInstallPlan]:
-    tools = ["opencode", "openclaude"] if selection == "both" else [selection]
-    return [_plan_for(tool) for tool in tools if tool != "manual"]
+    # `selection` is now always a single canonical tool name. The legacy
+    # `"both"` literal that this branch used to handle was removed in 0.7.0;
+    # multi-tool projects iterate at the caller via `answers.tools`.
+    if selection == "manual":
+        return []
+    return [_plan_for(selection)]
 
 
 def install_missing_tools(

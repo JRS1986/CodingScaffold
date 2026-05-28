@@ -57,20 +57,18 @@ def normalize_tools(value: str | list[str] | None) -> list[str]:
     if not flat:
         return list(DEFAULT_TOOLS)
 
-    expanded: list[str] = []
-    for chunk in flat:
-        if chunk == "both":
-            raise CliError(
-                cause="`--tool both` was removed in 0.7.0",
-                next_step="use `--tool opencode,openclaude` instead",
-                link="https://jrs1986.github.io/CodingScaffold/wiki/Upgrading",
-            )
-        expanded.append(chunk)
+    # `both` was removed in 0.7.0; reject every caller (CLI or library).
+    if "both" in flat:
+        raise CliError(
+            cause="`--tool both` was removed in 0.7.0",
+            next_step="use `--tool opencode,openclaude` instead",
+            link="https://jrs1986.github.io/CodingScaffold/wiki/Upgrading",
+        )
 
     # Dedupe, preserve first-seen order.
     seen: set[str] = set()
     canonical: list[str] = []
-    for chunk in expanded:
+    for chunk in flat:
         if chunk in seen:
             continue
         seen.add(chunk)

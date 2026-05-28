@@ -2216,7 +2216,9 @@ def _maybe_setup_knowledge(
             )
     if backend is None or backend == "none":
         return None
-    adapter = "opencode" if selected_tool in {"opencode", "both"} else None
+    # `"both"` literal was removed in 0.7.0; selected_tool is always a single
+    # canonical tool name. Only `opencode` currently wires a knowledge adapter.
+    adapter = "opencode" if selected_tool == "opencode" else None
     return write_knowledge_base(target, backend, shared_remote or None, adapter)
 
 
