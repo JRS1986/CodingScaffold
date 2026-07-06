@@ -8,14 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v5
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --extra dev --python ${{ matrix.python-version }}
       - name: Ruff
         run: uv run ruff check
       - name: Pytest
-        run: uv run pytest
+        run: uv run pytest --cov=src --cov-report=term-missing
