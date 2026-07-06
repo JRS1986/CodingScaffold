@@ -14,7 +14,9 @@ Code in the same repo is the most common pair; see
 
 ## OpenCode
 
-OpenCode is the recommended first adapter.
+OpenCode is the recommended first adapter and the default for most teams today. It has official
+install paths, terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, broad
+provider support, local-model support, and GitHub Copilot sign-in.
 
 ```bash
 coding-scaffold setup tool --tool opencode
@@ -46,7 +48,8 @@ named MCP servers, and add provider allow/deny lists in `opencode.json`.
 
 ## Claude Code
 
-Claude Code uses native project files and settings:
+Claude Code uses native project files and settings. CodingScaffold generates the native project
+files and team contract, but leaves runtime behavior to the tool:
 
 ```bash
 coding-scaffold setup tool --tool claude-code
@@ -85,7 +88,10 @@ model and approval-mode controls.
 
 ## OpenClaude
 
-OpenClaude support is intentionally lightweight because the project moves quickly:
+OpenClaude is worth tracking if your team wants a fast-moving, Claude-Code-like community workflow
+across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and provider profiles.
+Treat it as experimental and review provenance, licensing, and security before standardizing on
+it. Support is intentionally lightweight because the project moves quickly:
 
 ```bash
 coding-scaffold setup tool --tool openclaude
@@ -94,13 +100,14 @@ coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
 
 Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
 
-Use `coding-scaffold setup tool --tool both` when a team wants to compare both tools on the same
-project.
+Use `coding-scaffold setup run --tool opencode,openclaude` when a team wants to compare both
+tools on the same project (`--tool both` was removed in 0.7.0; see [Upgrading](./Upgrading.md)).
 
 ## Hermes
 
 Hermes support is lightweight project guidance for teams that want a broader autonomous agent
-harness around coding work:
+harness around coding work: persistent memory, skills, MCP, messaging, scheduled tasks, and
+configurable execution backends.
 
 ```bash
 coding-scaffold setup tool --tool hermes
@@ -114,7 +121,8 @@ letting it edit a project.
 
 ## Pi
 
-Pi support is lightweight project guidance for teams that want a minimal terminal coding harness:
+Pi support is lightweight project guidance for teams that want a minimal terminal coding harness
+with project instructions, slash commands, resumable sessions, and extension points:
 
 ```bash
 coding-scaffold setup tool --tool pi

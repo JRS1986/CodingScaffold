@@ -465,44 +465,8 @@ disable named MCP servers, constrain provider ids, and ask before edit/bash acti
 
 ## Coding Tool Adapters
 
-OpenCode is the recommended default for most teams today. It has official install paths,
-terminal/desktop/IDE surfaces, LSP awareness, multi-session workflows, broad provider support,
-local-model support, and GitHub Copilot sign-in.
-
-```bash
-coding-scaffold setup tool --tool opencode
-coding-scaffold tools adapt --target ~/dev/my-project --tool opencode
-```
-
-Claude Code and Codex are guidance-first integrations. CodingScaffold generates their native
-project files and team contract, but leaves runtime behavior to those tools:
-
-```bash
-coding-scaffold setup tool --tool claude-code
-coding-scaffold tools adapt --target ~/dev/my-project --tool claude-code
-coding-scaffold setup tool --tool codex
-coding-scaffold tools adapt --target ~/dev/my-project --tool codex
-```
-
-OpenClaude is worth tracking if your team wants a fast-moving, Claude-Code-like community workflow
-across OpenAI-compatible APIs, Ollama, GitHub Models, MCP, slash commands, and provider profiles.
-Treat it as experimental and review provenance, licensing, and security before standardizing on it.
-
-```bash
-coding-scaffold setup tool --tool openclaude
-coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
-```
-
-Hermes is useful when your coding workflow also wants persistent memory, skills, MCP, messaging,
-scheduled tasks, and configurable execution backends. Pi is useful when you want a small terminal
-coding harness with project instructions, slash commands, resumable sessions, and extension points.
-
-```bash
-coding-scaffold setup tool --tool hermes
-coding-scaffold tools adapt --target ~/dev/my-project --tool hermes
-coding-scaffold setup tool --tool pi
-coding-scaffold tools adapt --target ~/dev/my-project --tool pi
-```
+CodingScaffold generates native project files for OpenCode, Claude Code, Codex, OpenClaude,
+Hermes, and Pi. OpenCode is the recommended default for most teams today.
 
 ### Support Depth At A Glance
 
@@ -515,10 +479,12 @@ coding-scaffold tools adapt --target ~/dev/my-project --tool pi
 | Hermes | guidance (`HERMES.md`) |
 | Pi | guidance (`PI.md`) |
 
-For the full capability-by-capability breakdown (install support, permissions, MCP, local models,
-cloud providers, static profiles, runtime routing, etc.) see the
-[compatibility matrix in Tool Adapters](docs/docs/wiki/Tool-Adapters.md#compatibility-matrix) — that's
-the single source of truth; this table is a scannable summary.
+Per-tool setup commands, generated files, when to pick each tool, and the full
+capability-by-capability breakdown (install support, permissions, MCP, local models, cloud
+providers, static profiles, runtime routing, etc.) live in
+[Tool Adapters](docs/docs/wiki/Tool-Adapters.md). The
+[compatibility matrix](docs/docs/wiki/Tool-Adapters.md#compatibility-matrix) there is the single
+source of truth; this table is a scannable summary.
 
 ## Knowledge Base
 
