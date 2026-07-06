@@ -100,8 +100,8 @@ coding-scaffold tools adapt --target ~/dev/my-project --tool openclaude
 
 Generated guidance lives in `.coding-scaffold/OPENCLAUDE.md`.
 
-Use `coding-scaffold setup tool --tool both` when a team wants to compare both tools on the same
-project.
+Use `coding-scaffold setup run --tool opencode,openclaude` when a team wants to compare both
+tools on the same project (`--tool both` was removed in 0.7.0; see [Upgrading](./Upgrading.md)).
 
 ## Hermes
 
