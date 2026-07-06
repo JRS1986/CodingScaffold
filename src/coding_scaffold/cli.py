@@ -9,6 +9,7 @@ from pathlib import Path
 from .adapters import write_route_backend, write_tool_adapter, write_workflow_backend
 from .cli_help import doc_for
 from .cli_stability import marker_for
+from .errors import CliError, format_error
 from .context import (
     DEFAULT_CONTEXT_WINDOW,
     DEFAULT_MAX_CONTEXT_RATIO,
@@ -872,19 +873,13 @@ def _normalize_args_tools_in_place(args: argparse.Namespace) -> None:
     canonical ``tools`` list via :func:`normalize_tools`. Surfaces that don't
     accept ``--tool`` leave *args* untouched.
 
-    On invalid input (unknown tool, ``manual`` mixed with a real tool) this
-    calls :func:`coding_scaffold.errors.fail_with` which writes the three-line
-    error block to stderr and raises ``SystemExit(1)``. The caller (``main``)
-    catches that and converts it to its return value.
+    On invalid input (unknown tool, ``manual`` mixed with a real tool) the
+    ``CliError`` raised by :func:`normalize_tools` propagates to ``main``,
+    which renders the three-line error block and returns its exit code.
     """
     if not hasattr(args, "tool"):
         return
-    from .errors import CliError, fail_with
-
-    try:
-        args.tools = normalize_tools(getattr(args, "tool", None))
-    except CliError as exc:
-        fail_with(cause=exc.cause, next_step=exc.next_step, link=exc.link)
+    args.tools = normalize_tools(getattr(args, "tool", None))
 
 
 def _apply_help_registry(parser: argparse.ArgumentParser) -> None:
@@ -1241,16 +1236,12 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
 def _cmd_pilot(args: argparse.Namespace) -> int:
     use_cache = not getattr(args, "no_probe_cache", False)
-    try:
-        report = run_pilot(
-            args.target,
-            tools=getattr(args, "tools", None),
-            persona=getattr(args, "persona", DEFAULT_PERSONA),
-            use_cache=use_cache,
-        )
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    report = run_pilot(
+        args.target,
+        tools=getattr(args, "tools", None),
+        persona=getattr(args, "persona", DEFAULT_PERSONA),
+        use_cache=use_cache,
+    )
     if args.json:
         _print_json(report.to_dict())
     else:
@@ -1446,16 +1437,12 @@ def _cmd_session_summarize(args: argparse.Namespace) -> int:
 
 
 def _cmd_session_start(args: argparse.Namespace) -> int:
-    try:
-        result = start_session(
-            args.target,
-            slug=args.slug,
-            task=args.task,
-            worktree=args.worktree,
-        )
-    except RuntimeError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = start_session(
+        args.target,
+        slug=args.slug,
+        task=args.task,
+        worktree=args.worktree,
+    )
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1471,11 +1458,7 @@ def _cmd_session_start(args: argparse.Namespace) -> int:
 
 
 def _cmd_session_checkpoint(args: argparse.Namespace) -> int:
-    try:
-        result = checkpoint_session(args.target, message=args.message)
-    except RuntimeError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = checkpoint_session(args.target, message=args.message)
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1488,11 +1471,7 @@ def _cmd_session_checkpoint(args: argparse.Namespace) -> int:
 
 
 def _cmd_session_diff(args: argparse.Namespace) -> int:
-    try:
-        result = diff_session(args.target)
-    except RuntimeError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = diff_session(args.target)
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1507,11 +1486,7 @@ def _cmd_session_diff(args: argparse.Namespace) -> int:
 
 
 def _cmd_session_rollback(args: argparse.Namespace) -> int:
-    try:
-        result = rollback_session(args.target, confirm=args.confirm, hard=args.hard)
-    except RuntimeError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = rollback_session(args.target, confirm=args.confirm, hard=args.hard)
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1552,19 +1527,15 @@ def _cmd_memory_init(args: argparse.Namespace) -> int:
 
 
 def _cmd_memory_capture(args: argparse.Namespace) -> int:
-    try:
-        result = capture_memory(
-            args.target,
-            class_=args.memory_class,
-            content=args.content,
-            owner=args.owner,
-            source=args.source,
-            expires=args.expires,
-            allow_personal=args.allow_personal,
-        )
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = capture_memory(
+        args.target,
+        class_=args.memory_class,
+        content=args.content,
+        owner=args.owner,
+        source=args.source,
+        expires=args.expires,
+        allow_personal=args.allow_personal,
+    )
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1587,16 +1558,12 @@ def _cmd_memory_review(args: argparse.Namespace) -> int:
 
 
 def _cmd_memory_promote(args: argparse.Namespace) -> int:
-    try:
-        result = promote_memory(
-            args.target,
-            entry_id=args.entry_id,
-            new_class=args.new_class,
-            new_owner=args.owner,
-        )
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    result = promote_memory(
+        args.target,
+        entry_id=args.entry_id,
+        new_class=args.new_class,
+        new_owner=args.owner,
+    )
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -2021,8 +1988,11 @@ def _cmd_select_model(args: argparse.Namespace) -> int:
     if prompt is None and not sys.stdin.isatty():
         prompt = sys.stdin.read().strip()
     if not prompt:
-        print("Provide --prompt or pipe a task description into stdin.", file=sys.stderr)
-        return 2
+        raise CliError(
+            "No task prompt provided.",
+            "Provide --prompt or pipe a task description into stdin.",
+            exit_code=2,
+        )
     routing = _load_routing_or_probe(target)
     providers = detect_providers(load_local_credentials(target))
     selection = select_model_for_prompt(prompt, routing, providers, args.mode)
@@ -2161,12 +2131,13 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _normalize_grouped_command(args)
+    handler = COMMANDS.get(args.command)
     try:
         _normalize_args_tools_in_place(args)
-    except SystemExit as exc:
-        return int(exc.code) if exc.code is not None else 1
-    handler = COMMANDS.get(args.command)
-    return handler(args) if handler else 2
+        return handler(args) if handler else 2
+    except CliError as exc:
+        print(format_error(exc), file=sys.stderr)
+        return exc.exit_code
 
 
 def _maybe_install_tools(

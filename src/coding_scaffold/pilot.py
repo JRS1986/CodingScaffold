@@ -93,20 +93,18 @@ def run_pilot(
     from .errors import CliError
     from .intake import normalize_tools
 
-    try:
-        if tools is not None:
-            canonical = normalize_tools(tools)
-        elif tool is not None:
-            canonical = normalize_tools(tool)
-        else:
-            canonical = normalize_tools("opencode")
-    except CliError as exc:
-        raise ValueError(f"Unknown tool — {exc.cause}") from exc
+    if tools is not None:
+        canonical = normalize_tools(tools)
+    elif tool is not None:
+        canonical = normalize_tools(tool)
+    else:
+        canonical = normalize_tools("opencode")
 
     root = (target or Path.cwd()).expanduser().resolve()
     if persona not in PERSONAS:
-        raise ValueError(
-            f"Unknown persona {persona!r}. Choose from: {', '.join(PERSONAS)}."
+        raise CliError(
+            f"Unknown persona {persona!r}.",
+            f"Choose from: {', '.join(PERSONAS)}.",
         )
 
     warnings: list[str] = []

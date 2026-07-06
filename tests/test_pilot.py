@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 import coding_scaffold.pilot as pilot_module
+from coding_scaffold.errors import CliError
 from coding_scaffold.cli import build_parser, main
 from coding_scaffold.pilot import (
     SUPPORTED_TOOLS,
@@ -85,7 +86,7 @@ def test_pilot_supports_every_known_tool(tmp_path: Path) -> None:
 
 
 def test_pilot_rejects_unknown_tool(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="Unknown tool"):
+    with pytest.raises(CliError, match="unknown tool"):
         run_pilot(tmp_path, tool="not-a-real-tool")
 
 

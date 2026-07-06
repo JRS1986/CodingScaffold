@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .artifacts import ARTIFACTS, rationale_for
+from .errors import CliError
 from .hardware import probe_hardware
 from .personas import DEFAULT_PERSONA, PERSONAS, get_persona
 from .pr_template import PR_TEMPLATE_RELATIVE
@@ -75,8 +76,9 @@ def run_doctor(
     """
 
     if persona not in PERSONAS:
-        raise ValueError(
-            f"Unknown persona {persona!r}. Choose from: {', '.join(PERSONAS)}."
+        raise CliError(
+            f"Unknown persona {persona!r}.",
+            f"Choose from: {', '.join(PERSONAS)}.",
         )
 
     root = (target or Path.cwd()).expanduser().resolve()

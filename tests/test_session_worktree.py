@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from coding_scaffold.errors import CliError
 from coding_scaffold.cli import main
 from coding_scaffold.session import (
     checkpoint_session,
@@ -74,7 +75,7 @@ def test_start_session_with_worktree_creates_sibling_dir(tmp_path: Path) -> None
 
 
 def test_start_session_refuses_non_repo(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeError, match="not a Git repository"):
+    with pytest.raises(CliError, match="not a Git repository"):
         start_session(tmp_path)
 
 

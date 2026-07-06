@@ -18,6 +18,7 @@ from coding_scaffold.personas import (
 )
 from coding_scaffold.pilot import format_pilot_text, run_pilot
 from coding_scaffold.tour import format_tour, screens
+from coding_scaffold.errors import CliError
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ def test_doctor_persona_writes_persona_marker_into_notes(tmp_path: Path) -> None
 
 
 def test_doctor_rejects_unknown_persona(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="Unknown persona"):
+    with pytest.raises(CliError, match="Unknown persona"):
         run_doctor(tmp_path, persona="not-a-persona")
 
 
@@ -119,7 +120,7 @@ def test_pilot_team_lead_persona_recommends_team_init(tmp_path: Path) -> None:
 
 
 def test_pilot_rejects_unknown_persona(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="Unknown persona"):
+    with pytest.raises(CliError, match="Unknown persona"):
         run_pilot(tmp_path, tool="opencode", persona="bad")
 
 

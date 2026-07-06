@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from coding_scaffold.errors import CliError
 from coding_scaffold.session import (
     SESSIONS_DIR,
     checkpoint_session,
@@ -176,17 +177,17 @@ def test_status_reports_unknown_on_fresh_repo(tmp_path: Path) -> None:
 
 def test_checkpoint_without_active_session_raises(tmp_path: Path) -> None:
     _init_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="No active session"):
+    with pytest.raises(CliError, match="No active session"):
         checkpoint_session(tmp_path)
 
 
 def test_diff_without_active_session_raises(tmp_path: Path) -> None:
     _init_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="No active session"):
+    with pytest.raises(CliError, match="No active session"):
         diff_session(tmp_path)
 
 
 def test_rollback_without_active_session_raises(tmp_path: Path) -> None:
     _init_repo(tmp_path)
-    with pytest.raises(RuntimeError, match="No active session"):
+    with pytest.raises(CliError, match="No active session"):
         rollback_session(tmp_path)
