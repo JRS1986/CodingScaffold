@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .errors import CliError
 from .file_ops import sha256_bytes
 
 
@@ -567,7 +568,10 @@ def _safe_skill_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", name.strip())
     cleaned = re.sub(r"-+", "-", cleaned).strip("-").lower()
     if not cleaned:
-        raise ValueError("Skill name cannot be empty.")
+        raise CliError(
+            "Skill name cannot be empty.",
+            'Pass a descriptive name, e.g. --name "Release Review".',
+        )
     return cleaned
 
 

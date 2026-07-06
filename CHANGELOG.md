@@ -7,6 +7,20 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **All CLI failure paths now use the three-line error shape** (issue #92
+  follow-through). `main()` catches `CliError` centrally; `session`, `memory`,
+  `pilot`, `doctor`, `skills`, and `context` validation errors raise `CliError`
+  with a recovery hint instead of bare `ValueError`/`RuntimeError` rendered as
+  `Error: ...`. Exit codes are unchanged. Library callers that caught
+  `ValueError`/`RuntimeError` from `capture_memory`, `promote_memory`,
+  `start_session`, `checkpoint_session`, `diff_session`, `rollback_session`,
+  `run_pilot`, or `run_doctor` should catch `coding_scaffold.errors.CliError`.
+- **`CliError` is no longer a frozen dataclass** — Python's re-raise machinery
+  assigns `__traceback__`, which `frozen=True` rejected with
+  `FrozenInstanceError` whenever a `CliError` crossed a `@contextmanager`.
+
 ## [0.7.0] — 2026-05-28
 
 ### Removed (breaking)

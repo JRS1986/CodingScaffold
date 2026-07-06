@@ -21,10 +21,14 @@ import sys
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass
 class CliError(Exception):
     """Library-side counterpart of ``fail_with`` so non-CLI callers can raise the
-    same recovery shape and let the CLI render it."""
+    same recovery shape and let the CLI render it.
+
+    Deliberately not ``frozen=True``: Python's re-raise machinery (e.g.
+    ``contextlib``'s ``__exit__``) assigns ``__traceback__`` on the exception
+    object, which a frozen dataclass rejects with ``FrozenInstanceError``."""
 
     cause: str
     next_step: str

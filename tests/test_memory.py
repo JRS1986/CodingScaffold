@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from coding_scaffold.errors import CliError
 from coding_scaffold.cli import main
 from coding_scaffold.memory import (
     MEMORY_DIR,
@@ -37,12 +38,12 @@ def test_capture_writes_markdown_with_frontmatter(tmp_path: Path) -> None:
 
 
 def test_capture_refuses_secret_class(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="never stored"):
+    with pytest.raises(CliError, match="never stored"):
         capture_memory(tmp_path, class_="secret", content="anything")
 
 
 def test_capture_refuses_personal_data_without_flag(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="restricted"):
+    with pytest.raises(CliError, match="restricted"):
         capture_memory(tmp_path, class_="personal_data", content="Jane Doe lives in Berlin.")
 
 
@@ -59,7 +60,7 @@ def test_capture_accepts_personal_data_with_flag(tmp_path: Path) -> None:
 
 def test_capture_refuses_content_that_looks_like_secret(tmp_path: Path) -> None:
     # Token-shaped string matches the heuristic.
-    with pytest.raises(ValueError, match="looks like a secret"):
+    with pytest.raises(CliError, match="looks like a secret"):
         capture_memory(
             tmp_path,
             class_="project_fact",
@@ -126,7 +127,7 @@ def test_promote_refuses_secret_class(tmp_path: Path) -> None:
         content="Note about config.",
         owner="@me",
     )
-    with pytest.raises(ValueError, match="Cannot promote"):
+    with pytest.raises(CliError, match="Cannot promote"):
         promote_memory(tmp_path, entry_id=captured.entry.id, new_class="secret")
 
 

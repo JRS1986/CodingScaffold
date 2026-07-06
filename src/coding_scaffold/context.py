@@ -7,6 +7,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .errors import CliError
+
 
 DEFAULT_MAX_CONTEXT_TOKENS = 100_000
 DEFAULT_CONTEXT_WINDOW = 250_000
@@ -407,4 +409,4 @@ def _display_path(path: Path, root: Path) -> str:
 def _validate_choice(value: str, allowed: set[str], name: str) -> None:
     if value not in allowed:
         choices = ", ".join(sorted(allowed))
-        raise ValueError(f"{name} must be one of: {choices}")
+        raise CliError(f"{name} must be one of: {choices}", f"Pass a supported {name} value.")

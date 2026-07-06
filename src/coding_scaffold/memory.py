@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+from .errors import CliError
+
 
 MEMORY_DIR = Path(".coding-scaffold") / "memory"
 EXPIRED_SUBDIR = "_expired"
@@ -228,26 +230,28 @@ def capture_memory(
 
     root = target.expanduser().resolve()
     if class_ in FORBIDDEN_CLASSES:
-        raise ValueError(
-            f"Memory class {class_!r} is never stored. Move the value out of the repo and "
-            "use a proper secret store."
+        raise CliError(
+            f"Memory class {class_!r} is never stored.",
+            "Move the value out of the repo and use a proper secret store.",
         )
     if class_ in RESTRICTED_CLASSES and not allow_personal:
-        raise ValueError(
-            f"Memory class {class_!r} is restricted. Pass --allow-personal to confirm the "
-            "team has approved this category for storage."
+        raise CliError(
+            f"Memory class {class_!r} is restricted.",
+            "Pass --allow-personal to confirm the team has approved this category for storage.",
         )
     if class_ not in MEMORY_CLASSES:
-        raise ValueError(
-            f"Unknown memory class {class_!r}. Allowed: {', '.join(MEMORY_CLASSES)}."
+        raise CliError(
+            f"Unknown memory class {class_!r}.",
+            f"Choose one of: {', '.join(MEMORY_CLASSES)}.",
         )
 
     # Heuristic secret check on the content itself.
     for pattern, label in SECRET_PATTERNS:
         if re.search(pattern, content):
-            raise ValueError(
-                f"Content looks like a secret ({label}). Capture refused. Store the value in "
-                ".env.local or a real secret manager; reference it indirectly here."
+            raise CliError(
+                f"Content looks like a secret ({label}); capture refused.",
+                "Store the value in .env.local or a real secret manager; reference it "
+                "indirectly here.",
             )
 
     captured_at = when or datetime.now(UTC)
@@ -349,14 +353,21 @@ def promote_memory(
 
     root = target.expanduser().resolve()
     if new_class in FORBIDDEN_CLASSES:
-        raise ValueError(f"Cannot promote to class {new_class!r}.")
+        raise CliError(
+            f"Cannot promote to class {new_class!r}.",
+            f"Choose one of: {', '.join(sorted(set(MEMORY_CLASSES) - set(FORBIDDEN_CLASSES)))}.",
+        )
     if new_class not in MEMORY_CLASSES:
-        raise ValueError(
-            f"Unknown memory class {new_class!r}. Allowed: {', '.join(MEMORY_CLASSES)}."
+        raise CliError(
+            f"Unknown memory class {new_class!r}.",
+            f"Choose one of: {', '.join(MEMORY_CLASSES)}.",
         )
     entry = _find_entry(root, entry_id)
     if entry is None:
-        raise ValueError(f"Memory entry {entry_id!r} not found.")
+        raise CliError(
+            f"Memory entry {entry_id!r} not found.",
+            "Run `coding-scaffold memory review` to list entry ids.",
+        )
     if entry.class_ == new_class:
         return MemoryPromoteResult(
             source_entry=entry,

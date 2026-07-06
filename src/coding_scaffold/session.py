@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from .errors import CliError
 from .file_ops import write_text
 
 
@@ -475,13 +476,14 @@ def start_session(
     root = target.expanduser().resolve()
     warnings: list[str] = []
     if shutil.which("git") is None:
-        raise RuntimeError(
-            "git is required for `session start`. Install git or use `session init` for a "
-            "trace-only workflow."
+        raise CliError(
+            "git is required for `session start`.",
+            "Install git, or use `coding-scaffold session init` for a trace-only workflow.",
         )
     if not _is_git_repo(root):
-        raise RuntimeError(
-            f"{root} is not a Git repository. Run `git init` first or pass --target."
+        raise CliError(
+            f"{root} is not a Git repository.",
+            "Run `git init` first, or point --target at a Git repository.",
         )
 
     today = when or datetime.now(UTC).date()
@@ -569,9 +571,9 @@ def checkpoint_session(
     root = target.expanduser().resolve()
     state_path = _find_active_state(root)
     if state_path is None:
-        raise RuntimeError(
-            "No active session state file found under .coding-scaffold/sessions/. Run "
-            "`coding-scaffold session start` first."
+        raise CliError(
+            "No active session state file found under .coding-scaffold/sessions/.",
+            "Run `coding-scaffold session start` first.",
         )
     state = json.loads(state_path.read_text(encoding="utf-8-sig"))
     work_root = _resolve_work_root(state, root)
@@ -617,7 +619,10 @@ def diff_session(target: Path) -> SessionDiffResult:
     root = target.expanduser().resolve()
     state_path = _find_active_state(root)
     if state_path is None:
-        raise RuntimeError("No active session state file found.")
+        raise CliError(
+            "No active session state file found.",
+            "Run `coding-scaffold session start` first.",
+        )
     state = json.loads(state_path.read_text(encoding="utf-8-sig"))
     work_root = _resolve_work_root(state, root)
     start_commit = state.get("start_commit")
@@ -652,12 +657,19 @@ def rollback_session(
     root = target.expanduser().resolve()
     state_path = _find_active_state(root)
     if state_path is None:
-        raise RuntimeError("No active session state file found.")
+        raise CliError(
+            "No active session state file found.",
+            "Run `coding-scaffold session start` first.",
+        )
     state = json.loads(state_path.read_text(encoding="utf-8-sig"))
     work_root = _resolve_work_root(state, root)
     start_commit = state.get("start_commit")
     if not start_commit:
-        raise RuntimeError("Session state has no start_commit recorded.")
+        raise CliError(
+            "Session state has no start_commit recorded.",
+            "Trace-only sessions (`session init`) cannot be rolled back; start a Git-backed "
+            "session with `coding-scaffold session start`.",
+        )
 
     files = _git_diff_files(work_root, start_commit)
     if not confirm:
@@ -720,7 +732,7 @@ def status_session(target: Path) -> SessionStatusResult:
         head_commit = _git_head_commit(work_root)
         if start_commit:
             files_changed = len(_git_diff_files(work_root, start_commit))
-    except RuntimeError as exc:
+    except CliError as exc:
         warnings.append(str(exc))
     worktree_str = state.get("worktree_path")
     return SessionStatusResult(
@@ -764,7 +776,10 @@ def _git_head_commit(root: Path) -> str:
         timeout=_GIT_TIMEOUT,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git rev-parse failed: {result.stderr.strip()}")
+        raise CliError(
+            f"git rev-parse failed: {result.stderr.strip()}",
+            "Check `git status` in the session work root.",
+        )
     return result.stdout.strip()
 
 
@@ -777,7 +792,10 @@ def _run_git(root: Path, args: list[str]) -> str:
         timeout=_GIT_TIMEOUT,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {result.stderr.strip()}")
+        raise CliError(
+            f"git {' '.join(args)} failed: {result.stderr.strip()}",
+            "Check `git status` in the session work root.",
+        )
     return result.stdout
 
 
