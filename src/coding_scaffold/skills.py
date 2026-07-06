@@ -21,13 +21,14 @@ All checks are deterministic. No commands are executed. No network calls.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import tarfile
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+
+from .file_ops import sha256_bytes
 
 
 SKILLS_RELATIVE = Path(".coding-scaffold") / "skills"
@@ -571,8 +572,4 @@ def _safe_skill_name(name: str) -> str:
 
 
 def _compute_checksum(skill_md: Path, manifest: Path) -> str:
-    hasher = hashlib.sha256()
-    hasher.update(skill_md.read_bytes())
-    hasher.update(b"\x00")
-    hasher.update(manifest.read_bytes())
-    return hasher.hexdigest()
+    return sha256_bytes(skill_md.read_bytes() + b"\x00" + manifest.read_bytes())

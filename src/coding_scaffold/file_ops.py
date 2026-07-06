@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+
+
+def sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def sha256_text(text: str) -> str:
+    return sha256_bytes(text.encode("utf-8"))
 
 
 def write_text(path: Path, content: str, *, overwrite: bool = True) -> Path:

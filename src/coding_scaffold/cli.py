@@ -144,6 +144,18 @@ Glossary of terms: https://jrs1986.github.io/CodingScaffold/wiki/Glossary
 """
 
 
+def _add_target_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+
+
+def _add_json_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+
+def _print_json(payload: object) -> None:
+    print(json.dumps(payload, indent=2, sort_keys=True))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="coding-scaffold",
@@ -153,8 +165,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
     probe = sub.add_parser("probe", help="Inspect hardware and provider availability.")
-    probe.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
-    probe.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_json_arg(probe)
+    _add_target_arg(probe)
     probe.add_argument(
         "--no-probe-cache",
         action="store_true",
@@ -172,8 +184,8 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge_canonical = setup_sub.add_parser("knowledge", help="Configure shared team knowledge.")
     _add_setup_knowledge_args(setup_knowledge_canonical)
     setup_update = setup_sub.add_parser("update", help="Refresh generated scaffold files without losing edits.")
-    setup_update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    setup_update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(setup_update)
+    _add_json_arg(setup_update)
     setup_update.add_argument(
         "--force",
         action="store_true",
@@ -191,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     # a flag to a grouped command, you must mirror it on the corresponding
     # flat alias here, or the two trees will drift. Tracked in #48.
     init = sub.add_parser("init", help=argparse.SUPPRESS)
-    init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(init)
     init.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
     init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
@@ -235,7 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
 
     wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
-    wizard.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(wizard)
     wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
     wizard.add_argument(
         "--tool",
@@ -270,31 +282,31 @@ def build_parser() -> argparse.ArgumentParser:
     wizard.add_argument("--no-knowledge", action="store_true", help="Do not offer knowledge setup.")
 
     credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
-    credentials.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(credentials)
     credentials.add_argument("--format", choices=["env", "json"], default="env")
 
     skill = sub.add_parser("skill", help="Create a reusable project skill template.")
-    skill.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(skill)
     skill.add_argument("--name", required=True, help="Skill name, e.g. Release Review.")
     skill.add_argument("--description", default="", help="Short description for when to use it.")
     skill.add_argument("--adapter", choices=["none", "opencode"], default="none")
 
     knowledge = sub.add_parser("knowledge", help="Create a shared team knowledge base.")
-    knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge)
     knowledge.add_argument("--backend", choices=KNOWLEDGE_BACKENDS, default="markdown")
     knowledge.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_sub = knowledge.add_subparsers(dest="knowledge_action", metavar="action")
     knowledge_create = knowledge_sub.add_parser("create", help="Create or update shared team knowledge.")
-    knowledge_create.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_create)
     knowledge_create.add_argument("--backend", choices=KNOWLEDGE_BACKENDS, default="markdown")
     knowledge_create.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge_create.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
-    knowledge_status_canonical.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge_status_canonical.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(knowledge_status_canonical)
+    _add_json_arg(knowledge_status_canonical)
     knowledge_distill = knowledge_sub.add_parser("distill", help="Propose curated wiki updates from raw notes.")
-    knowledge_distill.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_distill)
     knowledge_distill.add_argument(
         "--source",
         default="raw",
@@ -305,35 +317,35 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write .new proposal files instead of modifying curated wiki pages.",
     )
-    knowledge_distill.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(knowledge_distill)
     knowledge_list = knowledge_sub.add_parser("list", help="List knowledge notes by scope and maturity.")
-    knowledge_list.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_list)
     knowledge_list.add_argument("--scope", choices=["team", "department", "unit", "company"])
     knowledge_list.add_argument("--maturity", choices=["draft", "validated", "recommended", "standard"])
-    knowledge_list.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(knowledge_list)
     knowledge_lint = knowledge_sub.add_parser("lint", help="Validate knowledge ownership, review dates, and links.")
-    knowledge_lint.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_lint)
     knowledge_lint.add_argument("--scope", "--layer", dest="scope", choices=["team", "department", "unit", "company"])
     knowledge_lint.add_argument("--format", choices=["text", "json"], default="text")
     knowledge_lint.add_argument("--fix", action="store_true", help="Apply cheap fixes such as missing last_reviewed.")
     knowledge_lint.add_argument("--warn-only", action="store_true", help="Print violations but exit 0.")
     knowledge_promote = knowledge_sub.add_parser("promote", help="Promote a knowledge note across layers.")
     knowledge_promote.add_argument("slug", help="Markdown filename stem or relative slug.")
-    knowledge_promote.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_promote)
     knowledge_promote.add_argument("--from", dest="from_layer", required=True)
     knowledge_promote.add_argument("--to", dest="to_layer", required=True)
     knowledge_promote.add_argument("--owner", help="Owner to set when the note does not already have one.")
-    knowledge_promote.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(knowledge_promote)
     knowledge_nominate = knowledge_sub.add_parser("nominate", help="Bundle a note for promotion to a parent scope.")
     knowledge_nominate.add_argument("slug", help="Markdown filename stem or relative slug.")
-    knowledge_nominate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(knowledge_nominate)
     knowledge_nominate.add_argument("--to-scope", required=True, choices=["department", "unit", "company"])
     knowledge_nominate.add_argument("--rationale", default="")
-    knowledge_nominate.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(knowledge_nominate)
 
     knowledge_status = sub.add_parser("knowledge-status", help=argparse.SUPPRESS)
-    knowledge_status.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    knowledge_status.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(knowledge_status)
+    _add_json_arg(knowledge_status)
 
     context = sub.add_parser("context", help="Inspect and compress context safely.")
     context_sub = context.add_subparsers(dest="context_action", required=True, metavar="action")
@@ -355,18 +367,18 @@ def build_parser() -> argparse.ArgumentParser:
     session = sub.add_parser("session", help="Create and summarize per-agentic-change session traces.")
     session_sub = session.add_subparsers(dest="session_action", required=True, metavar="action")
     session_init = session_sub.add_parser("init", help="Create a new session-trace Markdown file.")
-    session_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(session_init)
     session_init.add_argument("--slug", default=None, help="Slug for the filename (default: agentic-change).")
     session_init.add_argument("--task", default=None, help="One-line task description to seed the template.")
-    session_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(session_init)
     session_summarize = session_sub.add_parser("summarize", help="Summarize a session-trace file.")
     session_summarize.add_argument("path", type=Path, help="Path to a session-trace Markdown file.")
-    session_summarize.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(session_summarize)
     session_start = session_sub.add_parser(
         "start",
         help="Begin a reversible agentic session (branch + optional worktree).",
     )
-    session_start.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(session_start)
     session_start.add_argument("--slug", default=None)
     session_start.add_argument("--task", default=None)
     session_start.add_argument(
@@ -374,42 +386,42 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create a Git worktree at a sibling directory for full isolation.",
     )
-    session_start.add_argument("--json", action="store_true")
+    _add_json_arg(session_start)
     session_checkpoint = session_sub.add_parser(
         "checkpoint",
         help="Stage + commit current changes and record the commit in the session state.",
     )
-    session_checkpoint.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(session_checkpoint)
     session_checkpoint.add_argument("--message", "-m", default=None,
                                     help="Commit message. Defaults to `checkpoint: <timestamp>`.")
-    session_checkpoint.add_argument("--json", action="store_true")
+    _add_json_arg(session_checkpoint)
     session_diff = session_sub.add_parser(
         "diff",
         help="Show the diff between the session's start commit and HEAD.",
     )
-    session_diff.add_argument("--target", type=Path, default=Path.cwd())
-    session_diff.add_argument("--json", action="store_true")
+    _add_target_arg(session_diff)
+    _add_json_arg(session_diff)
     session_rollback = session_sub.add_parser(
         "rollback",
         help="Restore the session's working tree to its start commit.",
     )
-    session_rollback.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(session_rollback)
     session_rollback.add_argument("--confirm", action="store_true",
                                   help="Required to actually roll back; without it, preview only.")
     session_rollback.add_argument("--hard", action="store_true",
                                   help="Hard reset. Discards uncommitted changes. Requires --confirm.")
-    session_rollback.add_argument("--json", action="store_true")
+    _add_json_arg(session_rollback)
     session_summary = session_sub.add_parser(
         "summary",
         help="Overall picture of the active session: branch, baseline, checkpoints, diff size.",
     )
-    session_summary.add_argument("--target", type=Path, default=Path.cwd())
-    session_summary.add_argument("--json", action="store_true")
+    _add_target_arg(session_summary)
+    _add_json_arg(session_summary)
 
     memory = sub.add_parser("memory", help="Reviewable team memory (capture/review/promote/expire/audit).")
     memory_sub = memory.add_subparsers(dest="memory_action", required=True, metavar="action")
     memory_capture = memory_sub.add_parser("capture", help="Record a new memory entry.")
-    memory_capture.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(memory_capture)
     memory_capture.add_argument("--class", dest="memory_class", required=True,
                                 choices=list(MEMORY_CLASSES) + ["secret", "personal_data"],
                                 help=(
@@ -424,34 +436,34 @@ def build_parser() -> argparse.ArgumentParser:
                                 help="ISO date (YYYY-MM-DD) when the entry should expire.")
     memory_capture.add_argument("--allow-personal", action="store_true",
                                 help="Required to capture class=personal_data.")
-    memory_capture.add_argument("--json", action="store_true")
+    _add_json_arg(memory_capture)
     memory_review = memory_sub.add_parser("review",
                                           help="List active entries; flag unowned/expiring/expired.")
-    memory_review.add_argument("--target", type=Path, default=Path.cwd())
-    memory_review.add_argument("--json", action="store_true")
+    _add_target_arg(memory_review)
+    _add_json_arg(memory_review)
     memory_promote = memory_sub.add_parser("promote",
                                            help="Move an entry to a more durable class.")
     memory_promote.add_argument("entry_id", help="Entry id (e.g. 2026-05-18-my-note).")
-    memory_promote.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(memory_promote)
     memory_promote.add_argument("--to", dest="new_class", required=True,
                                 choices=list(MEMORY_CLASSES) + ["personal_data"],
                                 help="Target class for the promoted entry.")
     memory_promote.add_argument("--owner", default=None,
                                 help="Optional new owner for the promoted entry.")
-    memory_promote.add_argument("--json", action="store_true")
+    _add_json_arg(memory_promote)
     memory_expire = memory_sub.add_parser("expire",
                                           help="Move expired entries to _expired/.")
-    memory_expire.add_argument("--target", type=Path, default=Path.cwd())
-    memory_expire.add_argument("--json", action="store_true")
+    _add_target_arg(memory_expire)
+    _add_json_arg(memory_expire)
     memory_audit = memory_sub.add_parser("audit",
                                          help="Scan memory for content that looks like a secret or PII.")
-    memory_audit.add_argument("--target", type=Path, default=Path.cwd())
-    memory_audit.add_argument("--json", action="store_true")
+    _add_target_arg(memory_audit)
+    _add_json_arg(memory_audit)
     memory_init = memory_sub.add_parser("init",
                                         help="Write `.coding-scaffold/memory/config.json` (optional).")
-    memory_init.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(memory_init)
     memory_init.add_argument("--force", action="store_true")
-    memory_init.add_argument("--json", action="store_true")
+    _add_json_arg(memory_init)
 
     pr_template = sub.add_parser("pr-template", help="Manage generated GitHub PR templates.")
     pr_template_sub = pr_template.add_subparsers(dest="pr_template_action", required=True, metavar="action")
@@ -459,8 +471,8 @@ def build_parser() -> argparse.ArgumentParser:
         "init",
         help="Write .github/PULL_REQUEST_TEMPLATE/agentic-change.md if it doesn't exist.",
     )
-    pr_template_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    pr_template_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(pr_template_init)
+    _add_json_arg(pr_template_init)
 
     permissions = sub.add_parser(
         "permissions",
@@ -473,10 +485,10 @@ def build_parser() -> argparse.ArgumentParser:
         "write",
         help="Write `.coding-scaffold/agent-permissions.json`.",
     )
-    permissions_write.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(permissions_write)
     permissions_write.add_argument("--force", action="store_true",
                                    help="Overwrite an existing agent-permissions.json.")
-    permissions_write.add_argument("--json", action="store_true")
+    _add_json_arg(permissions_write)
 
     mcp = sub.add_parser("mcp", help="Inspect and govern MCP server configuration.")
     mcp_sub = mcp.add_subparsers(dest="mcp_action", required=True, metavar="action")
@@ -489,61 +501,61 @@ def build_parser() -> argparse.ArgumentParser:
         "init",
         help="Write `.coding-scaffold/mcp-policy.json` with defaults.",
     )
-    mcp_policy_init.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(mcp_policy_init)
     mcp_policy_init.add_argument("--force", action="store_true",
                                  help="Overwrite an existing policy file.")
-    mcp_policy_init.add_argument("--json", action="store_true")
+    _add_json_arg(mcp_policy_init)
     mcp_scan = mcp_sub.add_parser("scan", help="Scan known MCP config locations and report findings.")
-    mcp_scan.add_argument("--target", type=Path, default=Path.cwd())
-    mcp_scan.add_argument("--json", action="store_true")
+    _add_target_arg(mcp_scan)
+    _add_json_arg(mcp_scan)
     mcp_snapshot = mcp_sub.add_parser("snapshot", help="Record the current MCP server set.")
-    mcp_snapshot.add_argument("--target", type=Path, default=Path.cwd())
-    mcp_snapshot.add_argument("--json", action="store_true")
+    _add_target_arg(mcp_snapshot)
+    _add_json_arg(mcp_snapshot)
     mcp_diff = mcp_sub.add_parser("diff", help="Compare current MCP state with the saved snapshot.")
-    mcp_diff.add_argument("--target", type=Path, default=Path.cwd())
-    mcp_diff.add_argument("--json", action="store_true")
+    _add_target_arg(mcp_diff)
+    _add_json_arg(mcp_diff)
 
     skills = sub.add_parser("skills", help="Manage reviewable skill packs.")
     skills_sub = skills.add_subparsers(dest="skills_action", required=True, metavar="action")
     skills_new = skills_sub.add_parser("new", help="Scaffold a new skill directory.")
     skills_new.add_argument("name", help="Skill name (slugified into the directory name).")
-    skills_new.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(skills_new)
     skills_new.add_argument("--owner", default=None, help="Skill owner handle for manifest.json.")
-    skills_new.add_argument("--json", action="store_true")
+    _add_json_arg(skills_new)
     skills_lint = skills_sub.add_parser("lint", help="Lint every skill under .coding-scaffold/skills/.")
-    skills_lint.add_argument("--target", type=Path, default=Path.cwd())
-    skills_lint.add_argument("--json", action="store_true")
+    _add_target_arg(skills_lint)
+    _add_json_arg(skills_lint)
     skills_approve = skills_sub.add_parser("approve", help="Record the current CHECKSUM for a skill.")
     skills_approve.add_argument("name", help="Skill directory name.")
-    skills_approve.add_argument("--target", type=Path, default=Path.cwd())
-    skills_approve.add_argument("--json", action="store_true")
+    _add_target_arg(skills_approve)
+    _add_json_arg(skills_approve)
     skills_export = skills_sub.add_parser("export", help="Bundle a skill into a tar.gz archive.")
     skills_export.add_argument("name", help="Skill directory name.")
-    skills_export.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(skills_export)
     skills_export.add_argument("--output", type=Path, default=None,
                                help="Output archive path (default: <skill>.tar.gz in --target).")
-    skills_export.add_argument("--json", action="store_true")
+    _add_json_arg(skills_export)
 
     eval_parser = sub.add_parser("eval", help="Run the lightweight readiness benchmark.")
     eval_sub = eval_parser.add_subparsers(dest="eval_action", required=True, metavar="action")
     eval_init = eval_sub.add_parser("init", help="Write `.coding-scaffold/eval-config.json`.")
-    eval_init.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(eval_init)
     eval_init.add_argument("--force", action="store_true")
-    eval_init.add_argument("--json", action="store_true")
+    _add_json_arg(eval_init)
     eval_run = eval_sub.add_parser("run", help="Run the enabled readiness checks.")
-    eval_run.add_argument("--target", type=Path, default=Path.cwd())
-    eval_run.add_argument("--json", action="store_true")
+    _add_target_arg(eval_run)
+    _add_json_arg(eval_run)
     eval_report = eval_sub.add_parser(
         "report",
         help="Print the most recent eval report (re-runs by default).",
     )
-    eval_report.add_argument("--target", type=Path, default=Path.cwd())
+    _add_target_arg(eval_report)
     eval_report.add_argument("--cached", action="store_true",
                              help="Use the saved report instead of re-running.")
-    eval_report.add_argument("--json", action="store_true")
+    _add_json_arg(eval_report)
 
     context_budget = sub.add_parser("context-budget", help=argparse.SUPPRESS)
-    context_budget.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(context_budget)
     context_budget.add_argument(
         "--source",
         default="knowledge",
@@ -558,10 +570,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="original",
         help="Estimate original files, compressed sidecars when present, or both.",
     )
-    context_budget.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(context_budget)
 
     compress = sub.add_parser("compress-context", help=argparse.SUPPRESS)
-    compress.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(compress)
     compress.add_argument(
         "--source",
         default="knowledge",
@@ -576,7 +588,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     orchestrate = sub.add_parser("orchestrate", help=argparse.SUPPRESS)
-    orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(orchestrate)
     orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
     orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
@@ -594,7 +606,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     setup_addon = sub.add_parser("setup-addon", help=argparse.SUPPRESS)
-    setup_addon.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(setup_addon)
     setup_addon.add_argument(
         "--addon",
         choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
@@ -607,7 +619,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     setup_knowledge = sub.add_parser("setup-knowledge", help=argparse.SUPPRESS)
-    setup_knowledge.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(setup_knowledge)
     setup_knowledge.add_argument(
         "--backend",
         choices=KNOWLEDGE_BACKENDS,
@@ -618,11 +630,11 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     team = sub.add_parser("team", help="Manage experienced-team onboarding assets.")
-    team.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team)
     team_sub = team.add_subparsers(dest="team_action", required=True, metavar="action")
 
     team_init = team_sub.add_parser("init", help="Write a starter team-onboarding.json.")
-    team_init.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team_init)
     team_init.add_argument("--team", default="team", help="Team name for `team init`.")
     team_init.add_argument("--knowledge-remote", help="Shared knowledge Git remote for `team init`.")
     team_init.add_argument(
@@ -639,7 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     team_connect = team_sub.add_parser("connect", help="Apply a team manifest into this project.")
-    team_connect.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team_connect)
     team_connect.add_argument(
         "--manifest", help="Local manifest file or Git repo containing team-onboarding.json."
     )
@@ -658,7 +670,7 @@ def build_parser() -> argparse.ArgumentParser:
     team_connect.add_argument("--to-ref", help="Checkout a specific manifest source ref before connecting.")
 
     team_sync = team_sub.add_parser("sync", help="Refresh team-imported assets from the manifest.")
-    team_sync.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team_sync)
     team_sync.add_argument(
         "--dry-run", action="store_true", help="Preview team imports without writing files."
     )
@@ -674,16 +686,16 @@ def build_parser() -> argparse.ArgumentParser:
     team_sync.add_argument("--to-ref", help="Refresh from a specific connected manifest source ref.")
 
     team_doctor = team_sub.add_parser("doctor", help="Diagnose the local team manifest.")
-    team_doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team_doctor)
     team_doctor.add_argument("--format", choices=["text", "json"], default="text")
 
     team_push = team_sub.add_parser("push", help="Nominate local artifacts back to the team manifest.")
-    team_push.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(team_push)
     team_push.add_argument("--dry-run", action="store_true", help="List nomination candidates only.")
     team_push.add_argument("--open-pr", action="store_true", help="Open a draft PR against the manifest repo.")
 
     policy = sub.add_parser("policy", help="Create company/unit/team policy config.")
-    policy.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(policy)
     policy.add_argument(
         "--scope",
         choices=["company", "unit", "department", "team"],
@@ -725,7 +737,7 @@ def build_parser() -> argparse.ArgumentParser:
     tools = sub.add_parser("tools", help="Generate adapters, routing backends, workflows, and model picks.")
     tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
     tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
-    tools_adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tools_adapt)
     tools_adapt.add_argument(
         "--tool",
         action="append",
@@ -733,23 +745,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
     )
     tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
-    tools_route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tools_route)
     tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
     tools_select = tools_sub.add_parser("select-model", help="Recommend a model route for a prompt.")
-    tools_select.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tools_select)
     tools_select.add_argument("--prompt", help="Prompt or task description to classify.")
     tools_select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
-    tools_select.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(tools_select)
     tools_workflow = tools_sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
-    tools_workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tools_workflow)
     tools_workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
     tools_orchestrate = tools_sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
-    tools_orchestrate.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tools_orchestrate)
     tools_orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
     tools_orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
-    adapt.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(adapt)
     adapt.add_argument(
         "--tool",
         action="append",
@@ -758,29 +770,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     route = sub.add_parser("route", help=argparse.SUPPRESS)
-    route.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(route)
     route.add_argument("--backend", choices=["routellm"], default="routellm")
 
     select = sub.add_parser("select-model", help=argparse.SUPPRESS)
-    select.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(select)
     select.add_argument("--prompt", help="Prompt or task description to classify.")
     select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
-    select.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(select)
 
     workflow = sub.add_parser("workflow", help=argparse.SUPPRESS)
-    workflow.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(workflow)
     workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
 
     update = sub.add_parser("update", help=argparse.SUPPRESS)
-    update.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    update.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(update)
+    _add_json_arg(update)
 
     doctor = sub.add_parser(
         "doctor",
         help="Survey scaffold artifacts and recommend the next 1-3 commands.",
     )
-    doctor.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
-    doctor.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_target_arg(doctor)
+    _add_json_arg(doctor)
     doctor.add_argument(
         "--verbose",
         action="store_true",
@@ -802,7 +814,7 @@ def build_parser() -> argparse.ArgumentParser:
         "pilot",
         help="Print the safe 10-minute happy path tailored to this project.",
     )
-    pilot.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(pilot)
     pilot.add_argument(
         "--tool",
         # `choices=` removed — comma-separated values would fail validation here;
@@ -812,7 +824,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Coding tool(s) to weave into the recipe (default: opencode). "
              "Repeat or comma-separate for multi-tool projects.",
     )
-    pilot.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(pilot)
     pilot.add_argument(
         "--persona",
         choices=list(_PERSONAS),
@@ -842,7 +854,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    tour.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(tour)
     _hide_suppressed_subcommands(sub)
     _annotate_stability(sub)
     _apply_help_registry(parser)
@@ -953,7 +965,7 @@ def _annotate_stability(subparsers: argparse._SubParsersAction) -> None:
 
 
 def _add_setup_run_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
     parser.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
     parser.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
@@ -1016,7 +1028,7 @@ def _add_setup_tool_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_setup_addon_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument("--addon", choices=ADDONS, default="llmfit")
     parser.add_argument(
         "--install",
@@ -1026,7 +1038,7 @@ def _add_setup_addon_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_setup_knowledge_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument(
         "--backend",
         choices=KNOWLEDGE_BACKENDS,
@@ -1038,7 +1050,7 @@ def _add_setup_knowledge_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_context_budget_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument(
         "--source",
         default="knowledge",
@@ -1053,11 +1065,11 @@ def _add_context_budget_args(parser: argparse.ArgumentParser) -> None:
         default="original",
         help="Estimate original files, compressed sidecars when present, or both.",
     )
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(parser)
 
 
 def _add_context_compress_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument(
         "--source",
         default="knowledge",
@@ -1073,7 +1085,7 @@ def _add_context_compress_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_context_lint_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument(
         "--path",
         action="append",
@@ -1083,18 +1095,18 @@ def _add_context_lint_args(parser: argparse.ArgumentParser) -> None:
             "files; replaces the default set when supplied."
         ),
     )
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(parser)
 
 
 def _add_context_explain_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--target", type=Path, default=Path.cwd(), help="Project directory.")
+    _add_target_arg(parser)
     parser.add_argument(
         "--path",
         action="append",
         default=None,
         help="Optional path (relative to --target) to include; replaces the default set when supplied.",
     )
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    _add_json_arg(parser)
 
 
 def _normalize_grouped_command(args: argparse.Namespace) -> None:
@@ -1206,7 +1218,7 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     providers = detect_providers(load_local_credentials(target), include_copilot=True)
     payload = {"hardware": hardware.to_dict(), "providers": [p.to_dict() for p in providers]}
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json(payload)
     else:
         _print_probe(payload)
     return 0
@@ -1218,7 +1230,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     use_cache = not getattr(args, "no_probe_cache", False)
     report = run_doctor(target, persona=persona, use_cache=use_cache)
     if getattr(args, "json", False):
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         print(format_doctor_text(report))
         if getattr(args, "verbose", False):
@@ -1240,7 +1252,7 @@ def _cmd_pilot(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         print(format_pilot_text(report))
     return 0
@@ -1277,7 +1289,7 @@ def _cmd_knowledge(args: argparse.Namespace) -> int:
 def _cmd_knowledge_status(args: argparse.Namespace) -> int:
     status = inspect_knowledge_status(args.target)
     if args.json:
-        print(json.dumps(status.to_dict(), indent=2, sort_keys=True))
+        _print_json(status.to_dict())
     else:
         for scope, maturities in sorted(status.counts.items()):
             summary = ", ".join(f"{maturity}: {count}" for maturity, count in sorted(maturities.items()))
@@ -1290,7 +1302,7 @@ def _cmd_knowledge_status(args: argparse.Namespace) -> int:
 def _cmd_knowledge_distill(args: argparse.Namespace) -> int:
     result = distill_knowledge(args.target, args.source, review=args.review)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Created {len(result.created)} knowledge proposal file(s).")
         print(f"Updated {len(result.updated)} knowledge proposal file(s).")
@@ -1303,7 +1315,7 @@ def _cmd_knowledge_distill(args: argparse.Namespace) -> int:
 def _cmd_knowledge_list(args: argparse.Namespace) -> int:
     entries = list_knowledge(args.target, scope=args.scope, maturity=args.maturity)
     if args.json:
-        print(json.dumps([entry.to_dict() for entry in entries], indent=2, sort_keys=True))
+        _print_json([entry.to_dict() for entry in entries])
     else:
         for entry in entries:
             print(f"{entry.scope}\t{entry.maturity}\t{entry.owner or '-'}\t{entry.path}")
@@ -1313,7 +1325,7 @@ def _cmd_knowledge_list(args: argparse.Namespace) -> int:
 def _cmd_knowledge_lint(args: argparse.Namespace) -> int:
     result = lint_knowledge(args.target, scope=args.scope, format=args.format, fix=args.fix)
     if args.format == "json":
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         for path in result.fixed:
             print(f"Fixed: {path}")
@@ -1333,7 +1345,7 @@ def _cmd_knowledge_promote(args: argparse.Namespace) -> int:
         owner=args.owner,
     )
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         for action in result.actions:
             print(action)
@@ -1350,7 +1362,7 @@ def _cmd_knowledge_nominate(args: argparse.Namespace) -> int:
         rationale=args.rationale,
     )
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         for action in result.actions:
             print(action)
@@ -1369,7 +1381,7 @@ def _cmd_context_budget(args: argparse.Namespace) -> int:
         max_ratio=args.max_ratio,
     )
     if args.json:
-        print(json.dumps(budget.to_dict(), indent=2, sort_keys=True))
+        _print_json(budget.to_dict())
     else:
         _print_context_budget(budget.to_dict())
     return 1 if budget.warnings else 0
@@ -1393,7 +1405,7 @@ def _cmd_compress_context(args: argparse.Namespace) -> int:
 def _cmd_context_lint(args: argparse.Namespace) -> int:
     report = lint_context(args.target, paths=args.path)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_context_lint(report)
     for warning in report.warnings:
@@ -1405,7 +1417,7 @@ def _cmd_context_lint(args: argparse.Namespace) -> int:
 def _cmd_context_explain(args: argparse.Namespace) -> int:
     payload = explain_context(args.target, paths=args.path)
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        _print_json(payload)
     else:
         _print_context_explain(payload)
     return 0
@@ -1414,7 +1426,7 @@ def _cmd_context_explain(args: argparse.Namespace) -> int:
 def _cmd_session_init(args: argparse.Namespace) -> int:
     result = init_session(args.target, slug=args.slug, task=args.task)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Wrote session trace: {result.path}")
         print("Fill in the structured sections as you work; run `coding-scaffold session "
@@ -1425,7 +1437,7 @@ def _cmd_session_init(args: argparse.Namespace) -> int:
 def _cmd_session_summarize(args: argparse.Namespace) -> int:
     summary = summarize_session(args.path)
     if args.json:
-        print(json.dumps(summary.to_dict(), indent=2, sort_keys=True))
+        _print_json(summary.to_dict())
     else:
         _print_session_summary(summary)
     for warning in summary.warnings:
@@ -1445,7 +1457,7 @@ def _cmd_session_start(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Branch:        {result.branch}")
         print(f"Start commit:  {result.start_commit[:12]}")
@@ -1465,7 +1477,7 @@ def _cmd_session_checkpoint(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         if result.commit:
             print(f"Checkpoint: {result.commit[:12]} ({result.files_changed} file(s))")
@@ -1482,7 +1494,7 @@ def _cmd_session_diff(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         head = result.head_commit[:12] if result.head_commit else "?"
         start = result.start_commit[:12] if result.start_commit else "?"
@@ -1501,7 +1513,7 @@ def _cmd_session_rollback(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         if result.mode == "preview":
             print(f"Preview: {len(result.files_at_risk)} file(s) would be touched.")
@@ -1519,7 +1531,7 @@ def _cmd_session_rollback(args: argparse.Namespace) -> int:
 def _cmd_session_summary(args: argparse.Namespace) -> int:
     result = status_session(args.target)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         _print_session_status(result)
     for warning in result.warnings:
@@ -1530,7 +1542,7 @@ def _cmd_session_summary(args: argparse.Namespace) -> int:
 def _cmd_memory_init(args: argparse.Namespace) -> int:
     outcome = write_memory_config(args.target, force=args.force)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         if outcome.get("created"):
             print(f"Wrote memory config: {outcome['path']}")
@@ -1554,7 +1566,7 @@ def _cmd_memory_capture(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Captured memory: {result.entry.id}")
         print(f"  class:   {result.entry.class_}")
@@ -1568,7 +1580,7 @@ def _cmd_memory_capture(args: argparse.Namespace) -> int:
 def _cmd_memory_review(args: argparse.Namespace) -> int:
     report = review_memory(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_memory_review(report)
     return 0
@@ -1586,7 +1598,7 @@ def _cmd_memory_promote(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         if result.new_entry:
             print(f"Promoted {result.source_entry.id if result.source_entry else '?'} "
@@ -1599,7 +1611,7 @@ def _cmd_memory_promote(args: argparse.Namespace) -> int:
 def _cmd_memory_expire(args: argparse.Namespace) -> int:
     result = expire_memory(args.target)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Expired {len(result.expired_entries)} entry/entries.")
         for entry_id in result.expired_entries:
@@ -1612,7 +1624,7 @@ def _cmd_memory_expire(args: argparse.Namespace) -> int:
 def _cmd_memory_audit(args: argparse.Namespace) -> int:
     report = audit_memory(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_memory_audit(report)
     # Audit findings of `error` severity gate CI.
@@ -1622,7 +1634,7 @@ def _cmd_memory_audit(args: argparse.Namespace) -> int:
 def _cmd_pr_template_init(args: argparse.Namespace) -> int:
     result = write_pr_template(args.target)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         if result.files:
             print(f"Wrote {len(result.files)} PR template file(s).")
@@ -1638,7 +1650,7 @@ def _cmd_pr_template_init(args: argparse.Namespace) -> int:
 def _cmd_permissions_write(args: argparse.Namespace) -> int:
     result = write_agent_permissions(args.target, force=args.force)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         for path in result.files:
             print(f"Wrote {path}")
@@ -1650,7 +1662,7 @@ def _cmd_permissions_write(args: argparse.Namespace) -> int:
 def _cmd_mcp_policy_init(args: argparse.Namespace) -> int:
     outcome = write_mcp_policy(args.target, force=args.force)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         if outcome.get("created"):
             print(f"Wrote MCP policy: {outcome['path']}")
@@ -1662,7 +1674,7 @@ def _cmd_mcp_policy_init(args: argparse.Namespace) -> int:
 def _cmd_mcp_scan(args: argparse.Namespace) -> int:
     report = scan_mcp(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_mcp_scan(report)
     return 1 if report.error_count else 0
@@ -1671,7 +1683,7 @@ def _cmd_mcp_scan(args: argparse.Namespace) -> int:
 def _cmd_mcp_snapshot(args: argparse.Namespace) -> int:
     outcome = snapshot_mcp(args.target)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         print(f"Wrote MCP snapshot: {outcome['path']}")
         print(f"Recorded {outcome['servers']} server(s) from {len(outcome['scanned_sources'])} config(s).")
@@ -1681,7 +1693,7 @@ def _cmd_mcp_snapshot(args: argparse.Namespace) -> int:
 def _cmd_mcp_diff(args: argparse.Namespace) -> int:
     diff = diff_mcp(args.target)
     if args.json:
-        print(json.dumps(diff.to_dict(), indent=2, sort_keys=True))
+        _print_json(diff.to_dict())
     else:
         _print_mcp_diff(diff)
     for warning in diff.warnings:
@@ -1693,7 +1705,7 @@ def _cmd_mcp_diff(args: argparse.Namespace) -> int:
 def _cmd_skills_new(args: argparse.Namespace) -> int:
     result = new_skill(args.target, args.name, owner=args.owner)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Skill scaffolded at: {result.path}")
         for path in result.files:
@@ -1706,7 +1718,7 @@ def _cmd_skills_new(args: argparse.Namespace) -> int:
 def _cmd_skills_lint(args: argparse.Namespace) -> int:
     report = lint_skills(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_skills_lint(report)
     return 1 if report.error_count else 0
@@ -1715,7 +1727,7 @@ def _cmd_skills_lint(args: argparse.Namespace) -> int:
 def _cmd_skills_approve(args: argparse.Namespace) -> int:
     outcome = approve_skill(args.target, args.name)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         if outcome.get("approved"):
             print(f"Approved skill {outcome['skill']}: checksum {outcome['checksum'][:16]}…")
@@ -1727,7 +1739,7 @@ def _cmd_skills_approve(args: argparse.Namespace) -> int:
 def _cmd_skills_export(args: argparse.Namespace) -> int:
     outcome = export_skill(args.target, args.name, output=args.output)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         if outcome.get("exported"):
             print(f"Exported {outcome['skill']} -> {outcome['archive']}")
@@ -1739,7 +1751,7 @@ def _cmd_skills_export(args: argparse.Namespace) -> int:
 def _cmd_eval_init(args: argparse.Namespace) -> int:
     outcome = write_eval_config(args.target, force=args.force)
     if args.json:
-        print(json.dumps(outcome, indent=2, sort_keys=True))
+        _print_json(outcome)
     else:
         if outcome.get("created"):
             print(f"Wrote eval config: {outcome['path']}")
@@ -1751,7 +1763,7 @@ def _cmd_eval_init(args: argparse.Namespace) -> int:
 def _cmd_eval_run(args: argparse.Namespace) -> int:
     report = run_eval(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_eval_report(report)
     return 0 if report.passed_count == report.total_count else 1
@@ -1768,7 +1780,7 @@ def _cmd_eval_report(args: argparse.Namespace) -> int:
     else:
         report = run_eval(args.target)
     if args.json:
-        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+        _print_json(report.to_dict())
     else:
         _print_eval_report(report)
     return 0 if report.passed_count == report.total_count else 1
@@ -1895,7 +1907,7 @@ def _cmd_team(args: argparse.Namespace) -> int:
     elif args.team_action == "doctor":
         if args.format == "json":
             report = inspect_team_doctor(args.target)
-            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+            _print_json(report.to_dict())
             return 1 if report.warnings and not report.actions else 0
         result = doctor_team(args.target)
     elif args.team_action == "push":
@@ -1965,7 +1977,7 @@ def _cmd_update(args: argparse.Namespace) -> int:
     routing = build_routing_plan(intake, hardware, providers)
     result = refresh_scaffold(target, intake, hardware, providers, routing)
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        _print_json(result.to_dict())
     else:
         print(f"Updated {len(result.updated)} generated file(s).")
         print(f"Staged {len(result.staged)} edited file update(s) as .new.")
@@ -2015,7 +2027,7 @@ def _cmd_select_model(args: argparse.Namespace) -> int:
     providers = detect_providers(load_local_credentials(target))
     selection = select_model_for_prompt(prompt, routing, providers, args.mode)
     if args.json:
-        print(json.dumps(selection.to_dict(), indent=2, sort_keys=True))
+        _print_json(selection.to_dict())
     else:
         _print_model_selection(selection.to_dict())
     return 0
