@@ -12,6 +12,8 @@ what each marker promises.
                    move to `stable`.
 - `experimental` — fast-moving. May change without warning. Use for exploration; do
                    not build automation around it yet.
+- `deprecated`   — still works, but scheduled for removal in the release named in the
+                   deprecation warning. Switch to the documented replacement now.
 
 Add new commands here, not in `cli.py`. Tests assert every command in `--help` has
 an entry.
@@ -19,7 +21,7 @@ an entry.
 
 from __future__ import annotations
 
-STABILITY_LEVELS: tuple[str, ...] = ("stable", "preview", "experimental")
+STABILITY_LEVELS: tuple[str, ...] = ("stable", "preview", "experimental", "deprecated")
 
 
 # Top-level commands (the ones surfaced in `coding-scaffold --help`).
@@ -43,21 +45,22 @@ COMMAND_STABILITY: dict[str, str] = {
     "pilot": "stable",
     "tour": "preview",
     "skill": "stable",
-    # Hidden flat aliases. Same stability as the canonical group.
-    "init": "stable",
-    "wizard": "stable",
-    "knowledge-status": "preview",
-    "context-budget": "preview",
-    "compress-context": "preview",
-    "orchestrate": "experimental",
-    "setup-tool": "stable",
-    "setup-addon": "stable",
-    "setup-knowledge": "preview",
-    "adapt": "stable",
-    "route": "experimental",
-    "select-model": "stable",
-    "workflow": "experimental",
-    "update": "stable",
+    # Hidden flat aliases. Deprecated in 0.8.0; removal planned for 0.9.0.
+    # Use the canonical grouped form (see _FLAT_ALIAS_CANONICAL in cli.py).
+    "init": "deprecated",
+    "wizard": "deprecated",
+    "knowledge-status": "deprecated",
+    "context-budget": "deprecated",
+    "compress-context": "deprecated",
+    "orchestrate": "deprecated",
+    "setup-tool": "deprecated",
+    "setup-addon": "deprecated",
+    "setup-knowledge": "deprecated",
+    "adapt": "deprecated",
+    "route": "deprecated",
+    "select-model": "deprecated",
+    "workflow": "deprecated",
+    "update": "deprecated",
 }
 
 

@@ -185,102 +185,18 @@ def build_parser() -> argparse.ArgumentParser:
     setup_knowledge_canonical = setup_sub.add_parser("knowledge", help="Configure shared team knowledge.")
     _add_setup_knowledge_args(setup_knowledge_canonical)
     setup_update = setup_sub.add_parser("update", help="Refresh generated scaffold files without losing edits.")
-    _add_target_arg(setup_update)
-    _add_json_arg(setup_update)
-    setup_update.add_argument(
-        "--force",
-        action="store_true",
-        help=(
-            "Bypass the min_supported_scaffold_version compatibility check. "
-            "Use when the installed scaffold is older than the project's recorded floor "
-            "and you've read https://jrs1986.github.io/CodingScaffold/wiki/Upgrading."
-        ),
-    )
+    _add_setup_update_args(setup_update)
 
-    # NOTE: The parsers below (init, wizard, knowledge-status, context-budget,
-    # compress-context, orchestrate, setup-tool, setup-addon, setup-knowledge,
-    # adapt, route, select-model) are hidden flat aliases that mirror the
-    # canonical grouped commands (setup/knowledge/context/tools). When adding
-    # a flag to a grouped command, you must mirror it on the corresponding
-    # flat alias here, or the two trees will drift. Tracked in #48.
+    # NOTE: The parsers below are DEPRECATED flat aliases of the canonical
+    # grouped commands (setup/knowledge/context/tools). Each one is built from
+    # the same _add_*_args helper as its canonical form, so the two trees can
+    # no longer drift (issue #48). They warn on use and will be REMOVED in
+    # 0.9.0 — do not add new aliases here.
     init = sub.add_parser("init", help=argparse.SUPPRESS)
-    _add_target_arg(init)
-    init.add_argument("--language", help="Primary language, e.g. python, rust, typescript.")
-    init.add_argument("--project-target", help="Target kind, e.g. CLI, web app, library.")
-    init.add_argument("--existing-codebase", action="store_true", help="Project already has code.")
-    init.add_argument("--privacy", choices=["local-only", "local-first", "balanced"], default=None)
-    init.add_argument(
-        "--tool",
-        action="append",
-        default=None,
-        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
-    )
-    init.add_argument(
-        "--agent",
-        action="append",
-        dest="tool",
-        help=argparse.SUPPRESS,
-    )
-    init.add_argument(
-        "--coding-tool",
-        action="append",
-        dest="tool",
-        help=argparse.SUPPRESS,
-    )
-    init.add_argument("--preferred-local-model", help="Preferred local model name.")
-    init.add_argument("--mode", choices=["standard", "beginner"], default=None)
-    init.add_argument("--non-interactive", action="store_true", help="Use defaults for missing values.")
-    init.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
-    init.add_argument(
-        "--addon",
-        action="append",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
-        default=[],
-        help="Validate or install an optional add-on. Repeat for multiple add-ons.",
-    )
-    init.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
-    init.add_argument(
-        "--knowledge-backend",
-        choices=["none", "markdown", "obsidian", "foam", "mempalace"],
-        default=None,
-        help="Configure shared knowledge during setup.",
-    )
-    init.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
+    _add_setup_run_args(init)
 
     wizard = sub.add_parser("wizard", help=argparse.SUPPRESS)
-    _add_target_arg(wizard)
-    wizard.add_argument("--beginner", action="store_true", help="Include a first-project guide.")
-    wizard.add_argument(
-        "--tool",
-        action="append",
-        default=None,
-        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
-    )
-    wizard.add_argument(
-        "--coding-tool",
-        action="append",
-        dest="tool",
-        help=argparse.SUPPRESS,
-    )
-    wizard.add_argument("--install-tools", action="store_true", help="Install the selected coding tool if missing.")
-    wizard.add_argument("--no-install-tools", action="store_true", help="Do not offer coding tool installation.")
-    wizard.add_argument(
-        "--addon",
-        action="append",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
-        default=[],
-        help="Validate or install an optional add-on. Repeat for multiple add-ons.",
-    )
-    wizard.add_argument("--install-addons", action="store_true", help="Install selected add-ons if missing.")
-    wizard.add_argument("--no-install-addons", action="store_true", help="Do not offer optional add-on setup.")
-    wizard.add_argument(
-        "--knowledge-backend",
-        choices=["none", "markdown", "obsidian", "foam", "mempalace"],
-        default=None,
-        help="Configure shared knowledge during setup.",
-    )
-    wizard.add_argument("--knowledge-remote", help="GitHub/GitLab remote URL for shared knowledge.")
-    wizard.add_argument("--no-knowledge", action="store_true", help="Do not offer knowledge setup.")
+    _add_setup_run_args(wizard)
 
     credentials = sub.add_parser("credentials", help="Create ignored local credential files.")
     _add_target_arg(credentials)
@@ -304,8 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_create.add_argument("--shared-remote", help="Optional GitHub/GitLab repo URL for team memory.")
     knowledge_create.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
     knowledge_status_canonical = knowledge_sub.add_parser("status", help="Report knowledge scope and maturity.")
-    _add_target_arg(knowledge_status_canonical)
-    _add_json_arg(knowledge_status_canonical)
+    _add_knowledge_status_args(knowledge_status_canonical)
     knowledge_distill = knowledge_sub.add_parser("distill", help="Propose curated wiki updates from raw notes.")
     _add_target_arg(knowledge_distill)
     knowledge_distill.add_argument(
@@ -345,8 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_json_arg(knowledge_nominate)
 
     knowledge_status = sub.add_parser("knowledge-status", help=argparse.SUPPRESS)
-    _add_target_arg(knowledge_status)
-    _add_json_arg(knowledge_status)
+    _add_knowledge_status_args(knowledge_status)
 
     context = sub.add_parser("context", help="Inspect and compress context safely.")
     context_sub = context.add_subparsers(dest="context_action", required=True, metavar="action")
@@ -556,79 +470,22 @@ def build_parser() -> argparse.ArgumentParser:
     _add_json_arg(eval_report)
 
     context_budget = sub.add_parser("context-budget", help=argparse.SUPPRESS)
-    _add_target_arg(context_budget)
-    context_budget.add_argument(
-        "--source",
-        default="knowledge",
-        help="Source to inspect: knowledge, team, or a path relative to target.",
-    )
-    context_budget.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_CONTEXT_TOKENS)
-    context_budget.add_argument("--context-window", type=int, default=DEFAULT_CONTEXT_WINDOW)
-    context_budget.add_argument("--max-ratio", type=float, default=DEFAULT_MAX_CONTEXT_RATIO)
-    context_budget.add_argument(
-        "--prefer",
-        choices=["original", "compressed", "both"],
-        default="original",
-        help="Estimate original files, compressed sidecars when present, or both.",
-    )
-    _add_json_arg(context_budget)
+    _add_context_budget_args(context_budget)
 
     compress = sub.add_parser("compress-context", help=argparse.SUPPRESS)
-    _add_target_arg(compress)
-    compress.add_argument(
-        "--source",
-        default="knowledge",
-        help="Source to compress: knowledge, team, or a path relative to target.",
-    )
-    compress.add_argument("--overwrite", action="store_true", help="Rewrite existing .caveman sidecars.")
-    compress.add_argument(
-        "--engine",
-        choices=["builtin", "caveman", "auto"],
-        default="builtin",
-        help="Compression engine. `caveman` uses the optional cloned upstream tool when available.",
-    )
+    _add_context_compress_args(compress)
 
     orchestrate = sub.add_parser("orchestrate", help=argparse.SUPPRESS)
-    _add_target_arg(orchestrate)
-    orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
-    orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    _add_tools_orchestrate_args(orchestrate)
 
     setup_tool = sub.add_parser("setup-tool", help=argparse.SUPPRESS)
-    setup_tool.add_argument(
-        "--tool",
-        action="append",
-        default=None,
-        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
-    )
-    setup_tool.add_argument(
-        "--install",
-        action="store_true",
-        help="Install missing tools without an extra prompt when stdin is not interactive.",
-    )
+    _add_setup_tool_args(setup_tool)
 
     setup_addon = sub.add_parser("setup-addon", help=argparse.SUPPRESS)
-    _add_target_arg(setup_addon)
-    setup_addon.add_argument(
-        "--addon",
-        choices=["llmfit", "routellm", "open-multi-agent", "obsidian", "caveman-compression", "all"],
-        default="llmfit",
-    )
-    setup_addon.add_argument(
-        "--install",
-        action="store_true",
-        help="Install missing add-ons without an extra prompt when stdin is not interactive.",
-    )
+    _add_setup_addon_args(setup_addon)
 
     setup_knowledge = sub.add_parser("setup-knowledge", help=argparse.SUPPRESS)
-    _add_target_arg(setup_knowledge)
-    setup_knowledge.add_argument(
-        "--backend",
-        choices=KNOWLEDGE_BACKENDS,
-        default="markdown",
-        help="Knowledge backend to generate.",
-    )
-    setup_knowledge.add_argument("--shared-remote", help="GitHub/GitLab repo URL for shared knowledge.")
-    setup_knowledge.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    _add_setup_knowledge_args(setup_knowledge)
 
     team = sub.add_parser("team", help="Manage experienced-team onboarding assets.")
     _add_target_arg(team)
@@ -738,55 +595,30 @@ def build_parser() -> argparse.ArgumentParser:
     tools = sub.add_parser("tools", help="Generate adapters, routing backends, workflows, and model picks.")
     tools_sub = tools.add_subparsers(dest="tools_action", required=True, metavar="action")
     tools_adapt = tools_sub.add_parser("adapt", help="Generate native config for a coding tool.")
-    _add_target_arg(tools_adapt)
-    tools_adapt.add_argument(
-        "--tool",
-        action="append",
-        default=None,
-        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
-    )
+    _add_tools_adapt_args(tools_adapt)
     tools_route = tools_sub.add_parser("route", help="Generate optional routing backend docs/config.")
-    _add_target_arg(tools_route)
-    tools_route.add_argument("--backend", choices=["routellm"], default="routellm")
+    _add_tools_route_args(tools_route)
     tools_select = tools_sub.add_parser("select-model", help="Recommend a model route for a prompt.")
-    _add_target_arg(tools_select)
-    tools_select.add_argument("--prompt", help="Prompt or task description to classify.")
-    tools_select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
-    _add_json_arg(tools_select)
+    _add_tools_select_model_args(tools_select)
     tools_workflow = tools_sub.add_parser("workflow", help="Generate optional workflow backend docs/config.")
-    _add_target_arg(tools_workflow)
-    tools_workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
+    _add_tools_workflow_args(tools_workflow)
     tools_orchestrate = tools_sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
-    _add_target_arg(tools_orchestrate)
-    tools_orchestrate.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
-    tools_orchestrate.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
+    _add_tools_orchestrate_args(tools_orchestrate)
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
-    _add_target_arg(adapt)
-    adapt.add_argument(
-        "--tool",
-        action="append",
-        default=None,
-        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
-    )
+    _add_tools_adapt_args(adapt)
 
     route = sub.add_parser("route", help=argparse.SUPPRESS)
-    _add_target_arg(route)
-    route.add_argument("--backend", choices=["routellm"], default="routellm")
+    _add_tools_route_args(route)
 
     select = sub.add_parser("select-model", help=argparse.SUPPRESS)
-    _add_target_arg(select)
-    select.add_argument("--prompt", help="Prompt or task description to classify.")
-    select.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
-    _add_json_arg(select)
+    _add_tools_select_model_args(select)
 
     workflow = sub.add_parser("workflow", help=argparse.SUPPRESS)
-    _add_target_arg(workflow)
-    workflow.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
+    _add_tools_workflow_args(workflow)
 
     update = sub.add_parser("update", help=argparse.SUPPRESS)
-    _add_target_arg(update)
-    _add_json_arg(update)
+    _add_setup_update_args(update)
 
     doctor = sub.add_parser(
         "doctor",
@@ -1102,6 +934,58 @@ def _add_context_explain_args(parser: argparse.ArgumentParser) -> None:
         help="Optional path (relative to --target) to include; replaces the default set when supplied.",
     )
     _add_json_arg(parser)
+
+
+def _add_setup_update_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    _add_json_arg(parser)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Bypass the min_supported_scaffold_version compatibility check. "
+            "Use when the installed scaffold is older than the project's recorded floor "
+            "and you've read https://jrs1986.github.io/CodingScaffold/wiki/Upgrading."
+        ),
+    )
+
+
+def _add_knowledge_status_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    _add_json_arg(parser)
+
+
+def _add_tools_adapt_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    parser.add_argument(
+        "--tool",
+        action="append",
+        default=None,
+        help="Coding tool to set up. Repeat or comma-separate for multi-tool projects.",
+    )
+
+
+def _add_tools_route_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    parser.add_argument("--backend", choices=["routellm"], default="routellm")
+
+
+def _add_tools_select_model_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    parser.add_argument("--prompt", help="Prompt or task description to classify.")
+    parser.add_argument("--mode", choices=["recommend", "auto"], default="recommend")
+    _add_json_arg(parser)
+
+
+def _add_tools_workflow_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    parser.add_argument("--backend", choices=["open-multi-agent"], default="open-multi-agent")
+
+
+def _add_tools_orchestrate_args(parser: argparse.ArgumentParser) -> None:
+    _add_target_arg(parser)
+    parser.add_argument("--profile", choices=["solo", "pair", "team"], default="pair")
+    parser.add_argument("--adapter", choices=["none", "opencode"], default="opencode")
 
 
 def _normalize_grouped_command(args: argparse.Namespace) -> None:
@@ -2130,6 +2014,13 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command in _FLAT_ALIAS_CANONICAL:
+        replacement = " ".join(("coding-scaffold",) + _FLAT_ALIAS_CANONICAL[args.command])
+        print(
+            f"Warning: `{args.command}` is a deprecated alias and will be removed in 0.9.0. "
+            f"Use `{replacement}` instead.",
+            file=sys.stderr,
+        )
     _normalize_grouped_command(args)
     handler = COMMANDS.get(args.command)
     try:
