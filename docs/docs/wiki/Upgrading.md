@@ -145,6 +145,33 @@ to `policy.network.allowlist`", and your update produced
 rename. Merge by renaming the key in your edited file and dropping the
 sidecar.
 
+## Flat aliases deprecated in 0.8.0
+
+The hidden flat command aliases are deprecated in 0.8.0 and will be **removed in
+0.9.0**. Each alias still works and now prints a stderr warning naming its
+replacement. Update scripts and docs to the canonical grouped form:
+
+| Deprecated alias | Use instead |
+| --- | --- |
+| `init` | `setup run` |
+| `wizard` | `setup run` |
+| `update` | `setup update` |
+| `setup-tool` | `setup tool` |
+| `setup-addon` | `setup addon` |
+| `setup-knowledge` | `setup knowledge` |
+| `knowledge-status` | `knowledge status` |
+| `context-budget` | `context budget` |
+| `compress-context` | `context compress` |
+| `adapt` | `tools adapt` |
+| `route` | `tools route` |
+| `select-model` | `tools select-model` |
+| `workflow` | `tools workflow` |
+| `orchestrate` | `tools orchestrate` |
+
+Until removal, every alias accepts exactly the same flags as its canonical form
+(both are generated from the same argument helpers, and a test enforces it), so
+the migration is a pure rename.
+
 ## Breaking change in 0.6.0 — singular `tool` JSON key removed
 
 `routing.json`, `project.json`, and the pilot JSON output used to carry a

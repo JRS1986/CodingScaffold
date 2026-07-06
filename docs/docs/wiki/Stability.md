@@ -1,6 +1,6 @@
 # Stability
 
-Every top-level `coding-scaffold` command carries one of three stability markers,
+Every top-level `coding-scaffold` command carries one of four stability markers,
 rendered in `--help` next to the command name:
 
 ```
@@ -24,6 +24,16 @@ The marker is a contract about how aggressively the command may change.
 
 Build automation, CI checks, and team docs against `stable` commands without
 hesitation.
+
+### `[deprecated]`
+
+- Still works, but scheduled for removal in the release named by its deprecation
+  warning. Invoking a deprecated command prints a stderr warning that names the
+  replacement.
+- Migrate now: the hidden flat aliases (`init`, `wizard`, `adapt`, `select-model`,
+  `context-budget`, …) are deprecated as of 0.8.0 and will be removed in 0.9.0.
+  Use the canonical grouped form (`setup run`, `tools adapt`, `tools select-model`,
+  `context budget`, …). See [Upgrading](./Upgrading.md#flat-aliases-deprecated-in-080).
 
 ### `[preview]`
 

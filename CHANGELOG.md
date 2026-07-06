@@ -7,6 +7,20 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Deprecated
+
+- **All 14 hidden flat command aliases** (`init`, `wizard`, `update`, `setup-tool`,
+  `setup-addon`, `setup-knowledge`, `knowledge-status`, `context-budget`,
+  `compress-context`, `adapt`, `route`, `select-model`, `workflow`, `orchestrate`)
+  are deprecated and will be **removed in 0.9.0**. Each prints a stderr warning
+  naming the canonical grouped replacement (`setup run`, `tools adapt`,
+  `context budget`, …). See [Upgrading](docs/docs/wiki/Upgrading.md#flat-aliases-deprecated-in-080).
+  As part of this, every alias parser is now generated from the same argument
+  helper as its canonical command, closing the two-tree drift risk (issue #48) —
+  the flat `update` alias thereby gained the `--force` flag, `init` gained
+  `--beginner`/`--no-install-tools`/`--no-install-addons`/`--no-knowledge`, and
+  `wizard` gained the full `setup run` flag set.
+
 ### Changed
 
 - **All CLI failure paths now use the three-line error shape** (issue #92
