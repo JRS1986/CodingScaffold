@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
 from . import __version__
+from .file_ops import sha256_bytes
 
 
 SCAFFOLD_VERSION_FILE = ".coding-scaffold/scaffold-version.json"
@@ -74,7 +74,7 @@ def write_scaffold_hashes(root: Path, hashes: dict[str, str]) -> Path:
 
 
 def sha256(content: bytes) -> str:
-    return hashlib.sha256(content).hexdigest()
+    return sha256_bytes(content)
 
 
 def display_path(path: Path, root: Path) -> str:

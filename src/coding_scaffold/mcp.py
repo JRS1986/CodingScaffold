@@ -12,11 +12,12 @@ No commands are executed. No network calls. Detection is pure config-file readin
 
 from __future__ import annotations
 
-import hashlib
 import json
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .file_ops import sha256_text
 
 
 MCP_POLICY_RELATIVE = Path(".coding-scaffold") / "mcp-policy.json"
@@ -115,7 +116,7 @@ class McpServer:
             },
             sort_keys=True,
         )
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return sha256_text(payload)
 
     def to_dict(self) -> dict[str, object]:
         return {
