@@ -1,5 +1,34 @@
 # Upgrading CodingScaffold
 
+## Skill Approval Migration
+
+After upgrading, run `coding-scaffold skills lint --target .`. It now includes
+project-native skill folders and validates required `name` / `description`
+frontmatter. Add missing descriptions to older packages before using them as
+native skills. Native packages do not need a scaffold-specific manifest.
+
+Existing 64-character checksums are recognized as legacy approvals of just
+`SKILL.md` and `manifest.json`. Review all scripts and supporting files, then run:
+
+```bash
+coding-scaffold skills approve my-skill --target .
+# For a package under .agents/skills:
+coding-scaffold skills approve my-skill --target . --location agents
+```
+
+The replacement `v2:` checksum covers the complete package except the root
+`CHECKSUM` file itself. File additions, deletions, renames, content edits and
+executable-bit changes produce drift warnings. Skills remain in their existing
+locations; nothing is moved or re-approved automatically.
+
+Run `coding-scaffold setup update --target .` to add the compatibility provenance
+manifest and refresh generated skill descriptions. Edited files retain the normal
+`.new` review flow. Review the new `tools compatibility` report before enabling
+optional [lifecycle hooks](Tool-Adapters.md#optional-lifecycle-hooks). Setup and
+updates never enable hooks automatically.
+
+## Generated File Updates
+
 `coding-scaffold setup update` refreshes the generated files in
 `.coding-scaffold/` (plus `AGENTS.md`, `CLAUDE.md`, etc.) without losing your
 edits. This page explains the contract end-to-end so the upgrade path is
@@ -144,6 +173,24 @@ to `policy.network.allowlist`", and your update produced
 `.coding-scaffold/policy/network.json.new`, the diff will show exactly that
 rename. Merge by renaming the key in your edited file and dropping the
 sidecar.
+
+## Codex skills moved in 0.8.0
+
+Codex discovers skills as [Agent Skills](https://agentskills.io) folders under
+`.agents/skills/<name>/SKILL.md`. Earlier scaffold versions wrote flat files to
+`.codex/skills/`, which Codex does not load. After `coding-scaffold setup update`
+(or `tools adapt --tool codex`), the new files exist and the old ones are left in
+place because the scaffold never deletes your files. Remove them once you have
+moved any local edits across:
+
+```bash
+git rm -r .codex/skills
+```
+
+The same release rewrites `.codex/config.toml` (`approval_policy` /
+`sandbox_mode` replace the retired `approval_mode`) and `.claude/settings.json`
+(valid `defaultMode`, `Read(...)` deny rules, `attribution`). If you edited those
+files, reconcile the staged `.new` versions as described above.
 
 ## Flat aliases deprecated in 0.8.0
 

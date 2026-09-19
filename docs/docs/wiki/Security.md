@@ -161,6 +161,11 @@ coding-scaffold mcp diff           # report changes since the last snapshot
 sudo, bash -c), broad filesystem access (root or home), unapproved servers (when the policy
 has a non-empty approved list), denied servers (as errors), and review-required capabilities.
 
+The scanner includes Claude Code's project `.mcp.json` / `mcpServers` format,
+alongside the existing OpenCode, Claude settings and Codex TOML locations. It does
+not load user-global MCP configuration. Malformed candidate configuration is an
+error and fails the readiness check instead of being treated as an empty server list.
+
 `mcp snapshot` + `mcp diff` together let you commit a known-good state and detect drift
 in CI. `mcp diff` exits non-zero when anything changed since the snapshot, so it can gate
 merges that quietly added a server.
@@ -175,7 +180,7 @@ manifest.json  machine-readable metadata (owner, version, risk_level, capabiliti
 scripts/       optional helpers
 tests/         optional verification scripts
 README.md      usage and examples
-CHECKSUM       sha256(SKILL.md || manifest.json) frozen at approval
+CHECKSUM       v2 digest of package paths, contents and executable bits
 ```
 
 `coding-scaffold skills lint` checks every skill for:
@@ -191,6 +196,15 @@ CHECKSUM       sha256(SKILL.md || manifest.json) frozen at approval
 - drift since the recorded CHECKSUM (re-run `skills approve <name>` after legitimate edits)
 
 `skills export <name>` produces a sharable `tar.gz` for inter-team reuse.
+
+Native project skills under `.agents/skills`, `.claude/skills` and `.opencode/skills`
+are scanned too, with required Agent Skills frontmatter. Native manifests and the
+scaffold's section conventions are optional. Use `--location agents`, `claude` or
+`opencode` for creation, approval and export in those folders. Package links are
+rejected so approval cannot silently omit linked executable content. Legacy
+two-file checksums are still recognized and reported as needing review; they are
+never silently upgraded. A checksum is not a signature and cannot defend against
+someone changing both the package and the checksum.
 
 ## What this scaffold does not promise
 

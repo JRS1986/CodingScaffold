@@ -43,6 +43,18 @@ class CommandDoc:
 # Path tuples are command names walked through the subparser tree, e.g.
 # ("setup", "run") for `coding-scaffold setup run`.
 HELP_REGISTRY: dict[tuple[str, ...], CommandDoc] = {
+    ("tools", "compatibility"): CommandDoc(
+        description="Check reviewed native config fields, skill frontmatter and compatibility review dates without network or subprocess calls.",
+        examples=["coding-scaffold tools compatibility --target . --json", "coding-scaffold tools compatibility --target . --strict"],
+    ),
+    ("tools", "hooks"): CommandDoc(
+        description="Opt in to SessionStart and Stop hooks for local scaffold checks. Merges handlers without replacing existing settings. Review and trust hooks in the native agent.",
+        examples=["coding-scaffold tools hooks --target . --tool codex", "coding-scaffold tools hooks --target . --tool claude-code"],
+    ),
+    ("tools", "hook-run"): CommandDoc(
+        description="Native hook entry point. Reads bounded JSON from stdin, checks local metadata, and writes only aggregate check results. Does not run project tests or store transcripts.",
+        examples=['printf \'{"hook_event_name":"Stop","cwd":"/path/to/repo"}\' | coding-scaffold tools hook-run'],
+    ),
     # ----- top-level ------------------------------------------------------
     ("probe",): CommandDoc(
         description=(
@@ -410,34 +422,34 @@ HELP_REGISTRY: dict[tuple[str, ...], CommandDoc] = {
     ),
     # ----- skills ---------------------------------------------------------
     ("skills",): CommandDoc(
-        description="Manage reviewable skill packs under .coding-scaffold/skills/.",
+        description="Manage reviewable skill packs and project-native Agent Skills.",
         examples=[
-            "coding-scaffold skills new --name release-review",
+            "coding-scaffold skills new release-review",
             "coding-scaffold skills lint",
         ],
     ),
     ("skills", "new"): CommandDoc(
         description="Scaffold a new skill directory with SKILL.md and helpers.",
         examples=[
-            "coding-scaffold skills new --name release-review",
+            "coding-scaffold skills new release-review --location agents",
         ],
     ),
     ("skills", "lint"): CommandDoc(
-        description="Lint every skill under .coding-scaffold/skills/.",
+        description="Lint project skills in .coding-scaffold/skills, .agents/skills, .claude/skills and .opencode/skills. Native manifests are optional.",
         examples=[
             "coding-scaffold skills lint",
         ],
     ),
     ("skills", "approve"): CommandDoc(
-        description="Record the current CHECKSUM for a skill (signs it as reviewed).",
+        description="Record a versioned checksum of the entire skill package after review. This is a drift marker, not a cryptographic signature.",
         examples=[
-            "coding-scaffold skills approve --name release-review",
+            "coding-scaffold skills approve release-review --location agents",
         ],
     ),
     ("skills", "export"): CommandDoc(
         description="Bundle a skill into a tar.gz archive for sharing.",
         examples=[
-            "coding-scaffold skills export --name release-review --out release-review.tar.gz",
+            "coding-scaffold skills export release-review --location agents --output release-review.tar.gz",
         ],
     ),
     # ----- eval -----------------------------------------------------------

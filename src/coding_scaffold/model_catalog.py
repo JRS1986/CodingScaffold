@@ -16,33 +16,38 @@ class ModelCandidate:
     notes: str
 
 
+# Ollama tags, verified against registry.ollama.ai. Sizing leaves headroom for
+# the KV cache on top of the download size. Review this list each release —
+# local coding models turn over every few months.
 LOCAL_CODER_MODELS = [
-    ModelCandidate("qwen2.5-coder:7b-instruct", "weak", 10, 6, "Fast baseline for small edits."),
-    ModelCandidate("qwen2.5-coder:14b-instruct", "weak", 18, 10, "Good local default."),
-    ModelCandidate("deepseek-coder-v2:16b-lite-instruct", "weak", 22, 12, "Useful MoE-style local option."),
-    ModelCandidate("codestral:22b", "strong", 32, 16, "Strong code completion/editing option."),
-    ModelCandidate("qwen2.5-coder:32b-instruct", "strong", 32, 24, "Strong local coding model."),
-    ModelCandidate("qwen/qwen3-coder-40b", "strong", 56, 32, "User-preferred 40B-class Qwen coder slot."),
+    ModelCandidate("qwen3.5:9b", "weak", 10, 8, "Fast default for small edits and explanation."),
+    ModelCandidate("gpt-oss:20b", "weak", 24, 16, "Strong routine model for 16GB-class GPUs."),
+    ModelCandidate("devstral-small-2:24b", "strong", 32, 20, "Agentic coding model; tight on 16GB cards."),
+    ModelCandidate("qwen3-coder:30b", "strong", 32, 24, "Strong local coding default (MoE, 3B active)."),
+    ModelCandidate("qwen3.6:35b-a3b-coding", "strong", 48, 32, "Coding-tuned MoE for 32GB+ GPUs."),
+    ModelCandidate("qwen3-coder-next", "strong", 80, 64, "Workstation-class coder; ~52GB download."),
 ]
 
+# Pinned provider model ids (models.dev naming, as used by OpenCode). Hosted
+# model lineups change quickly; treat these as reviewed defaults, not truth.
 CLOUD_STRONG_MODELS = {
-    "anthropic": "anthropic/claude-sonnet",
-    "openai": "openai/gpt-4.1",
+    "anthropic": "anthropic/claude-sonnet-5",
+    "openai": "openai/gpt-5.6",
     "azure-openai": "azure-openai/{deployment}",
     "azure-ai": "azure-ai/{deployment}",
     "openrouter": "openrouter/auto",
     "github-models": "github/models",
-    "gemini": "google/gemini-pro",
+    "gemini": "google/gemini-3.1-pro-preview",
     "groq": "groq/compound",
 }
 
 CLOUD_ROUTINE_MODELS = {
-    "anthropic": "anthropic/claude-haiku",
-    "openai": "openai/gpt-4.1-mini",
+    "anthropic": "anthropic/claude-haiku-4-5",
+    "openai": "openai/gpt-5.4-mini",
     "azure-openai": "azure-openai/{deployment}",
     "azure-ai": "azure-ai/{deployment}",
     "openrouter": "openrouter/auto",
     "github-models": "github/models",
-    "gemini": "google/gemini-flash",
+    "gemini": "google/gemini-flash-latest",
     "groq": "groq/compound",
 }

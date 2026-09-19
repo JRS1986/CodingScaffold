@@ -29,6 +29,7 @@ MCP_SNAPSHOT_RELATIVE = Path(".coding-scaffold") / "mcp-snapshot.json"
 # Codex's `.codex/config.toml` puts servers under `[mcp_servers.<name>]` (snake_case); older
 # Codex layouts and some templates use a plain `[mcp]` table. We accept both.
 MCP_CONFIG_SOURCES: tuple[tuple[str, str], ...] = (
+    (".mcp.json", "mcpServers"),
     ("opencode.json", "mcp"),
     (".claude/settings.json", "mcp"),
     (".claude/settings.local.json", "mcp"),
@@ -278,6 +279,9 @@ def scan_mcp(target: Path) -> McpReport:
         payload = _load_config(full)
         if payload is None:
             warnings.append(f"Could not parse {rel_path}.")
+            findings.append(McpFinding("error", "invalid-config", None, rel_path,
+                                       "Cannot inspect unreadable or malformed MCP configuration.",
+                                       "Fix the JSON/TOML object before scanning again."))
             continue
         if not isinstance(payload, dict):
             continue
@@ -286,9 +290,16 @@ def scan_mcp(target: Path) -> McpReport:
         if mcp_section is None and rel_path.endswith(".toml"):
             mcp_section = payload.get("mcp")
         if not isinstance(mcp_section, dict):
+            if mcp_section is not None:
+                findings.append(McpFinding("error", "invalid-config", None, rel_path,
+                                           f"{mcp_key} must map names to server objects.",
+                                           "Fix the MCP server mapping and scan again."))
             continue
         for server_name, server_config in sorted(mcp_section.items()):
             if not isinstance(server_config, dict):
+                findings.append(McpFinding("error", "invalid-config", server_name, rel_path,
+                                           "MCP server configuration must be an object.",
+                                           "Fix this server entry and scan again."))
                 continue
             servers.append(_parse_server(server_name, server_config, source=rel_path))
 
@@ -628,6 +639,6 @@ def _load_config(path: Path) -> dict[str, object] | None:
                 payload = tomllib.load(fh)
         else:
             payload = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError, tomllib.TOMLDecodeError):
+    except (OSError, UnicodeError, json.JSONDecodeError, tomllib.TOMLDecodeError):
         return None
     return payload if isinstance(payload, dict) else None

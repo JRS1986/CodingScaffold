@@ -45,7 +45,7 @@ def test_cloud_can_backfill_strong_model(hardware_profile, provider_factory) -> 
 
     assert plan.cloud_provider == "anthropic"
     assert plan.cloud_model_family == "anthropic"
-    assert plan.strong_model == "anthropic/claude-sonnet"
+    assert plan.strong_model == "anthropic/claude-sonnet-5"
 
 
 def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists(hardware_profile) -> None:
@@ -55,8 +55,8 @@ def test_strong_route_falls_back_to_routine_when_no_heavy_model_exists(hardware_
         [],
     )
 
-    assert plan.weak_model == "qwen2.5-coder:7b-instruct"
-    assert plan.strong_model == "qwen2.5-coder:7b-instruct"
+    assert plan.weak_model == "qwen3.5:9b"
+    assert plan.strong_model == "qwen3.5:9b"
 
 
 def test_azure_provider_keeps_endpoint_and_model_family_separate(
@@ -83,14 +83,14 @@ def test_azure_provider_keeps_endpoint_and_model_family_separate(
 
 
 def test_local_model_thresholds_pick_expected_strong_models(hardware_profile) -> None:
-    qwen_32b_plan = build_routing_plan(
+    coder_30b_plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
         hardware_profile(
             cpu_count=16, gpu_name="GPU", vram_gb=24, llmfit_available=False, local_runtimes=[]
         ),
         [],
     )
-    qwen_40b_plan = build_routing_plan(
+    coder_35b_plan = build_routing_plan(
         IntakeAnswers(privacy="local-only"),
         hardware_profile(
             cpu_count=16,
@@ -103,8 +103,8 @@ def test_local_model_thresholds_pick_expected_strong_models(hardware_profile) ->
         [],
     )
 
-    assert qwen_32b_plan.strong_model == "qwen2.5-coder:32b-instruct"
-    assert qwen_40b_plan.strong_model == "qwen/qwen3-coder-40b"
+    assert coder_30b_plan.strong_model == "qwen3-coder:30b"
+    assert coder_35b_plan.strong_model == "qwen3.6:35b-a3b-coding"
 
 
 def test_missing_vram_does_not_exclude_ram_only_candidates(hardware_profile) -> None:
@@ -114,7 +114,7 @@ def test_missing_vram_does_not_exclude_ram_only_candidates(hardware_profile) -> 
         [],
     )
 
-    assert plan.weak_model == "qwen2.5-coder:7b-instruct"
+    assert plan.weak_model == "qwen3.5:9b"
 
 
 def test_select_local_model_is_independent_of_catalog_order(monkeypatch, hardware_profile) -> None:

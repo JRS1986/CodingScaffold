@@ -1,12 +1,13 @@
+.agents/skills/README.md
+.agents/skills/first-session/SKILL.md
+.agents/skills/knowledge-propose/SKILL.md
 .claude/agents/reviewer.md
 .claude/commands/agentic-change.md
 .claude/commands/first-session.md
 .claude/commands/knowledge-propose.md
 .claude/settings.json
 .codex/config.toml
-.codex/skills/README.md
-.codex/skills/first-session.md
-.codex/skills/knowledge-propose.md
+.coding-scaffold/compatibility.json
 .opencode/agents/explorer.md
 .opencode/agents/implementer.md
 .opencode/agents/reviewer.md

@@ -184,8 +184,8 @@ cd ~/dev/my-project
 ```
 
 Setup can run before any model is configured. It validates the selected coding tool and, when
-stdin is interactive, asks before installing a missing tool. OpenCode and Hermes use their official
-install scripts; Claude Code, Codex, OpenClaude, and Pi use npm packages. It can also configure
+stdin is interactive, asks before installing a missing tool. OpenCode, Hermes, and Claude Code use
+their official install scripts; Codex, OpenClaude, and Pi use npm packages. It can also configure
 the knowledge backend and optional shared Git remote during setup. Nothing is installed silently.
 
 If you already have `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, Azure variables, `GITHUB_TOKEN`, or a
@@ -637,7 +637,9 @@ combine it with reviewed credentials, CI checks, identity policy, and network co
 ## Advanced Options
 
 RouteLLM can provide one OpenAI-compatible endpoint that routes actual requests between a
-weak/routine model and a strong/heavy-lift model:
+weak/routine model and a strong/heavy-lift model. Note that upstream RouteLLM has had no commits
+since August 2024; treat this backend as legacy and evaluate a maintained gateway (for example
+LiteLLM's auto-router) before depending on it:
 
 ```bash
 coding-scaffold setup addon --target ~/dev/my-project --addon routellm
@@ -701,7 +703,7 @@ Optional commands can also generate:
 
 - `opencode.json`, `.opencode/agents/`, and `.opencode/commands/`.
 - `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/`, and `.claude/agents/`.
-- `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
+- `AGENTS.md`, `.codex/config.toml`, and `.agents/skills/`.
 - `.coding-scaffold/team/sources/<kind>/<slug>/`: third-party manifest content imported by
   `team sync` (cloned repos keep `.git` inside an `_repo/` subdirectory for fast-forward pulls).
 - `.coding-scaffold/ROUTELLM.md` and `routellm.config.yaml`.
@@ -732,7 +734,7 @@ showing every command. The most common commands are:
 ## Design Goals
 
 - Cross-platform Linux and WSL behavior.
-- Tested Python 3.11 through 3.13, with WSL detection guarded against missing or restricted
+- Tested Python 3.11 through 3.14, with WSL detection guarded against missing or restricted
   `/proc/version`.
 - No secret collection; the scaffold only records whether credentials appear available.
 - Local-first routing with explicit cloud escalation.

@@ -18,7 +18,7 @@ linkable — see the cross-references for where the work landed.
 - **P1-03 Add A Native Claude Code Adapter** — `coding-scaffold tools adapt --tool claude-code`
   generates `CLAUDE.md`, `.claude/settings.json`, slash commands, and the reviewer subagent.
 - **P1-04 Add A Native Codex Adapter** — `coding-scaffold tools adapt --tool codex` generates
-  `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
+  `AGENTS.md`, `.codex/config.toml`, and `.agents/skills/` (moved from `.codex/skills/` in 0.8.0).
 - **P1-05 Add A Compatibility Matrix** — [Tool Adapters / Compatibility Matrix](Tool-Adapters.md#compatibility-matrix)
   with 11 capabilities × 6 tools and support-depth labels.
 - **P2-01 Make The Knowledge Lifecycle Explicit** — raw/wiki/decisions/sessions structure plus

@@ -94,8 +94,8 @@ def _plan_for(tool: str) -> ToolInstallPlan:
             tool="claude-code",
             executable="claude",
             detected=shutil.which("claude") is not None,
-            install_command=["npm", "install", "-g", "@anthropic-ai/claude-code"],
-            install_description="Install Claude Code globally with npm.",
+            install_command=["bash", "-lc", "curl -fsSL https://claude.ai/install.sh | bash"],
+            install_description="Install Claude Code with the official native installer.",
             post_install="Claude Code installed. Start it in a project with: claude",
         )
     if tool == "codex":
@@ -177,9 +177,9 @@ def _addon_plan_for(addon: str, target: Path | None = None) -> ToolInstallPlan:
     if addon == "open-multi-agent":
         return ToolInstallPlan(
             tool="open-multi-agent",
-            executable="node package @jackchen_me/open-multi-agent",
-            detected=(root / "node_modules" / "@jackchen_me" / "open-multi-agent").exists(),
-            install_command=["npm", "install", "@jackchen_me/open-multi-agent"],
+            executable="node package @open-multi-agent/core",
+            detected=(root / "node_modules" / "@open-multi-agent" / "core").exists(),
+            install_command=["npm", "install", "@open-multi-agent/core"],
             install_description="Install Open Multi-Agent into the target Node.js project.",
             post_install="Open Multi-Agent installed. Generate workflow files with: coding-scaffold workflow --target .",
             cwd=root,

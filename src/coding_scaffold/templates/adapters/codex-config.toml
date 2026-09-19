@@ -1,4 +1,6 @@
 # Project-local CodingScaffold guidance for Codex.
+# Codex only loads this file after you trust the project.
 # Do not store secrets here. Use Codex, OpenAI, or provider auth flows for credentials.
 
-approval_mode = "suggest"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"

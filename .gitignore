@@ -8,6 +8,7 @@
 !.coding-scaffold/sessions/
 .coding-scaffold/sessions/*
 !.coding-scaffold/sessions/.gitkeep
+!.coding-scaffold/sessions/2026-09-19-agentic-change.md
 
 .claude/settings.local.json
 .claude/worktrees/
@@ -18,6 +19,9 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .DS_Store
+
+# Generated local code graph, including machine-specific paths and caches.
+/graphify-out/
 
 # rspress docs
 node_modules

@@ -7,7 +7,7 @@ Each skill is a directory under `.coding-scaffold/skills/<skill-name>/` containi
     scripts/       - optional helper scripts
     tests/         - optional verification scripts
     README.md      - usage/examples
-    CHECKSUM       - sha256(SKILL.md || manifest.json) frozen at approval time
+    CHECKSUM       - versioned digest of the complete package frozen at approval time
 
 This module supports four operations:
 
@@ -24,15 +24,22 @@ from __future__ import annotations
 import json
 import re
 import tarfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .errors import CliError
 from .file_ops import sha256_bytes
+from .skill_metadata import validate_skill_metadata
 
 
 SKILLS_RELATIVE = Path(".coding-scaffold") / "skills"
+SKILL_LOCATIONS = {
+    "scaffold": SKILLS_RELATIVE,
+    "agents": Path(".agents/skills"),
+    "claude": Path(".claude/skills"),
+    "opencode": Path(".opencode/skills"),
+}
 
 REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
     "name",
@@ -155,12 +162,15 @@ class SkillResult:
 # ---------------------------------------------------------------------------
 
 
-def new_skill(target: Path, name: str, *, owner: str | None = None) -> SkillResult:
+def new_skill(
+    target: Path, name: str, *, owner: str | None = None, location: str = "scaffold",
+) -> SkillResult:
     """Scaffold a new skill at `.coding-scaffold/skills/<name>/`."""
 
     root = target.expanduser().resolve()
-    safe = _safe_skill_name(name)
-    skill_dir = root / SKILLS_RELATIVE / safe
+    safe = _resolve_skill_name(root, name, location)
+    skill_dir = root / SKILL_LOCATIONS[location] / safe
+    _check_project_path(root, skill_dir)
     files: list[Path] = []
     skipped: list[Path] = []
 
@@ -171,6 +181,7 @@ def new_skill(target: Path, name: str, *, owner: str | None = None) -> SkillResu
     tests_dir = skill_dir / "tests"
 
     skill_dir.mkdir(parents=True, exist_ok=True)
+    _package_entries(skill_dir)
     scripts_dir.mkdir(parents=True, exist_ok=True)
     tests_dir.mkdir(parents=True, exist_ok=True)
 
@@ -195,6 +206,7 @@ def _write_if_absent(path: Path, content: str, files: list[Path], skipped: list[
 def _skill_md_template(name: str) -> str:
     return f"""---
 name: {name}
+description: Use when explicitly asked to run the {name} workflow.
 status: draft
 ---
 
@@ -266,20 +278,34 @@ contract and `manifest.json` for the machine-readable metadata.
 
 def lint_skills(target: Path) -> SkillLintReport:
     root = target.expanduser().resolve()
-    skills_dir = root / SKILLS_RELATIVE
     findings: list[SkillFinding] = []
     skills_scanned: list[str] = []
     warnings: list[str] = []
-    if not skills_dir.exists():
-        return SkillLintReport(findings=[], skills_scanned=[], warnings=[])
-    for skill_dir in sorted(skills_dir.iterdir()):
-        if not skill_dir.is_dir():
+    seen: set[Path] = set()
+    for location, relative in SKILL_LOCATIONS.items():
+        skills_dir = root / relative
+        if not skills_dir.exists():
             continue
-        if skill_dir.name.startswith("."):
+        try:
+            _check_project_path(root, skills_dir)
+            candidates = sorted(skills_dir.iterdir())
+        except (OSError, CliError) as exc:
+            findings.append(_package_finding(str(relative), "unreadable", str(exc)))
             continue
-        skill = skill_dir.name
-        skills_scanned.append(skill)
-        findings.extend(_lint_one_skill(skill, skill_dir))
+        for skill_dir in candidates:
+            if skill_dir.name.startswith(".") or not skill_dir.is_dir():
+                continue
+            skill = skill_dir.name if location == "scaffold" else str(relative / skill_dir.name)
+            try:
+                _check_project_path(root, skill_dir)
+                if skill_dir.resolve() in seen:
+                    continue
+                seen.add(skill_dir.resolve())
+                skills_scanned.append(skill)
+                _package_entries(skill_dir)
+                findings.extend(_lint_one_skill(skill, skill_dir, native=location != "scaffold"))
+            except (OSError, UnicodeError, CliError) as exc:
+                findings.append(_package_finding(skill, "unreadable", str(exc)))
     findings.sort(key=lambda f: (
         {"error": 0, "warning": 1, "info": 2}[f.severity],
         f.skill or "",
@@ -290,7 +316,7 @@ def lint_skills(target: Path) -> SkillLintReport:
     return SkillLintReport(findings=findings, skills_scanned=skills_scanned, warnings=warnings)
 
 
-def _lint_one_skill(skill: str, skill_dir: Path) -> list[SkillFinding]:
+def _lint_one_skill(skill: str, skill_dir: Path, *, native: bool = False) -> list[SkillFinding]:
     findings: list[SkillFinding] = []
     skill_md = skill_dir / "SKILL.md"
     manifest_path = skill_dir / "manifest.json"
@@ -306,9 +332,9 @@ def _lint_one_skill(skill: str, skill_dir: Path) -> list[SkillFinding]:
             suggested_fix="Create SKILL.md with at minimum a 'When to use' and 'Verification' section.",
         ))
     else:
-        findings.extend(_lint_skill_md(skill, skill_md))
+        findings.extend(_lint_skill_md(skill, skill_md, native=native))
 
-    if not manifest_path.exists():
+    if not manifest_path.exists() and not native:
         findings.append(SkillFinding(
             severity="error",
             rule="missing-manifest",
@@ -320,14 +346,21 @@ def _lint_one_skill(skill: str, skill_dir: Path) -> list[SkillFinding]:
                 "Create manifest.json with name, version, owner, risk_level, and description."
             ),
         ))
-    else:
+    elif manifest_path.exists():
         findings.extend(_lint_manifest(skill, manifest_path))
 
     # Approval / drift check.
     checksum_file = skill_dir / "CHECKSUM"
-    if checksum_file.exists() and skill_md.exists() and manifest_path.exists():
+    if checksum_file.exists() and skill_md.exists():
         recorded = checksum_file.read_text(encoding="utf-8-sig").strip()
-        current = _compute_checksum(skill_md, manifest_path)
+        current = _package_checksum(skill_dir)
+        if re.fullmatch(r"[0-9a-f]{64}", recorded):
+            findings.append(replace(
+                _package_finding(skill, "legacy-checksum", "Approval covers only SKILL.md and "
+                                 "manifest.json; review the complete package and approve again."),
+                severity="warning",
+            ))
+            current = _compute_checksum(skill_md, manifest_path) if manifest_path.exists() else ""
         if recorded != current:
             findings.append(SkillFinding(
                 severity="warning",
@@ -336,7 +369,7 @@ def _lint_one_skill(skill: str, skill_dir: Path) -> list[SkillFinding]:
                 file=str(checksum_file.relative_to(skill_dir)),
                 line=None,
                 message=(
-                    "SKILL.md or manifest.json changed since the recorded approval."
+                    "Skill package changed since the recorded approval."
                 ),
                 suggested_fix=(
                     "Review the diff and re-run `coding-scaffold skills approve "
@@ -346,7 +379,7 @@ def _lint_one_skill(skill: str, skill_dir: Path) -> list[SkillFinding]:
     return findings
 
 
-def _lint_skill_md(skill: str, path: Path) -> list[SkillFinding]:
+def _lint_skill_md(skill: str, path: Path, *, native: bool = False) -> list[SkillFinding]:
     findings: list[SkillFinding] = []
     try:
         text = path.read_text(encoding="utf-8-sig")
@@ -360,6 +393,8 @@ def _lint_skill_md(skill: str, path: Path) -> list[SkillFinding]:
             message=f"Could not read SKILL.md: {exc}",
             suggested_fix="Make sure the file is UTF-8 and readable.",
         )]
+    for message in validate_skill_metadata(text, path.parent.name):
+        findings.append(_package_finding(skill, "invalid-frontmatter", message))
     lower = text.lower()
     # Broad / always-on language.
     for lineno, raw_line in enumerate(text.splitlines(), start=1):
@@ -396,7 +431,7 @@ def _lint_skill_md(skill: str, path: Path) -> list[SkillFinding]:
                 break
 
     # Missing required sections.
-    required_headings = ("when to use", "verification")
+    required_headings = () if native else ("when to use", "verification")
     for heading in required_headings:
         if not re.search(rf"^##\s+{re.escape(heading)}\b", text, flags=re.IGNORECASE | re.MULTILINE):
             findings.append(SkillFinding(
@@ -419,7 +454,7 @@ def _lint_skill_md(skill: str, path: Path) -> list[SkillFinding]:
         flags=re.IGNORECASE | re.DOTALL,
     )
     declared_text = declared.group(1).lower() if declared else ""
-    for keyword, capability in SENSITIVE_CAPABILITY_KEYWORDS:
+    for keyword, capability in (() if native else SENSITIVE_CAPABILITY_KEYWORDS):
         if keyword in lower and capability not in declared_text:
             findings.append(SkillFinding(
                 severity="warning",
@@ -518,23 +553,24 @@ def _lint_manifest(skill: str, path: Path) -> list[SkillFinding]:
 # ---------------------------------------------------------------------------
 
 
-def approve_skill(target: Path, name: str) -> dict[str, object]:
-    """Compute the checksum of SKILL.md + manifest.json and record it in `CHECKSUM`."""
+def approve_skill(target: Path, name: str, *, location: str = "scaffold") -> dict[str, object]:
+    """Record a versioned checksum covering every package file, path and executable bit."""
 
     root = target.expanduser().resolve()
-    safe = _safe_skill_name(name)
-    skill_dir = root / SKILLS_RELATIVE / safe
+    safe = _resolve_skill_name(root, name, location)
+    skill_dir = root / SKILL_LOCATIONS[location] / safe
+    _check_project_path(root, skill_dir)
     if not skill_dir.exists():
         return {"approved": False, "skill": safe, "warning": f"Skill {safe!r} does not exist."}
     skill_md = skill_dir / "SKILL.md"
     manifest = skill_dir / "manifest.json"
-    if not skill_md.exists() or not manifest.exists():
+    if not skill_md.exists() or (location == "scaffold" and not manifest.exists()):
         return {
             "approved": False,
             "skill": safe,
             "warning": "SKILL.md and manifest.json must exist before approval.",
         }
-    checksum = _compute_checksum(skill_md, manifest)
+    checksum = _package_checksum(skill_dir)
     checksum_file = skill_dir / "CHECKSUM"
     checksum_file.write_text(checksum + "\n", encoding="utf-8")
     return {
@@ -545,17 +581,23 @@ def approve_skill(target: Path, name: str) -> dict[str, object]:
     }
 
 
-def export_skill(target: Path, name: str, *, output: Path | None = None) -> dict[str, object]:
+def export_skill(
+    target: Path, name: str, *, output: Path | None = None, location: str = "scaffold",
+) -> dict[str, object]:
     """Bundle a skill directory into a tar.gz archive for sharing."""
 
     root = target.expanduser().resolve()
-    safe = _safe_skill_name(name)
-    skill_dir = root / SKILLS_RELATIVE / safe
+    safe = _resolve_skill_name(root, name, location)
+    skill_dir = root / SKILL_LOCATIONS[location] / safe
+    _check_project_path(root, skill_dir)
     if not skill_dir.exists():
         return {"exported": False, "skill": safe, "warning": f"Skill {safe!r} does not exist."}
     output_path = output.expanduser().resolve() if output else root / f"{safe}.tar.gz"
+    if output_path.is_relative_to(skill_dir.resolve()):
+        raise CliError("Export destination is inside the skill package.", "Choose an output outside the skill directory.")
+    _package_entries(skill_dir)  # Reject links/special files before creating an archive.
     with tarfile.open(output_path, "w:gz") as tar:
-        tar.add(skill_dir, arcname=safe)
+        tar.add(skill_dir.resolve(), arcname=safe)
     return {"exported": True, "skill": safe, "archive": str(output_path)}
 
 
@@ -567,7 +609,7 @@ def export_skill(target: Path, name: str, *, output: Path | None = None) -> dict
 def _safe_skill_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", name.strip())
     cleaned = re.sub(r"-+", "-", cleaned).strip("-").lower()
-    if not cleaned:
+    if not cleaned or cleaned in {".", ".."}:
         raise CliError(
             "Skill name cannot be empty.",
             'Pass a descriptive name, e.g. --name "Release Review".',
@@ -577,3 +619,59 @@ def _safe_skill_name(name: str) -> str:
 
 def _compute_checksum(skill_md: Path, manifest: Path) -> str:
     return sha256_bytes(skill_md.read_bytes() + b"\x00" + manifest.read_bytes())
+
+
+def _resolve_skill_name(root: Path, name: str, location: str) -> str:
+    legacy = _safe_skill_name(name)
+    # Keep existing pre-standard names addressable without moving their directories.
+    if (root / SKILL_LOCATIONS[location] / legacy).exists():
+        return legacy
+    canonical = re.sub(r"[^a-z0-9]+", "-", legacy).strip("-")[:64].rstrip("-")
+    if not canonical:
+        raise CliError("Skill name needs letters or digits.", "Choose a descriptive skill name.")
+    return canonical
+
+
+def _check_project_path(root: Path, path: Path) -> None:
+    if not path.resolve().is_relative_to(root):
+        raise CliError("Skill path leaves the target project.", "Keep skills and their links inside --target.")
+
+
+def _package_entries(skill_dir: Path) -> list[Path]:
+    """Do not follow package links: approval must never omit executable content."""
+    entries: list[Path] = []
+
+    def visit(directory: Path) -> None:
+        for path in sorted(directory.iterdir()):
+            if path.is_symlink() or not (path.is_file() or path.is_dir()):
+                raise CliError(
+                    f"Unsupported link or special file in skill: {path.relative_to(skill_dir)}.",
+                    "Replace package links with regular files before lint, approval or export.",
+                )
+            if path == skill_dir / "CHECKSUM":
+                continue
+            entries.append(path)
+            if path.is_dir():
+                visit(path)
+
+    visit(skill_dir)
+    return entries
+
+
+def _package_checksum(skill_dir: Path) -> str:
+    records = []
+    for path in _package_entries(skill_dir):
+        records.append([
+            path.relative_to(skill_dir).as_posix(),
+            "directory" if path.is_dir() else "file",
+            bool(path.stat().st_mode & 0o111) if path.is_file() else False,
+            sha256_bytes(path.read_bytes()) if path.is_file() else "",
+        ])
+    return "v2:" + sha256_bytes(json.dumps(records, ensure_ascii=True).encode("utf-8"))
+
+
+def _package_finding(skill: str, rule: str, message: str) -> SkillFinding:
+    return SkillFinding(
+        severity="error", rule=rule, skill=skill, file="SKILL.md", line=None,
+        message=message, suggested_fix="Review the skill package and run skills lint again.",
+    )
