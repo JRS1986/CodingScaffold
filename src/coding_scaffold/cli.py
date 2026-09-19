@@ -45,6 +45,9 @@ from .memory import (
     write_memory_config,
 )
 from .doctor import format_doctor_text, run_doctor
+from .compatibility import check_compatibility
+from .hooks import run_hook, write_hooks
+from .skills import SKILL_LOCATIONS
 from .personas import PERSONAS as _PERSONAS, DEFAULT_PERSONA
 from .pilot import format_pilot_text, run_pilot
 from .tour import format_tour
@@ -436,16 +439,19 @@ def build_parser() -> argparse.ArgumentParser:
     skills_new.add_argument("name", help="Skill name (slugified into the directory name).")
     _add_target_arg(skills_new)
     skills_new.add_argument("--owner", default=None, help="Skill owner handle for manifest.json.")
+    skills_new.add_argument("--location", choices=list(SKILL_LOCATIONS), default="scaffold")
     _add_json_arg(skills_new)
-    skills_lint = skills_sub.add_parser("lint", help="Lint every skill under .coding-scaffold/skills/.")
+    skills_lint = skills_sub.add_parser("lint", help="Lint scaffold and project-native skill folders.")
     _add_target_arg(skills_lint)
     _add_json_arg(skills_lint)
     skills_approve = skills_sub.add_parser("approve", help="Record the current CHECKSUM for a skill.")
     skills_approve.add_argument("name", help="Skill directory name.")
+    skills_approve.add_argument("--location", choices=list(SKILL_LOCATIONS), default="scaffold")
     _add_target_arg(skills_approve)
     _add_json_arg(skills_approve)
     skills_export = skills_sub.add_parser("export", help="Bundle a skill into a tar.gz archive.")
     skills_export.add_argument("name", help="Skill directory name.")
+    skills_export.add_argument("--location", choices=list(SKILL_LOCATIONS), default="scaffold")
     _add_target_arg(skills_export)
     skills_export.add_argument("--output", type=Path, default=None,
                                help="Output archive path (default: <skill>.tar.gz in --target).")
@@ -604,6 +610,15 @@ def build_parser() -> argparse.ArgumentParser:
     _add_tools_workflow_args(tools_workflow)
     tools_orchestrate = tools_sub.add_parser("orchestrate", help="Create an agent orchestration plan.")
     _add_tools_orchestrate_args(tools_orchestrate)
+    compatibility = tools_sub.add_parser("compatibility", help="Check native configuration and review freshness offline.")
+    _add_target_arg(compatibility)
+    _add_json_arg(compatibility)
+    compatibility.add_argument("--strict", action="store_true", help="Also fail on warnings such as overdue reviews.")
+    hooks = tools_sub.add_parser("hooks", help="Opt in to local lifecycle checks for Codex or Claude Code.")
+    _add_target_arg(hooks)
+    _add_json_arg(hooks)
+    hooks.add_argument("--tool", action="append", required=True, choices=["codex", "claude-code"])
+    tools_sub.add_parser("hook-run", help="Handle a native lifecycle event from JSON on stdin.")
 
     adapt = sub.add_parser("adapt", help=argparse.SUPPRESS)
     _add_tools_adapt_args(adapt)
@@ -1087,6 +1102,9 @@ def _normalize_grouped_command(args: argparse.Namespace) -> None:
             "select-model": "select-model",
             "workflow": "workflow",
             "orchestrate": "orchestrate",
+            "compatibility": "compatibility",
+            "hooks": "hooks",
+            "hook-run": "hook-run",
         }[args.tools_action]
 
 
@@ -1554,7 +1572,7 @@ def _cmd_mcp_diff(args: argparse.Namespace) -> int:
 
 
 def _cmd_skills_new(args: argparse.Namespace) -> int:
-    result = new_skill(args.target, args.name, owner=args.owner)
+    result = new_skill(args.target, args.name, owner=args.owner, location=args.location)
     if args.json:
         _print_json(result.to_dict())
     else:
@@ -1576,7 +1594,7 @@ def _cmd_skills_lint(args: argparse.Namespace) -> int:
 
 
 def _cmd_skills_approve(args: argparse.Namespace) -> int:
-    outcome = approve_skill(args.target, args.name)
+    outcome = approve_skill(args.target, args.name, location=args.location)
     if args.json:
         _print_json(outcome)
     else:
@@ -1588,7 +1606,7 @@ def _cmd_skills_approve(args: argparse.Namespace) -> int:
 
 
 def _cmd_skills_export(args: argparse.Namespace) -> int:
-    outcome = export_skill(args.target, args.name, output=args.output)
+    outcome = export_skill(args.target, args.name, output=args.output, location=args.location)
     if args.json:
         _print_json(outcome)
     else:
@@ -1860,6 +1878,45 @@ def _cmd_adapt(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_compatibility(args: argparse.Namespace) -> int:
+    report = check_compatibility(args.target)
+    if args.json:
+        _print_json(report.to_dict())
+    else:
+        print(f"compatibility: {report.error_count} error(s), {len(report.findings) - report.error_count} warning(s).")
+        for item in report.findings:
+            print(f"  [{item.severity}] {item.path}: {item.message}")
+        print("Offline checks cover reviewed config fields; they do not verify installed tool versions or model availability.")
+    return 1 if report.error_count or (args.strict and report.findings) else 0
+
+
+def _cmd_hooks(args: argparse.Namespace) -> int:
+    result = write_hooks(args.target, args.tools)
+    if args.json:
+        _print_json(result)
+    else:
+        for path in result["files"]:
+            print(f"Wrote hooks: {path}")
+        for path in result["skipped"]:
+            print(f"Hooks already configured: {path}")
+        for note in result["notes"]:
+            print(note)
+    return 0
+
+
+def _cmd_hook_run(args: argparse.Namespace) -> int:
+    # Bound input and never echo native payloads (they can contain prompts and secrets).
+    raw = sys.stdin.read(1_048_577)
+    try:
+        if len(raw.encode("utf-8")) > 1_048_576:
+            raise ValueError
+        payload = json.loads(raw)
+    except ValueError as exc:
+        raise CliError("Invalid or oversized hook JSON.", "Send a native event smaller than 1 MiB on stdin.") from exc
+    _print_json(run_hook(payload))
+    return 0
+
+
 def _cmd_route(args: argparse.Namespace) -> int:
     result = write_route_backend(args.target, args.backend)
     print(f"Wrote {len(result.files)} routing backend file(s).")
@@ -2005,6 +2062,9 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "policy": _cmd_policy,
     "update": _cmd_update,
     "adapt": _cmd_adapt,
+    "compatibility": _cmd_compatibility,
+    "hooks": _cmd_hooks,
+    "hook-run": _cmd_hook_run,
     "route": _cmd_route,
     "select-model": _cmd_select_model,
     "workflow": _cmd_workflow,
@@ -2320,7 +2380,7 @@ def _print_mcp_diff(diff: McpDiff) -> None:
 
 def _print_skills_lint(report: SkillLintReport) -> None:
     if not report.skills_scanned:
-        print("skills lint: no skills found under `.coding-scaffold/skills/`.")
+        print("skills lint: no skills found in scaffold or project-native skill folders.")
         return
     print(
         f"skills lint: scanned {len(report.skills_scanned)} skill(s); "

@@ -20,6 +20,7 @@ from .errors import CliError
 from .hardware import probe_hardware
 from .personas import DEFAULT_PERSONA, PERSONAS, get_persona
 from .pr_template import PR_TEMPLATE_RELATIVE
+from .compatibility import check_compatibility
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,10 @@ def run_doctor(
     root = (target or Path.cwd()).expanduser().resolve()
     artifacts = _survey_artifacts(root)
     notes = _system_notes(use_cache=use_cache)
+    compatibility = check_compatibility(root)
+    notes.extend(f"Compatibility ({item.severity}): {item.message}" for item in compatibility.findings)
+    if compatibility.findings:
+        notes.append("Run `coding-scaffold tools compatibility --target .` for paths and review provenance.")
     if persona == DEFAULT_PERSONA:
         next_steps = _recommend_next_steps(artifacts)
         ignore = list(ADVANCED_FOR_NOW)

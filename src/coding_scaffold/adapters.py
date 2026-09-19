@@ -8,6 +8,7 @@ from .file_ops import collect_json, collect_text, write_json, write_text
 from .model_catalog import ROUTELLM_MF_DEFAULT_THRESHOLD
 from .template_resources import read_template, render_template
 from .routing_io import load_routing_payload
+from .compatibility import COMPATIBILITY_RELATIVE, compatibility_manifest
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,8 @@ def write_tool_adapter(target: Path, tool: str | list[str]) -> AdapterResult:
             result = AdapterResult([], [])
         files.extend(result.files)
         skipped.extend(result.skipped)
+    if any(selected != "manual" for selected in tools):
+        collect_json(files, skipped, root / COMPATIBILITY_RELATIVE, compatibility_manifest())
     return AdapterResult(files, skipped)
 
 
@@ -224,7 +227,7 @@ def _opencode_recheck_route() -> str:
 
 def _agent_skill(name: str, description: str, body: str) -> str:
     """Wrap a template body in Agent Skills frontmatter (`name` must match the folder)."""
-    return f"---\nname: {name}\ndescription: {description}\n---\n\n{body}"
+    return f"---\nname: {name}\ndescription: {json.dumps(description)}\n---\n\n{body}"
 
 
 def _knowledge_propose_command() -> str:

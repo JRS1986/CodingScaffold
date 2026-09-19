@@ -1,0 +1,13 @@
+{
+  "snapshot_date": "2026-09-19",
+  "codex": {"approval_policy": "on-request", "sandbox_mode": "workspace-write"},
+  "claude-code": {
+    "permissions": {
+      "defaultMode": "default",
+      "deny": ["Read(./.coding-scaffold/.env.local)", "Read(./.coding-scaffold/credentials.local.json)", "Read(**/.env)", "Read(**/.env.*)"]
+    },
+    "attribution": {"commit": "", "pr": ""}
+  },
+  "opencode": {"$schema": "https://opencode.ai/config.json", "default_agent": "plan", "share": "disabled"},
+  "hook": {"type": "command", "command": "coding-scaffold tools hook-run", "timeout": 15}
+}

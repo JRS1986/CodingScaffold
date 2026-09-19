@@ -152,6 +152,7 @@ capability or CodingScaffold has no opinion about it.
 | Project instructions | ✓ `AGENTS.md` + scaffold guide | ✓ `CLAUDE.md` | ✓ `AGENTS.md` + `.codex/` + `.agents/skills/` | ✓ `OPENCLAUDE.md` | ✓ `HERMES.md` | ✓ `PI.md` + `AGENTS.md` |
 | Slash commands / skills | ✓ 4 generated | ✓ 2 generated | skills only | doc-only | doc-only | doc-only |
 | Agents / subagents | ✓ explorer / implementer / reviewer | ✓ reviewer | — | — | — | — |
+| Optional lifecycle hooks | — | ✓ `SessionStart` / `Stop` | ✓ `SessionStart` / `Stop` | — | — | — |
 | Permissions / approval | ✓ via policy pack | ✓ via `.claude/settings.json` | tool's own approval mode | — | — | — |
 | MCP servers | ✓ disable list in policy | settings + docs | — | tool's own | tool's own | — |
 | Local model endpoint | ✓ provider detection | tool's own | tool's own | tool's own | tool's own | tool's own |
@@ -173,6 +174,74 @@ Support-depth definitions:
 Known gaps: runtime model routing is only available where the tool exposes an OpenAI-compatible
 backend swap (today: OpenCode via RouteLLM). For other tools the scaffold relies on the tool's own
 provider configuration plus `tools select-model` recommendations.
+
+## Offline Compatibility Checks
+
+```bash
+coding-scaffold tools compatibility --target .
+coding-scaffold tools compatibility --target . --json
+coding-scaffold tools compatibility --target . --strict
+```
+
+Checks cover reviewed fields in Codex TOML, Claude settings, OpenCode JSON, Claude
+project `.mcp.json`, hook structures, and required Agent Skills frontmatter. Unknown
+settings are retained. These are focused contract checks, not full upstream schema
+validation, installed-version detection, or live model-availability checks.
+
+Adapter generation saves `.coding-scaffold/compatibility.json` with upstream source
+URLs, documentation snapshot identifiers, review dates, and model catalog entries.
+Unversioned documentation is labeled as a dated snapshot rather than a tested CLI
+version. Guidance-only adapters explicitly record that they are not contract-tested.
+Model entries record recommendation provenance, including floating aliases and
+deployment placeholders; a recorded review does not guarantee account access.
+
+`doctor` surfaces malformed configurations, missing reviews and reviews older than
+90 days. `tools compatibility` exits 1 on errors; `--strict` also fails on warnings.
+No network requests or commands run. `setup update` refreshes the saved provenance
+using its normal checksum / `.new` behavior, preserving local edits. Updating a
+scaffold does not automatically replace existing routing choices.
+
+Maintainers should review upstream documentation before changing the review date.
+Update the adapters and the independently maintained examples under
+`tests/fixtures/compatibility/` together, then run the offline test suite.
+
+## Optional Lifecycle Hooks
+
+Hooks are enabled only by an explicit command, separately from setup/adapt/update:
+
+```bash
+coding-scaffold tools hooks --target . --tool codex
+coding-scaffold tools hooks --target . --tool claude-code
+# Both tools can be selected in one invocation with repeated --tool flags.
+```
+
+The command merges its handlers into `.codex/hooks.json` or
+`.claude/settings.json`. Existing settings and other hooks are preserved; repeated
+runs do not duplicate the handlers. Malformed existing configuration is left
+untouched. Keep `coding-scaffold` on the agent's PATH and review/trust the native
+configuration before use (Codex: `/hooks`). Project hook support also depends on
+the installed agent version and its managed policies.
+
+- `SessionStart` returns a short compatibility summary to the agent.
+- `Stop` runs context lint, skill lint and compatibility checks, then saves counts
+  and a timestamp in `.coding-scaffold/hook-report.json`.
+- Metadata errors request one continuation. If `stop_hook_active` is already set,
+  errors remain in the report and a message is returned without another block.
+
+The native handler has a 15-second timeout. `tools hook-run` consumes at most 1 MiB
+of JSON from stdin and uses the nearest project/worktree root above its `cwd`.
+The report contains no prompts, transcripts, tool commands, outputs or session IDs.
+Hooks do not run the project's test suite, execute project scripts, approve tool
+calls, contact a model, or enforce a security boundary. A clean hook report is not
+evidence that project tests passed. Generated ignore rules exclude the report;
+existing projects can add `.coding-scaffold/hook-report.json` to `.gitignore`.
+
+To disable, remove the handlers whose command is
+`coding-scaffold tools hook-run` from the native config, leaving other handlers
+intact. To inspect a report, read `.coding-scaffold/hook-report.json` locally.
+
+Upstream contracts: [Codex hooks](https://learn.chatgpt.com/docs/hooks),
+[Claude hooks](https://code.claude.com/docs/en/hooks).
 
 ## Optional Tooling
 

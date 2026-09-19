@@ -8,6 +8,7 @@
 .coding-scaffold/ORCHESTRATION.md
 .coding-scaffold/SKILLS.md
 .coding-scaffold/TOOLS.md
+.coding-scaffold/compatibility.json
 .coding-scaffold/credentials.example.json
 .coding-scaffold/hardware.json
 .coding-scaffold/hermes.json

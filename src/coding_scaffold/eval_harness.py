@@ -430,6 +430,11 @@ def _check_mcp_policy(root: Path) -> EvalCheck:
     # that a candidate config file is present. `.claude/settings.local.json` exists in many
     # Claude Code installs without any MCP entries.
     report = scan_mcp(root)
+    if any(f.rule == "invalid-config" for f in report.findings):
+        return EvalCheck(
+            name="mcp_policy_exists_if_mcp_detected", category="governance", passed=False,
+            message="MCP configuration could not be inspected. Run `coding-scaffold mcp scan`.",
+        )
     server_count = len(report.servers)
     policy_present = (root / MCP_POLICY_RELATIVE).exists()
     if server_count == 0:

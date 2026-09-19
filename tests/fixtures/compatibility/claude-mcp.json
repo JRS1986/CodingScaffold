@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "local-example": {"command": "npx", "args": ["-y", "@example/server@1.2.3", "/project"]},
+    "remote-example": {"type": "http", "url": "https://example.com/mcp"}
+  }
+}

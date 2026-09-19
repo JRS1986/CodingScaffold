@@ -2,3 +2,4 @@
 credentials.local.json
 *.secret.*
 team/
+hook-report.json

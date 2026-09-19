@@ -7,7 +7,32 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-19
+
+### Added
+
+- Offline `tools compatibility` checks for reviewed native configuration fields,
+  hook structures, skill frontmatter and review freshness; `--strict` also fails
+  on warnings. Generated compatibility manifests include upstream source URLs,
+  dated review snapshots and model catalog provenance. `doctor` surfaces findings.
+- Opt-in `tools hooks --tool codex|claude-code` generates native `SessionStart`
+  and `Stop` handlers, preserving existing settings and hooks. The handler runs
+  local metadata checks and writes aggregate results; it runs no project commands,
+  makes no network/model calls and stores no transcripts. Stop continuation is
+  limited to one attempt. Setup/update do not enable hooks automatically.
+- Native skill locations for `skills new/approve/export --location` and linting
+  under `.agents/skills`, `.claude/skills` and `.opencode/skills`. Native manifests
+  and scaffold-specific headings are optional.
+
 ### Fixed
+
+- Claude project `.mcp.json` servers are now scanned; malformed MCP candidate
+  configuration fails readiness rather than silently passing an empty-server check.
+- Skill approvals now cover the full package, including helper scripts, supporting
+  files, paths and executable bits. Legacy checksums emit a review/migration warning.
+  Package links and external directory aliases are rejected before approval/export.
+- New skill packages include required descriptions. Generated Codex descriptions
+  are YAML-quoted. Offline native contract fixtures cover adapter/hook output.
 
 - **Claude Code `settings.json` now uses valid permission syntax.** The generated
   `"defaultMode": "ask"` was not a Claude Code permission mode, and the deny list
