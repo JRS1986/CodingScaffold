@@ -130,9 +130,32 @@ def _write_codex(root: Path, routing: dict[str, object]) -> AdapterResult:
     files: list[Path] = []
     skipped: list[Path] = []
     collect_text(files, skipped, root / "AGENTS.md", _codex_agents_md(routing))
-    collect_text(files, skipped, root / ".codex" / "skills" / "README.md", _codex_skills_readme())
-    collect_text(files, skipped, root / ".codex" / "skills" / "first-session.md", _codex_first_session_skill())
-    collect_text(files, skipped, root / ".codex" / "skills" / "knowledge-propose.md", _knowledge_propose_command())
+    # Codex discovers skills as Agent Skills folders under `.agents/skills/`
+    # (agentskills.io layout), not as flat files under `.codex/skills/`.
+    skills = root / ".agents" / "skills"
+    collect_text(files, skipped, skills / "README.md", _codex_skills_readme())
+    collect_text(
+        files,
+        skipped,
+        skills / "first-session" / "SKILL.md",
+        _agent_skill(
+            "first-session",
+            "Use when starting work in this repository for the first time: inspect before "
+            "editing, find run/test commands, and propose one safe improvement.",
+            _codex_first_session_skill(),
+        ),
+    )
+    collect_text(
+        files,
+        skipped,
+        skills / "knowledge-propose" / "SKILL.md",
+        _agent_skill(
+            "knowledge-propose",
+            "Use at the end of a substantial session to draft reviewable, reusable project "
+            "knowledge proposals. Never stores raw transcripts or secrets.",
+            _knowledge_propose_command(),
+        ),
+    )
     collect_text(files, skipped, root / ".codex" / "config.toml", _codex_config_toml())
     return AdapterResult(files, skipped)
 
@@ -199,6 +222,11 @@ def _opencode_recheck_route() -> str:
     return read_template("adapters/opencode-recheck-route.md")
 
 
+def _agent_skill(name: str, description: str, body: str) -> str:
+    """Wrap a template body in Agent Skills frontmatter (`name` must match the folder)."""
+    return f"---\nname: {name}\ndescription: {description}\n---\n\n{body}"
+
+
 def _knowledge_propose_command() -> str:
     return read_template("adapters/knowledge-propose.md")
 
@@ -215,15 +243,15 @@ def _claude_md(routing: dict[str, object]) -> str:
 def _claude_settings() -> dict[str, object]:
     return {
         "permissions": {
-            "defaultMode": "ask",
+            "defaultMode": "default",
             "deny": [
-                ".coding-scaffold/.env.local",
-                ".coding-scaffold/credentials.local.json",
-                "**/.env",
-                "**/.env.*",
+                "Read(./.coding-scaffold/.env.local)",
+                "Read(./.coding-scaffold/credentials.local.json)",
+                "Read(**/.env)",
+                "Read(**/.env.*)",
             ],
         },
-        "includeCoAuthoredBy": False,
+        "attribution": {"commit": "", "pr": ""},
     }
 
 
@@ -332,7 +360,7 @@ def _open_multi_agent_team(routing: dict[str, object]) -> dict[str, object]:
     return {
         "backend": "open-multi-agent",
         "intent": "Turn validated local agentic workflows into repeatable TypeScript automation.",
-        "install": "npm install @jackchen_me/open-multi-agent",
+        "install": "npm install @open-multi-agent/core",
         "agents": [
             {
                 "name": "explorer",

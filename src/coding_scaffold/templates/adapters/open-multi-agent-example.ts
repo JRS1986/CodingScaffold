@@ -1,5 +1,5 @@
-import { OpenMultiAgent } from '@jackchen_me/open-multi-agent'
-import type { AgentConfig } from '@jackchen_me/open-multi-agent'
+import { OpenMultiAgent } from '@open-multi-agent/core'
+import type { AgentConfig } from '@open-multi-agent/core'
 
 const explorer: AgentConfig = {
   name: 'explorer',

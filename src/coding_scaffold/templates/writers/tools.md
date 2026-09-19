@@ -76,7 +76,7 @@ Generate Codex-native project files:
 coding-scaffold tools adapt --target . --tool codex
 ```
 
-This writes `AGENTS.md`, `.codex/config.toml`, and `.codex/skills/`.
+This writes `AGENTS.md`, `.codex/config.toml`, and Agent Skills under `.agents/skills/`.
 
 ## OpenClaude
 

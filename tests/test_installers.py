@@ -38,7 +38,7 @@ def test_install_missing_tools_supports_claude_code(monkeypatch) -> None:
 
     assert results[0].tool == "claude-code"
     assert results[0].status == "missing"
-    assert "@anthropic-ai/claude-code" in results[0].message
+    assert "claude.ai/install.sh" in results[0].message
 
 
 def test_install_missing_tools_supports_codex(monkeypatch) -> None:
@@ -107,7 +107,7 @@ def test_install_missing_addon_installs_open_multi_agent_in_target(tmp_path, mon
     )
 
     assert results[0].status == "installed"
-    assert calls == [(["npm", "install", "@jackchen_me/open-multi-agent"], tmp_path)]
+    assert calls == [(["npm", "install", "@open-multi-agent/core"], tmp_path)]
 
 
 def test_install_missing_addon_clones_caveman_compression(tmp_path, monkeypatch) -> None:

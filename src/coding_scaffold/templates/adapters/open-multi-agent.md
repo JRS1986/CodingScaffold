@@ -21,7 +21,7 @@ security triage, migration planning, or other repeatable engineering processes.
 ## Install
 
 ```bash
-npm install @jackchen_me/open-multi-agent
+npm install @open-multi-agent/core
 ```
 
 ## Generated Files

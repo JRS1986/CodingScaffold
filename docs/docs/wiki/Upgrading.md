@@ -145,6 +145,24 @@ to `policy.network.allowlist`", and your update produced
 rename. Merge by renaming the key in your edited file and dropping the
 sidecar.
 
+## Codex skills moved in 0.8.0
+
+Codex discovers skills as [Agent Skills](https://agentskills.io) folders under
+`.agents/skills/<name>/SKILL.md`. Earlier scaffold versions wrote flat files to
+`.codex/skills/`, which Codex does not load. After `coding-scaffold setup update`
+(or `tools adapt --tool codex`), the new files exist and the old ones are left in
+place because the scaffold never deletes your files. Remove them once you have
+moved any local edits across:
+
+```bash
+git rm -r .codex/skills
+```
+
+The same release rewrites `.codex/config.toml` (`approval_policy` /
+`sandbox_mode` replace the retired `approval_mode`) and `.claude/settings.json`
+(valid `defaultMode`, `Read(...)` deny rules, `attribution`). If you edited those
+files, reconcile the staged `.new` versions as described above.
+
 ## Flat aliases deprecated in 0.8.0
 
 The hidden flat command aliases are deprecated in 0.8.0 and will be **removed in

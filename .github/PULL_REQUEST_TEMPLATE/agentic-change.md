@@ -10,7 +10,7 @@ leaving it blank.
 ## Agentic coding disclosure
 
 - **Agent / tool used:** <!-- e.g. Claude Code, Codex, OpenCode, Cursor, manual + Copilot completions -->
-- **Model / provider:** <!-- e.g. anthropic/claude-opus-4-7, openai/gpt-5, local: qwen2.5-coder:7b -->
+- **Model / provider:** <!-- e.g. anthropic/claude-sonnet-5, openai/gpt-5.6, local: qwen3-coder:30b -->
 - **Human operator:** <!-- @your-handle -->
 - **Task:** <!-- one-line description of what the change is supposed to do -->
 

@@ -105,8 +105,8 @@ def intake_answers() -> Callable[..., IntakeAnswers]:
 def routing_plan_factory() -> Callable[..., RoutingPlan]:
     def factory(
         strategy: str = "local-first-router",
-        weak_model: str | None = "qwen2.5-coder:14b-instruct",
-        strong_model: str | None = "qwen2.5-coder:32b-instruct",
+        weak_model: str | None = "qwen3.5:9b",
+        strong_model: str | None = "qwen3-coder:30b",
         route_threshold: float = ROUTELLM_MF_DEFAULT_THRESHOLD,
         local_endpoint: str | None = "http://127.0.0.1:11434/v1",
         cloud_provider: str | None = None,

@@ -84,13 +84,13 @@ def test_routellm_yaml_quotes_model_names_with_special_chars(routing_plan_factor
 
     plan = routing_plan_factory(
         weak_model="weird: 'value with # hash'",
-        strong_model="qwen2.5-coder:7b-instruct",
+        strong_model="qwen3.5:9b",
         route_threshold=0.1,
     )
 
     output = _routellm_yaml(plan)
     assert "\"weird: 'value with # hash'\"" in output
-    assert '"qwen2.5-coder:7b-instruct"' in output
+    assert '"qwen3.5:9b"' in output
     assert '"http://127.0.0.1:11434/v1"' in output
 
     try:
@@ -99,5 +99,5 @@ def test_routellm_yaml_quotes_model_names_with_special_chars(routing_plan_factor
         return
     parsed = yaml.safe_load(output)
     assert parsed["weak_model"] == "weird: 'value with # hash'"
-    assert parsed["strong_model"] == "qwen2.5-coder:7b-instruct"
+    assert parsed["strong_model"] == "qwen3.5:9b"
     assert parsed["providers"]["local"]["base_url"] == "http://127.0.0.1:11434/v1"

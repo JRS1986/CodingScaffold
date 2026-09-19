@@ -7,6 +7,49 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Claude Code `settings.json` now uses valid permission syntax.** The generated
+  `"defaultMode": "ask"` was not a Claude Code permission mode, and the deny list
+  used bare paths (`"**/.env"`), which are not permission rules — so the credential
+  deny list had no effect. The adapter now writes `"defaultMode": "default"` and
+  `Read(...)` deny rules (`Read(**/.env)`, `Read(./.coding-scaffold/.env.local)`, …).
+  The deprecated `includeCoAuthoredBy: false` is replaced by
+  `"attribution": {"commit": "", "pr": ""}`. Run `coding-scaffold setup update`.
+- **Codex `config.toml` now uses current keys.** `approval_mode = "suggest"` came
+  from the retired TypeScript Codex CLI and is not a valid top-level key today; the
+  adapter now writes `approval_policy = "on-request"` and
+  `sandbox_mode = "workspace-write"`. Codex only loads a project-level
+  `.codex/config.toml` after you trust the project.
+- **Codex skills moved to `.agents/skills/<name>/SKILL.md`** with Agent Skills
+  frontmatter (`name`, `description`). Codex does not discover flat files under
+  `.codex/skills/`. See
+  [Upgrading](docs/docs/wiki/Upgrading.md#codex-skills-moved-in-080) for cleanup of
+  the old files.
+- **`open-multi-agent` add-on installs `@open-multi-agent/core`.** The previous
+  `@jackchen_me/open-multi-agent` package is deprecated on npm; the install plan,
+  detection path, guide, and TypeScript example now use the new name.
+- **Model catalog no longer recommends non-existent Ollama tags.**
+  `deepseek-coder-v2:16b-lite-instruct` and `qwen/qwen3-coder-40b` do not exist in
+  the Ollama registry.
+
+### Changed
+
+- **Local model catalog refreshed** to current Ollama tags: `qwen3.5:9b`,
+  `gpt-oss:20b` (routine) and `devstral-small-2:24b`, `qwen3-coder:30b`,
+  `qwen3.6:35b-a3b-coding`, `qwen3-coder-next` (heavy-lift). Machines with 8GB RAM
+  still get no local candidate. Existing `routing.json` files keep their old values
+  until you re-run `setup run`.
+- **Cloud model defaults pinned to current ids** (models.dev naming):
+  `anthropic/claude-sonnet-5` / `anthropic/claude-haiku-4-5`, `openai/gpt-5.6` /
+  `openai/gpt-5.4-mini`, `google/gemini-3.1-pro-preview` / `google/gemini-flash-latest`.
+- **Claude Code installs via the official native installer**
+  (`curl -fsSL https://claude.ai/install.sh | bash`) instead of npm, matching the
+  upstream recommendation. Nothing is installed without consent, as before.
+- **Python 3.14 added** to the CI matrix and classifiers.
+- **RouteLLM documented as a legacy backend** — upstream has had no commits since
+  August 2024. The backend still works; the README now says so.
+
 ### Deprecated
 
 - **All 14 hidden flat command aliases** (`init`, `wizard`, `update`, `setup-tool`,

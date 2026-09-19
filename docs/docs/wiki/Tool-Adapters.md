@@ -80,8 +80,14 @@ Generated files include:
 
 - `AGENTS.md`
 - `.codex/config.toml`
-- `.codex/skills/README.md`
-- `.codex/skills/first-session.md`
+- `.agents/skills/README.md`
+- `.agents/skills/first-session/SKILL.md`
+- `.agents/skills/knowledge-propose/SKILL.md`
+
+Skills use the [Agent Skills](https://agentskills.io) folder layout, which Codex discovers under
+`.agents/skills/`. Codex only loads the project-level `.codex/config.toml` after you trust the
+project; the generated file sets `approval_policy = "on-request"` and
+`sandbox_mode = "workspace-write"`.
 
 CodingScaffold does not store OpenAI credentials or control Codex execution. Use Codex's native
 model and approval-mode controls.
@@ -142,8 +148,8 @@ capability or CodingScaffold has no opinion about it.
 
 | Capability | OpenCode | Claude Code | Codex | OpenClaude | Hermes | Pi |
 | --- | --- | --- | --- | --- | --- | --- |
-| Install support | ✓ official script | ✓ npm package | ✓ npm package | ✓ npm package | ✓ official script | ✓ npm package |
-| Project instructions | ✓ `AGENTS.md` + scaffold guide | ✓ `CLAUDE.md` | ✓ `AGENTS.md` + `.codex/` | ✓ `OPENCLAUDE.md` | ✓ `HERMES.md` | ✓ `PI.md` + `AGENTS.md` |
+| Install support | ✓ official script | ✓ official script | ✓ npm package | ✓ npm package | ✓ official script | ✓ npm package |
+| Project instructions | ✓ `AGENTS.md` + scaffold guide | ✓ `CLAUDE.md` | ✓ `AGENTS.md` + `.codex/` + `.agents/skills/` | ✓ `OPENCLAUDE.md` | ✓ `HERMES.md` | ✓ `PI.md` + `AGENTS.md` |
 | Slash commands / skills | ✓ 4 generated | ✓ 2 generated | skills only | doc-only | doc-only | doc-only |
 | Agents / subagents | ✓ explorer / implementer / reviewer | ✓ reviewer | — | — | — | — |
 | Permissions / approval | ✓ via policy pack | ✓ via `.claude/settings.json` | tool's own approval mode | — | — | — |

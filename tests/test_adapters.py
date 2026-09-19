@@ -1,4 +1,5 @@
 import json
+import tomllib
 
 from coding_scaffold.adapters import write_route_backend, write_tool_adapter, write_workflow_backend
 
@@ -43,7 +44,13 @@ def test_write_claude_code_adapter_creates_native_files(tmp_path) -> None:
     assert "reviewer.md" in names
     assert "claude-heavy" in (tmp_path / ".claude" / "agents" / "reviewer.md").read_text()
     assert "Knowledge Nudge" in (tmp_path / "CLAUDE.md").read_text()
-    assert "defaultMode" in (tmp_path / ".claude" / "settings.json").read_text()
+    settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    # "ask" is not a Claude Code permission mode, and bare paths are not permission rules.
+    assert settings["permissions"]["defaultMode"] == "default"
+    assert "Read(**/.env)" in settings["permissions"]["deny"]
+    assert all(rule.startswith("Read(") for rule in settings["permissions"]["deny"])
+    assert settings["attribution"] == {"commit": "", "pr": ""}
+    assert "includeCoAuthoredBy" not in settings
 
 
 def test_write_codex_adapter_creates_native_files(tmp_path) -> None:
@@ -53,9 +60,12 @@ def test_write_codex_adapter_creates_native_files(tmp_path) -> None:
     assert "AGENTS.md" in names
     assert "config.toml" in names
     assert "README.md" in names
-    assert "first-session.md" in names
-    assert "knowledge-propose.md" in names
-    assert "approval_mode" in (tmp_path / ".codex" / "config.toml").read_text()
+    config = tomllib.loads((tmp_path / ".codex" / "config.toml").read_text())
+    assert config == {"approval_policy": "on-request", "sandbox_mode": "workspace-write"}
+    for skill in ("first-session", "knowledge-propose"):
+        text = (tmp_path / ".agents" / "skills" / skill / "SKILL.md").read_text()
+        assert text.startswith(f"---\nname: {skill}\ndescription: ")
+    assert not (tmp_path / ".codex" / "skills").exists()
     agents = (tmp_path / "AGENTS.md").read_text()
     assert "does not replace Codex" in agents
     assert "Knowledge Nudge" in agents
@@ -101,12 +111,12 @@ def test_routellm_yaml_quotes_model_names_with_special_chars() -> None:
     output = _routellm_yaml(
         {
             "weak_model": "weird: 'value with # hash'",
-            "strong_model": "qwen2.5-coder:7b-instruct",
+            "strong_model": "qwen3.5:9b",
         }
     )
 
     assert '"weird: \'value with # hash\'"' in output
-    assert '"qwen2.5-coder:7b-instruct"' in output
+    assert '"qwen3.5:9b"' in output
 
     try:
         import yaml  # type: ignore[import-not-found]
@@ -114,7 +124,7 @@ def test_routellm_yaml_quotes_model_names_with_special_chars() -> None:
         return
     parsed = yaml.safe_load(output)
     assert parsed["weak_model"] == "weird: 'value with # hash'"
-    assert parsed["strong_model"] == "qwen2.5-coder:7b-instruct"
+    assert parsed["strong_model"] == "qwen3.5:9b"
 
 
 def test_write_open_multi_agent_backend_creates_docs_config_and_example(tmp_path) -> None:
